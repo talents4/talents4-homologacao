@@ -12,6 +12,14 @@
     openings: 'employer_openings',
     matches: 'talent_opportunity_matches',
     legacyMatches: 'candidate_employer_matches',
+    legacyLinks: 'candidate_employer_links',
+    plans: 'organizational_plan_entries',
+    meetings: 'organizational_meetings',
+    summaries: 'organizational_weekly_summaries',
+    replacements: 'organizational_replacement_requests',
+    tasks: 'operational_tasks',
+    metrics: 'operational_metrics',
+    archive: 'org_ui_state_snapshots',
     activities: 'crm_activities',
     contacts: 'contact_records',
     categories: 'contact_categories',
@@ -82,6 +90,7 @@
   let authSubscription = null;
   const channels = new Set();
   const optionalMissing = new Set();
+  const readWarnings = new Map();
 
   function withTimeout(promise, timeout = DEFAULT_TIMEOUT, label = 'Operação') {
     let timer;
@@ -95,7 +104,7 @@
     const text = String(error?.message || error || '');
     return error?.code === '42P01'
       || error?.code === 'PGRST205'
-      || /relation .* does not exist|could not find the table|schema cache/i.test(text);
+      || /relation .* does not exist|could not find the table/i.test(text);
   }
 
   function missingColumn(error) {
@@ -120,6 +129,7 @@
   }
 
   function redirectToLogin(reason = '') {
+    if (window.T4_DEMO) { location.reload(); return; }
     const target = new URL(ROOT_LOGIN, location.href);
     if (reason) target.searchParams.set('notice', reason);
     location.replace(target.href);
@@ -127,7 +137,7 @@
 
   async function loadProfile(currentSession) {
     const username = userNameFromSession(currentSession);
-    if (!username) return { username: '', nome: currentSession.user.email || 'Usuário', role: 'viewer', ativo: 'SIM' };
+    if (!username) throw new Error('A sessão não identifica um perfil interno. Entre novamente pelo CRM.');
     const response = await withTimeout(
       client.from(TABLES.users).select('username,nome,role,color,ativo').eq('username', username).maybeSingle(),
       6_000,
@@ -135,7 +145,7 @@
     );
     if (response.error) throw response.error;
     const row = response.data;
-    if (!row) throw new Error('Usuário autenticado sem perfil interno ativo.');
+    if (!row || !['admin', 'recrutador', 'viewer'].includes(row.role)) throw new Error('Usuário autenticado sem perfil interno autorizado.');
     if (row.ativo != null && !activeValue(row.ativo)) throw new Error('Perfil interno desativado.');
     return {
       username,
@@ -201,6 +211,41 @@
     return response.data || [];
   }
 
+  // PostgREST pode limitar cada resposta a 1.000 linhas. Nunca transformar um
+  // recorte silencioso em "todos os dados". A ordenação precisa ser estável.
+  async function all(table, columns = '*', configure = null, options = {}) {
+    const size = options.pageSize || 500;
+    const max = options.maxRows || 20000;
+    const rows = [];
+    for (let offset = 0; offset <= max;) {
+      const page = await select(table, columns, (query) => {
+        let next = configure ? configure(query) : query;
+        for (const key of options.orderKeys || ['id']) next = next.order(key, { ascending: true });
+        return next.range(offset, offset + size - 1);
+      }, options);
+      rows.push(...page);
+      if (rows.length > max) throw new Error(`Há mais de ${max} registros em ${table}. A carga foi interrompida para não apresentar totais incompletos.`);
+      if (!page.length) return rows;
+      offset += page.length;
+    }
+    throw new Error(`Não foi possível concluir a paginação de ${table}.`);
+  }
+
+  async function optionalAll(table, columns = '*', configure = null, options = {}) {
+    try { return { data: await all(table, columns, configure, options), available: true }; }
+    catch (error) {
+      if (!missingRelation(error)) throw error;
+      optionalMissing.add(table);
+      return { data: [], available: false, error };
+    }
+  }
+
+  async function one(table, id, columns = '*') {
+    const rows = await select(table, columns, (q) => q.eq('id', id).limit(1));
+    if (!rows.length) throw new Error('Registro não encontrado ou sem permissão de leitura.');
+    return rows[0];
+  }
+
   async function optionalSelect(table, columns = '*', configure = null, options = {}) {
     if (optionalMissing.has(table)) return { data: [], available: false, error: null };
     try {
@@ -229,7 +274,9 @@
   async function update(table, id, payload, options = {}) {
     assertReady();
     assertEdit();
+    if (options.expectedUpdatedAt && options.select === false) throw new Error('A verificação de concorrência exige retornar o registro atualizado.');
     let query = client.from(table).update(payload).eq(options.idColumn || 'id', id);
+    if (options.expectedUpdatedAt) query = query.eq(options.expectedColumn || 'updated_at', options.expectedUpdatedAt);
     if (options.select !== false) query = query.select(options.columns || '*');
     if (options.single !== false && options.select !== false) query = query.single();
     const response = await withTimeout(query, options.timeout || DEFAULT_TIMEOUT, options.label || `Atualização em ${table}`);
@@ -252,81 +299,118 @@
     return update(table, id, { ...fields, deleted_at: new Date().toISOString() }, { select: false });
   }
 
+  async function removeAssociation(table, filters) {
+    assertReady(); assertEdit();
+    const allowed = table === TABLES.contactCategories ? ['contact_id', 'category_id'] : table === TABLES.relationships ? ['id'] : null;
+    if (!allowed || !allowed.every((key) => filters?.[key])) throw new Error('A remoção exige uma associação exata; cadastros não podem ser excluídos por esta função.');
+    let query = client.from(table).delete();
+    for (const key of allowed) query = query.eq(key, filters[key]);
+    const result = await withTimeout(query.select(), DEFAULT_TIMEOUT, 'Remoção da associação');
+    if (result.error) throw result.error;
+    if (!result.data?.length) throw new Error('Associação não encontrada ou sem permissão de remoção.');
+    return result.data;
+  }
+
   async function loadCandidates(options = {}) {
     const configure = (query) => {
-      let next = query.order('nome_completo', { ascending: true }).limit(options.limit || 1_500);
+      let next = query.order('nome_completo', { ascending: true });
       if (options.activeOnly !== false) next = next.eq('ativo', true);
       return next;
     };
-    try {
-      return await select(TABLES.candidates, SELECTS.candidates, configure, { label: 'Leitura de Talentos', timeout: 12_000 });
-    } catch (error) {
-      if (!missingColumn(error)) throw error;
-      return select(TABLES.candidates, '*', configure, { label: 'Leitura compatível de Talentos', timeout: 12_000 });
+    let columns = SELECTS.candidates.split(',');
+    const absent = [];
+    // Retirar somente a coluna que o servidor confirmou não existir. Uma
+    // diferença de esquema não pode ocultar todos os demais campos da lista.
+    while (columns.length) {
+      try {
+        const rows = await all(TABLES.candidates, columns.join(','), configure, { label: 'Leitura de Talentos', timeout: 12_000 });
+        if (absent.length) readWarnings.set('candidates', `Talentos: campos ausentes neste esquema (${absent.join(', ')}). Os demais campos continuam carregados; confirme o esquema antes de avaliar totais dependentes desses campos.`);
+        else readWarnings.delete('candidates');
+        return rows;
+      } catch (error) {
+        const message = String(error?.message || '');
+        const missing = message.match(/column\s+(?:\w+\.)?["']?(\w+)["']?\s+does not exist/i)?.[1]
+          || message.match(/could not find the ['"](\w+)['"] column/i)?.[1];
+        if (!missingColumn(error) || !missing || !columns.includes(missing) || ['id', 'nome_completo', 'ativo'].includes(missing)) throw error;
+        absent.push(missing); columns = columns.filter((name) => name !== missing);
+      }
     }
+    throw new Error('Não foi possível reconhecer o esquema de talentos.');
   }
 
   async function loadEmployers(options = {}) {
     const configure = (query) => {
-      let next = query.order('nome', { ascending: true }).limit(options.limit || 1_000);
+      let next = query.order('nome', { ascending: true });
       if (options.activeOnly !== false) next = next.eq('ativo', true);
       return next;
     };
     try {
-      return await select(TABLES.employers, SELECTS.employers, configure, { label: 'Leitura de empregadores' });
+      return await all(TABLES.employers, '*', configure, { label: 'Leitura de empregadores' });
     } catch (error) {
       if (!missingColumn(error)) throw error;
-      return select(TABLES.employers, '*', configure, { label: 'Leitura compatível de empregadores' });
+      return all(TABLES.employers, '*', configure, { label: 'Leitura compatível de empregadores' });
     }
   }
 
   async function loadOpenings(options = {}) {
     const configure = (query) => {
-      let next = query.order('order_index', { ascending: true }).limit(options.limit || 1_000);
+      let next = query.order('order_index', { ascending: true });
       if (options.includeDeleted !== true) next = next.is('deleted_at', null);
       return next;
     };
     try {
-      return await select(TABLES.openings, SELECTS.openings, configure, { label: 'Leitura de oportunidades' });
+      return await all(TABLES.openings, '*', configure, { label: 'Leitura de oportunidades' });
     } catch (error) {
       if (!missingColumn(error)) throw error;
-      return select(TABLES.openings, '*', configure, { label: 'Leitura compatível de oportunidades' });
+      return all(TABLES.openings, '*', configure, { label: 'Leitura compatível de oportunidades' });
     }
   }
 
   async function loadMatches(options = {}) {
-    const modern = await optionalSelect(
-      TABLES.matches,
-      SELECTS.matches,
-      (query) => query.order('updated_at', { ascending: false }).limit(options.limit || 2_000),
-      { label: 'Leitura de compatibilidades' }
-    );
-    if (modern.available) return { rows: modern.data, modern: true };
-    const legacy = await select(
-      TABLES.legacyMatches,
-      SELECTS.legacyMatches,
-      (query) => query.order('is_primary', { ascending: false }).order('prioridade', { ascending: true }).limit(options.limit || 2_000),
-      { label: 'Leitura de vínculos atuais' }
-    );
-    return { rows: legacy, modern: false };
+    const [modern, legacy, links] = await Promise.all([
+      optionalAll(TABLES.matches), optionalAll(TABLES.legacyMatches), optionalAll(TABLES.legacyLinks)
+    ]);
+    return { rows: window.T4Models.mergeMatches(modern.data, legacy.data, links.data), modern: modern.available,
+      sources: { modern: modern.available, legacy: legacy.available, links: links.available },
+      warnings: [[modern, 'Seleções por vaga'], [legacy, 'Vínculos anteriores do CRM'], [links, 'Vínculos anteriores do Organizacional']].filter(([source]) => !source.available).map(([, name]) => `${name}: fonte não disponível; os totais incluem apenas as fontes acessíveis.`) };
   }
 
   async function loadActivities(options = {}) {
-    return optionalSelect(
+    const result = await optionalAll(
       TABLES.activities,
-      SELECTS.activities,
+      '*',
       (query) => {
-        let next = query.order('due_at', { ascending: true }).limit(options.limit || 1_000);
+        let next = query.order('due_at', { ascending: true });
         if (options.openOnly) next = next.neq('status', 'Concluída').neq('status', 'Cancelada');
         return next;
       },
       { label: 'Leitura de atividades' }
     );
+    if (!result.available) return result;
+    // Follow-ups existentes são vinculados ao contato no banco. Resolver os
+    // vínculos canônicos na leitura permite vê-los também na ficha do talento
+    // ou empregador, sem duplicar a atividade nem alterar seu registro.
+    try {
+      const contacts = await optionalAll(TABLES.contacts, 'id,source_system,source_record_id');
+      if (!contacts.available) return { ...result, warnings: ['Vínculos dos contatos indisponíveis: algumas atividades podem aparecer sem associação ao talento ou empregador.'] };
+      const byId = new Map(contacts.data.map((row) => [String(row.id), row]));
+      const data = result.data.map((row) => {
+        const contact = byId.get(String(row.contact_id));
+        if (!contact?.source_record_id) return row;
+        const source = String(contact.source_system || '').toLowerCase();
+        if (['candidatos', 'candidate', 'candidates'].includes(source) && !row.talent_id) return { ...row, talent_id: contact.source_record_id, _linkedViaContact: true };
+        if (['employers', 'employer'].includes(source) && !row.employer_id) return { ...row, employer_id: contact.source_record_id, _linkedViaContact: true };
+        return row;
+      });
+      return { ...result, data };
+    } catch (error) {
+      return { ...result, warnings: [`Não foi possível resolver os vínculos dos contatos: ${error.message || 'falha de leitura'}. As atividades originais foram preservadas.`] };
+    }
   }
 
   async function loadContacts(options = {}) {
-    return select(TABLES.contacts, SELECTS.contacts, (query) => {
-      let next = query.order('display_name', { ascending: true }).limit(options.limit || 2_000);
+    return all(TABLES.contacts, SELECTS.contacts, (query) => {
+      let next = query.order('display_name', { ascending: true });
       if (options.includeArchived !== true) next = next.is('archived_at', null);
       return next;
     }, { label: 'Leitura da central de contatos' });
@@ -334,9 +418,9 @@
 
   async function loadCourse() {
     const [classes, enrollments, updates] = await Promise.all([
-      select(TABLES.classes, SELECTS.classes, (query) => query.order('start_date', { ascending: false }).limit(500), { label: 'Leitura de turmas' }),
-      select(TABLES.enrollments, SELECTS.enrollments, (query) => query.order('updated_at', { ascending: false }).limit(2_000), { label: 'Leitura de matrículas' }),
-      select(TABLES.courseUpdates, SELECTS.courseUpdates, (query) => query.order('event_date', { ascending: false }).limit(2_000), { label: 'Leitura do histórico de alemão' })
+      all(TABLES.classes, SELECTS.classes, (query) => query.order('start_date', { ascending: false }), { label: 'Leitura de turmas' }),
+      all(TABLES.enrollments, SELECTS.enrollments, (query) => query.order('updated_at', { ascending: false }), { label: 'Leitura de matrículas' }),
+      all(TABLES.courseUpdates, SELECTS.courseUpdates, (query) => query.order('event_date', { ascending: false }), { label: 'Leitura do histórico de alemão' })
     ]);
     return { classes, enrollments, updates };
   }
@@ -366,6 +450,7 @@
 
   function mapMatch(row, context = {}) {
     if (!row) return null;
+    if (row._source) return row;
     if ('talent_id' in row) return { ...row, modern: true };
     return {
       id: row.id,
@@ -403,11 +488,15 @@
     dispose,
     logout,
     select,
+    all,
+    one,
+    optionalAll,
     optionalSelect,
     insert,
     update,
     upsert,
     softDelete,
+    removeAssociation,
     loadCandidates,
     loadEmployers,
     loadOpenings,
@@ -429,6 +518,7 @@
     get client() { return client; },
     get session() { return session; },
     get profile() { return profile; },
+    get readWarnings() { return [...readWarnings.values()]; },
     get optionalMissing() { return new Set(optionalMissing); }
   });
 

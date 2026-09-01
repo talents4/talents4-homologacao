@@ -133,8 +133,8 @@
 
   function toneForStatus(status) {
     const value = normalize(status);
-    if (/ativo|aprov|conclu|sucesso|pronto|elegivel|confirmado/.test(value)) return 'success';
     if (/critico|atras|reprov|cancel|inativo|bloque|risco alto/.test(value)) return 'danger';
+    if (/ativo|aprov|conclu|sucesso|pronto|elegivel|confirmado/.test(value)) return 'success';
     if (/atencao|pendente|triagem|paus|aguard|medio|planejada/.test(value)) return 'warning';
     if (/curso|entrevista|contato|enviado|agendado/.test(value)) return 'info';
     return '';
@@ -156,13 +156,16 @@
   }
 
   function field(label, value) {
+    if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
     return `<div class="t4-detail-field"><div class="t4-detail-label">${esc(label)}</div><div class="t4-detail-value">${value == null || value === '' ? '—' : esc(value)}</div></div>`;
   }
 
   function closeDrawer() {
+    const focus = document.querySelector('[data-t4-drawer]')?._returnFocus;
     document.querySelector('[data-t4-drawer-backdrop]')?.remove();
     document.querySelector('[data-t4-drawer]')?.remove();
     document.body.style.removeProperty('overflow');
+    if (focus?.isConnected) focus.focus();
   }
 
   function openDrawer(options = {}) {
@@ -177,6 +180,7 @@
     drawer.setAttribute('role', 'dialog');
     drawer.setAttribute('aria-modal', 'true');
     drawer.setAttribute('aria-label', options.title || 'Detalhes');
+    drawer._returnFocus = document.activeElement;
     drawer.innerHTML = `
       <div class="t4-drawer-head">
         <div class="t4-drawer-heading"><h2>${esc(options.title || 'Detalhes')}</h2><p>${esc(options.subtitle || '')}</p></div>
@@ -185,6 +189,13 @@
       ${options.actions ? `<div class="t4-drawer-actions">${options.actions}</div>` : ''}
       <div class="t4-drawer-body">${options.body || ''}</div>`;
     drawer.querySelector('[data-t4-close]').addEventListener('click', closeDrawer);
+    drawer.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab' || document.querySelector('[data-t4-modal-backdrop]')) return;
+      const nodes = [...drawer.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')].filter((n) => !n.disabled && n.getClientRects().length);
+      const first = nodes[0], last = nodes.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
     document.body.append(backdrop, drawer);
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => drawer.querySelector('button, a, input, select, textarea')?.focus());
@@ -192,15 +203,24 @@
   }
 
   function closeModal() {
-    document.querySelector('[data-t4-modal-backdrop]')?.remove();
-    document.body.style.removeProperty('overflow');
+    const node = document.querySelector('[data-t4-modal-backdrop]');
+    if (!node) return;
+    if (node.dataset.saving === 'true') return;
+    if (node.dataset.dirty === 'true' && !window.confirm('Há alterações não salvas. Deseja descartá-las?')) return;
+    node._onClose?.();
+    node.remove();
+    if (!document.querySelector('[data-t4-drawer]')) document.body.style.removeProperty('overflow');
+    if (node._returnFocus?.isConnected) node._returnFocus.focus();
   }
 
   function openModal(options = {}) {
     closeModal();
+    if (document.querySelector('[data-t4-modal-backdrop]')) throw new Error('Conclua ou descarte a edição atual antes de abrir outra janela.');
     const backdrop = document.createElement('div');
     backdrop.className = 't4-modal-backdrop';
     backdrop.dataset.t4ModalBackdrop = 'true';
+    backdrop._returnFocus = document.activeElement;
+    backdrop._onClose = options.onClose;
     backdrop.innerHTML = `
       <section class="t4-modal ${options.wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${attr(options.title || 'Janela')}">
         <div class="t4-modal-head">
@@ -213,6 +233,13 @@
     backdrop.addEventListener('click', (event) => { if (event.target === backdrop) closeModal(); });
     backdrop.querySelector('[data-t4-close]').addEventListener('click', closeModal);
     document.body.append(backdrop);
+    backdrop.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const nodes = [...backdrop.querySelectorAll('button, input, select, textarea, a[href], [tabindex="0"]')].filter((n) => !n.disabled && n.getClientRects().length);
+      const first = nodes[0], last = nodes.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    });
     document.body.style.overflow = 'hidden';
     requestAnimationFrame(() => backdrop.querySelector('input, select, textarea, button')?.focus());
     return backdrop.querySelector('.t4-modal');
@@ -236,13 +263,14 @@
   function confirmAction(options = {}) {
     return new Promise((resolve) => {
       const modal = openModal({
+        onClose: () => resolve(false),
         title: options.title || 'Confirmar ação',
         subtitle: options.subtitle || 'Revise antes de continuar.',
         body: `<div class="t4-alert ${options.danger ? 'error' : 'info'}">${icon(options.danger ? 'warning' : 'note')}<div>${esc(options.message || '')}</div></div>`,
         footer: `<button type="button" class="t4-btn" data-answer="no">Cancelar</button><button type="button" class="t4-btn ${options.danger ? 'danger' : 'primary'}" data-answer="yes">${esc(options.confirmLabel || 'Confirmar')}</button>`
       });
       modal.querySelector('[data-answer="no"]').addEventListener('click', () => { closeModal(); resolve(false); });
-      modal.querySelector('[data-answer="yes"]').addEventListener('click', () => { closeModal(); resolve(true); });
+      modal.querySelector('[data-answer="yes"]').addEventListener('click', () => { resolve(true); closeModal(); });
     });
   }
 
@@ -262,14 +290,14 @@
     let searchHandler = null;
 
     document.body.dataset.t4Module = moduleId;
-    document.title = `${config.moduleLabel} · Talents 4 V2`;
+    document.title = `${config.moduleLabel} · Talents 4`;
 
     root.innerHTML = `
-      <div class="t4-app">
+      <a class="t4-skip" href="#t4-page-root">Ir para o conteúdo</a><div class="t4-app">
         <aside class="t4-sidebar" aria-label="Navegação principal">
           <a class="t4-brand" href="./index.html" aria-label="Talents 4 V2">
             <span class="t4-brand-mark">T4</span>
-            <span><span class="t4-brand-name">Talents 4</span><span class="t4-brand-sub">CRM integrado · V2</span></span>
+            <span><span class="t4-brand-name">Talents 4<span class="t4-brand-dot">.</span></span><span class="t4-brand-sub">RECRUTAMENTO INTERNACIONAL</span></span>
           </a>
           <div class="t4-sidebar-scroll">
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
@@ -278,7 +306,7 @@
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
               <div class="t4-nav-label">Áreas do sistema</div>
-              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" href="${attr(item.href)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text">${esc(item.label)}</span></a>`).join('')}
+              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
             </nav>
           </div>
           <div class="t4-sidebar-footer">
@@ -299,7 +327,8 @@
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
-          <div class="t4-content" id="t4-page-root"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
+          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação V2.1'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Sem conexão com o banco · alterações descartadas ao recarregar' : 'Mesmo banco do sistema atual · salvar altera dados reais'}</span></div>
+          <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;
 
@@ -309,7 +338,11 @@
 
     function renderRoute(options = {}) {
       const view = views.find((item) => item.id === currentView) || views[0];
-      root.querySelectorAll('[data-route]').forEach((item) => item.classList.toggle('active', item.dataset.route === currentView));
+      root.querySelectorAll('[data-route]').forEach((item) => {
+        item.classList.toggle('active', item.dataset.route === currentView);
+        if (item.dataset.route === currentView) item.setAttribute('aria-current', 'page');
+        else item.removeAttribute('aria-current');
+      });
       root.querySelector('[data-page-title]').textContent = view?.title || view?.label || '';
       root.querySelector('[data-page-subtitle]').textContent = view?.subtitle || config.subtitle || '';
       if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
@@ -329,14 +362,17 @@
     root.querySelector('[data-menu]').addEventListener('click', () => document.body.classList.toggle('t4-sidebar-open'));
     root.querySelector('.t4-mobile-overlay').addEventListener('click', () => document.body.classList.remove('t4-sidebar-open'));
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
-    primary.addEventListener('click', () => primaryHandler?.());
+    primary.addEventListener('click', async () => {
+      try { await primaryHandler?.(); }
+      catch (error) { toast(error?.message || 'Não foi possível abrir esta ação. Atualize a tela.', 'error', 6500); }
+    });
     search.addEventListener('input', debounce(() => searchHandler?.(search.value), 160));
     window.addEventListener('popstate', () => { currentView = getRequestedView(); renderRoute(); });
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        closeDrawer();
-        closeModal();
+        if (document.querySelector('[data-t4-modal-backdrop]')) closeModal();
+        else closeDrawer();
         document.body.classList.remove('t4-sidebar-open');
       }
       if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) {
@@ -366,6 +402,7 @@
       },
       setSearchHandler(handler, placeholder) {
         searchHandler = handler || null;
+        search.closest('label').hidden = !handler;
         if (placeholder) search.placeholder = placeholder;
       },
       resetSearch() { search.value = ''; searchHandler?.(''); },

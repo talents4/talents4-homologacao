@@ -1,0 +1,203 @@
+/* Componentes de trabalho: tabelas, formulários, leitura parcial e ações comuns. */
+(function () {
+  'use strict';
+  const U = window.T4V2, D = window.T4Data, M = window.T4Models;
+  const tableStates = new Map();
+  const e = U.esc, a = U.attr;
+  const button = (label, action, id = '', options = {}) => `<button type="button" class="t4-btn ${a(options.className || '')}" data-action="${a(action)}" data-id="${a(id)}" ${options.disabled ? 'disabled' : ''} ${options.title ? `title="${a(options.title)}"` : ''}>${options.icon ? U.icon(options.icon) : ''}${e(label)}</button>`;
+  const link = (label, href, icon = '') => `<a class="t4-btn sm" href="${a(href)}">${icon ? U.icon(icon) : ''}${e(label)}</a>`;
+  const external = (label, url) => M.safeUrl(url) ? `<a class="t4-text-link" href="${a(M.safeUrl(url))}" target="_blank" rel="noopener noreferrer">${e(label)}${U.icon('external')}</a>` : '<span class="t4-muted">Não informado</span>';
+  const optionsHtml = (options, value, placeholder = null) => {
+    const opts = options.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
+    if (M.present(value) && !opts.some((o) => String(o.value) === String(value))) opts.unshift({ value, label: U.term(value) });
+    return `${placeholder === null ? '' : `<option value="">${e(placeholder)}</option>`}${opts.map((o) => `<option value="${a(o.value)}" ${String(o.value) === String(value ?? '') ? 'selected' : ''}>${e(o.label)}</option>`).join('')}`;
+  };
+  const filter = (name, label, values, value = '') => `<label class="t4-filter"><span>${e(label)}</span><select data-filter="${a(name)}" aria-label="${a(label)}">${optionsHtml(values, value, `Todos · ${label.toLowerCase()}`)}</select></label>`;
+  const chips = (items, current, action = 'quick') => `<div class="t4-quickfilters" aria-label="Visões rápidas">${items.map((x) => `<button type="button" class="t4-quickfilter ${x.id === current ? 'active' : ''}" data-action="${a(action)}" data-id="${a(x.id)}" aria-pressed="${x.id === current}">${x.icon ? U.icon(x.icon) : ''}${e(x.label)}${x.count == null ? '' : `<span>${e(x.count)}</span>`}</button>`).join('')}</div>`;
+  const note = (text, tone = 'info') => `<div class="t4-alert ${a(tone)}">${U.icon(tone === 'error' || tone === 'warning' ? 'warning' : 'note')}<div>${e(text)}</div></div>`;
+  const section = (title, body, actions = '', subtitle = '') => `<section class="t4-panel"><div class="t4-panel-head"><div><h2>${e(title)}</h2>${subtitle ? `<p>${e(subtitle)}</p>` : ''}</div><div class="t4-panel-actions">${actions}</div></div><div class="t4-panel-body">${body}</div></section>`;
+  const person = (name, meta = '', tone = '', action = '', id = '') => `<div class="t4-inline-person"><span class="t4-avatar-sm ${a(tone)}">${e(U.initials(name))}</span><span class="t4-inline-person-copy">${action ? `<button class="t4-row-link" type="button" data-action="${a(action)}" data-id="${a(id)}">${e(name)}</button>` : `<strong>${e(name)}</strong>`}<small>${e(meta)}</small></span></div>`;
+  const stack = (title, subtitle = '') => `<span class="t4-cell-primary">${e(title || '—')}</span>${subtitle ? `<span class="t4-cell-secondary">${e(subtitle)}</span>` : ''}`;
+  const status = (value) => U.badge(value, U.toneForStatus(value));
+  const unique = (rows, field) => [...new Set(rows.map((r) => r[field]).filter(M.present))].sort((x, y) => String(x).localeCompare(String(y), 'pt-BR'));
+  const find = (rows, id) => rows?.find((r) => M.same(r.id, id));
+  function formatError(error) {
+    if (error?.code === 'PGRST116') return 'O registro mudou, foi removido ou você não tem permissão. Atualize a ficha antes de salvar novamente.';
+    if (error?.code === '23505') return 'Já existe um registro com essa identificação. Confira os dados; nenhuma duplicidade foi criada.';
+    if (error?.code === '23503') return 'O vínculo informado não existe mais. Atualize os dados e selecione um registro válido.';
+    if (error?.code === '42501') return 'Seu perfil não tem permissão para esta operação. Solicite revisão ao administrador.';
+    return error?.message || String(error);
+  }
+  function table({ id, rows, columns, empty = 'Nenhum registro neste recorte.', pageSize = 40, groupBy = null }) {
+    const prev = tableStates.get(id) || { page: 0, sort: '', direction: 1, hidden: new Set(), dense: false };
+    Object.assign(prev, { rows, columns, empty, pageSize, groupBy });
+    tableStates.set(id, prev);
+    return `<div class="t4-data-grid" data-table="${a(id)}">${tableBody(id)}</div>`;
+  }
+  function tableBody(id) {
+    const s = tableStates.get(id);
+    const col = s.columns.find((c) => c.key === s.sort);
+    const rows = col ? [...s.rows].sort((x, y) => {
+      const left = col.value?.(x) ?? x[col.key] ?? '', right = col.value?.(y) ?? y[col.key] ?? '';
+      return s.direction * (typeof left === 'number' && typeof right === 'number' ? left - right : String(left).localeCompare(String(right), 'pt-BR', { numeric: true }));
+    }) : s.rows;
+    const columns = s.columns.filter((c) => !s.hidden.has(c.key));
+    const pages = Math.max(1, Math.ceil(rows.length / s.pageSize));
+    s.page = Math.max(0, Math.min(s.page, pages - 1));
+    const start = s.page * s.pageSize, slice = rows.slice(start, start + s.pageSize);
+    let previousGroup = null;
+    return `<div class="t4-grid-tools"><span><strong>${rows.length}</strong> registro${rows.length === 1 ? '' : 's'}</span><div><button type="button" class="t4-btn ghost sm" data-grid-density="${a(id)}" aria-pressed="${s.dense}">${U.icon('list')}${s.dense ? 'Confortável' : 'Compacto'}</button><details class="t4-columns-menu"><summary>${U.icon('columns')}Colunas</summary><div>${s.columns.filter((c) => c.label).map((c) => `<label><input type="checkbox" data-grid-column="${a(c.key)}" data-grid-id="${a(id)}" ${s.hidden.has(c.key) ? '' : 'checked'} ${c.required ? 'disabled' : ''}>${e(c.label)}</label>`).join('')}</div></details></div></div>
+      ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? e(c.label || '') : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
+        const group = s.groupBy?.(r);
+        const header = group != null && group !== previousGroup ? `<tr class="t4-group-row"><th colspan="${columns.length}">${e(group)}</th></tr>` : '';
+        previousGroup = group;
+        return header + `<tr>${columns.map((c) => `<td class="${a(c.className || '')}">${c.render ? c.render(r) : e(r[c.key] ?? '—')}</td>`).join('')}</tr>`;
+      }).join('')}</tbody></table></div>` : U.emptyState('Nenhum registro encontrado', s.empty)}
+      <div class="t4-pagination"><span>${rows.length ? `${start + 1}–${Math.min(start + s.pageSize, rows.length)}` : '0'} de ${rows.length}</span><div><button type="button" class="t4-btn sm" data-grid-page="${s.page - 1}" data-grid-id="${a(id)}" ${s.page === 0 ? 'disabled' : ''}>Anterior</button><span>Página ${s.page + 1} de ${pages}</span><button type="button" class="t4-btn sm" data-grid-page="${s.page + 1}" data-grid-id="${a(id)}" ${s.page >= pages - 1 ? 'disabled' : ''}>Próxima</button></div></div>`;
+  }
+  function refreshTable(id) {
+    const node = document.querySelector(`[data-table="${CSS.escape(id)}"]`);
+    if (node) node.innerHTML = tableBody(id);
+  }
+  document.addEventListener('click', (event) => {
+    const sort = event.target.closest('[data-grid-sort]'), page = event.target.closest('[data-grid-page]'), density = event.target.closest('[data-grid-density]');
+    if (sort) {
+      const s = tableStates.get(sort.dataset.gridId);
+      s.direction = s.sort === sort.dataset.gridSort ? -s.direction : 1;
+      s.sort = sort.dataset.gridSort; s.page = 0; refreshTable(sort.dataset.gridId);
+    } else if (page) { tableStates.get(page.dataset.gridId).page = Number(page.dataset.gridPage); refreshTable(page.dataset.gridId); }
+    else if (density) { const s = tableStates.get(density.dataset.gridDensity); s.dense = !s.dense; refreshTable(density.dataset.gridDensity); }
+  });
+  document.addEventListener('change', (event) => {
+    const t = event.target;
+    if (!t.matches('[data-grid-column]')) return;
+    const s = tableStates.get(t.dataset.gridId);
+    t.checked ? s.hidden.delete(t.dataset.gridColumn) : s.hidden.add(t.dataset.gridColumn);
+    refreshTable(t.dataset.gridId);
+  });
+  function inputField(f, row) {
+    if (f.section) return `<h3 class="t4-form-section">${e(f.section)}</h3>`;
+    let value = row[f.name] ?? f.default ?? '';
+    if (f.type === 'datetime-local' && value) {
+      const d = new Date(value);
+      if (!Number.isNaN(d.getTime())) value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    } else if (f.type === 'date') value = M.dateOnly(value);
+    const common = `name="${a(f.name)}" ${f.required ? 'required' : ''} ${f.readonly ? 'disabled' : ''} ${f.min != null ? `min="${a(f.min)}"` : ''} ${f.max != null ? `max="${a(f.max)}"` : ''} ${f.step != null ? `step="${a(f.step)}"` : ''}`;
+    const control = f.type === 'textarea' ? `<textarea ${common} rows="${f.rows || 3}">${e(value)}</textarea>`
+      : f.type === 'select' ? `<select ${common}>${optionsHtml(f.options || [], value, f.placeholder === undefined ? 'Não informado' : f.placeholder)}</select>`
+      : f.type === 'checkbox' ? `<input type="checkbox" ${common} ${value === true ? 'checked' : ''}>`
+      : `<input type="${a(f.type || 'text')}" ${common} value="${a(value)}" ${f.placeholder ? `placeholder="${a(f.placeholder)}"` : ''}>`;
+    return `<label class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${control}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</label>`;
+  }
+  function form({ title, subtitle = '', fields, row = {}, submitLabel = 'Salvar alterações', onSubmit, notice = '', body = '' }) {
+    const modal = U.openModal({ title, subtitle, wide: true,
+      body: `${notice ? note(notice) : ''}<form data-editor><div class="t4-form-grid">${fields.map((f) => inputField(f, row)).join('')}</div>${body}<div data-form-error role="alert" hidden></div></form>`,
+      footer: '<span class="t4-save-hint">Campos não alterados serão preservados.</span><button type="button" class="t4-btn" data-cancel>Cancelar</button><button type="submit" class="t4-btn primary" data-save>' + e(submitLabel) + '</button>' });
+    const editor = modal.querySelector('form'), backdrop = modal.parentElement, save = modal.querySelector('[data-save]');
+    const read = () => Object.fromEntries(fields.filter((f) => f.name && !f.readonly).map((f) => {
+      const el = editor.elements.namedItem(f.name);
+      const value = f.type === 'checkbox' ? el.checked : f.type === 'number' ? M.number(el.value) : String(el.value).trim() || null;
+      return [f.name, f.type === 'datetime-local' && value ? new Date(value).toISOString() : value];
+    }));
+    const initial = read();
+    editor.addEventListener('input', () => { backdrop.dataset.dirty = 'true'; });
+    editor.addEventListener('change', () => { backdrop.dataset.dirty = 'true'; });
+    modal.querySelector('[data-cancel]').addEventListener('click', U.closeModal);
+    save.addEventListener('click', () => editor.requestSubmit());
+    editor.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (save.disabled || !editor.reportValidity()) return;
+      const values = read(), changes = Object.fromEntries(Object.entries(values).filter(([key, value]) => value !== initial[key]));
+      const errorBox = modal.querySelector('[data-form-error]');
+      errorBox.hidden = true; save.disabled = true; backdrop.dataset.saving = 'true';
+      save.textContent = 'Salvando…';
+      try {
+        await onSubmit(values, changes, { editor, modal });
+        backdrop.dataset.dirty = 'false'; backdrop.dataset.saving = 'false'; U.closeModal();
+      } catch (error) {
+        errorBox.hidden = false; errorBox.innerHTML = note(formatError(error), 'error');
+        backdrop.dataset.saving = 'false';
+        const uncertain = error.partial || /excedeu|timeout|failed to fetch|network/i.test(formatError(error));
+        save.disabled = uncertain; save.textContent = uncertain ? 'Atualize e confira a gravação' : submitLabel;
+        if (uncertain) errorBox.insertAdjacentHTML('beforeend', note('A resposta não confirmou o resultado. Feche e atualize a lista antes de repetir, para evitar duplicidade.', 'warning'));
+      }
+    });
+    return modal;
+  }
+  async function saveRecord(table, row, values, changes, id = null) {
+    if (row?.id) {
+      if (!Object.keys(changes).length) return row;
+      return D.update(table, row.id, changes, row.updated_at ? { expectedUpdatedAt: row.updated_at } : {});
+    }
+    return D.insert(table, { ...values, id: id || D.uuid() });
+  }
+  function recordForm(options) {
+    const newId = D.uuid();
+    return form({ ...options, onSubmit: async (values, changes, ui) => {
+      if (options.prepare) await options.prepare(values, changes, ui);
+      const saved = await saveRecord(options.table, options.row, values, changes, newId);
+      U.toast(options.success || 'Registro salvo no Supabase.', 'success');
+      await options.after?.(saved);
+    } });
+  }
+  function sourceAlerts(state, names = Object.keys(state.sources || {})) {
+    const warnings = names.flatMap((key) => state.sources?.[key]?.warnings || []);
+    return [...(D.readWarnings || []), ...warnings].map((message) => note(message, 'warning')).join('') + names.filter((key) => state.sources?.[key]?.error || state.sources?.[key]?.available === false).map((key) => {
+      const src = state.sources[key];
+      return note(`${src.label || key}: ${src.available === false ? 'fonte não disponível neste banco; esta área não foi considerada vazia.' : formatError(src.error)}${src.stale ? ' Os dados anteriores foram mantidos; os totais podem estar desatualizados.' : ''}`, 'warning');
+    }).join('');
+  }
+  function loader(app, state, sources, render) {
+    let pending = null, again = false;
+    state.sources = {};
+    async function load(background = false) {
+      if (pending) { again = true; return pending; }
+      app.setSync('loading', 'Atualizando dados');
+      pending = (async () => {
+        await Promise.all(Object.entries(sources).map(async ([key, spec]) => {
+          try {
+            const result = await spec.load();
+            const wrapped = result && typeof result === 'object' && !Array.isArray(result) && 'available' in result;
+            if (wrapped && !result.available) { state.sources[key] = { label: spec.label, available: false }; return; }
+            state[key] = wrapped ? result.data : result;
+            state.sources[key] = { label: spec.label, available: true, warnings: result?.warnings || [] };
+          } catch (error) { state.sources[key] = { label: spec.label, error, stale: state.loaded === true }; }
+        }));
+        state.loaded = true;
+        render();
+        const issues = D.readWarnings?.length || Object.values(state.sources).some((s) => s.error || s.available === false || s.warnings?.length);
+        app.setSync(issues ? 'error' : 'ok', issues ? 'Leitura parcial · veja os avisos' : `Atualizado ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+      })().finally(() => { pending = null; if (again) { again = false; load(true); } });
+      return pending;
+    }
+    return load;
+  }
+  function bind(app, { action, change }) {
+    document.addEventListener('click', async (event) => {
+      const el = event.target.closest('[data-action]');
+      if (!el || el.disabled) return;
+      try { await action?.(el.dataset.action, el.dataset.id || '', el, event); }
+      catch (error) { U.toast(formatError(error), 'error', 7500); }
+    });
+    app.pageRoot.addEventListener('change', (event) => {
+      if (event.target.matches('[data-filter]')) change?.(event.target.dataset.filter, event.target.value);
+    });
+  }
+  function start(app, load, tables) {
+    let unsubscribe;
+    D.init(app).then(async () => {
+      await load();
+      unsubscribe = D.subscribe(tables, U.debounce(() => load(true), 500));
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
+    }).catch((error) => {
+      app.setSync('error', 'Acesso indisponível');
+      app.pageRoot.innerHTML = note(formatError(error), 'error') + button('Tentar novamente', 'reload', '', { icon: 'refresh' }) + link('Abrir login do CRM', '/talents4/index.html');
+    });
+    window.addEventListener('pagehide', () => { unsubscribe?.(); D.dispose(); });
+    window.addEventListener('beforeunload', (event) => {
+      if (document.querySelector('[data-t4-modal-backdrop][data-dirty="true"]')) { event.preventDefault(); event.returnValue = ''; }
+    });
+  }
+  window.T4Work = Object.freeze({ button, link, external, optionsHtml, filter, chips, note, section, person, stack, status, unique, find,
+    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start });
+})();

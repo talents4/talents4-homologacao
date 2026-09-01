@@ -1,126 +1,272 @@
 (function () {
   'use strict';
-  const U = window.T4V2;
-  const D = window.T4Data;
-  const VIEWS = [
-    { id:'all', label:'Todos os contatos', title:'Todos os contatos', subtitle:'Pessoas e organizações em uma lista única, sem duplicar Talentos ou empregadores.', icon:'contact' },
-    { id:'people', label:'Pessoas', title:'Pessoas', subtitle:'Talentos, professores, funcionários, parceiros e demais relações.', icon:'people' },
-    { id:'organizations', label:'Organizações', title:'Organizações', subtitle:'Empregadores, fornecedores, parceiros e qualquer outro tipo de organização.', icon:'building' },
-    { id:'followups', label:'Acompanhamentos', title:'Acompanhamentos', subtitle:'Compromissos profissionais organizados por vencimento.', icon:'bell' },
-    { id:'duplicates', label:'Possíveis duplicidades', title:'Possíveis duplicidades', subtitle:'E-mails ou telefones repetidos para revisão humana.', icon:'merge' }
-  ];
-  const app=U.mount({module:'contacts',moduleLabel:'Contatos',defaultView:'all',views:VIEWS,searchPlaceholder:'Buscar pessoa, organização ou contato…'});
-  const state={candidates:[],employers:[],contacts:[],categories:[],contactCategories:[],interactions:[],followups:[],unified:[],query:'',category:'',status:'',loading:true};
-
-  const categoryById=(id)=>state.categories.find((row)=>String(row.id)===String(id));
-  const contactById=(id)=>state.contacts.find((row)=>String(row.id)===String(id));
-  const unifiedByKey=(key)=>state.unified.find((row)=>row.key===key);
-  const roleLabel=(label)=>/^candidato$/i.test(label||'')?'Talento':label;
-  const sourceKey=(system,id)=>`${U.normalize(system)}:${String(id)}`;
-  const phoneKey=(value)=>String(value||'').replace(/\D/g,'').replace(/^0+/,'');
-  const emailKey=(value)=>U.normalize(value);
-  const activeCandidate=(row)=>D.activeValue(row.ativo)&&!row.data_inativacao;
-  const activeEmployer=(row)=>D.activeValue(row.ativo)&&!row.deleted_at&&!/^inativo$/i.test(row.status||'');
-
-  async function loadAll(options={}){
-    app.setSync('loading',options.background?'Atualizando':'Carregando dados');
-    try{
-      const [candidates,employers,contacts,categories,contactCategories,interactions,followups]=await Promise.all([
-        D.loadCandidates({activeOnly:false}),D.loadEmployers({activeOnly:false}),D.loadContacts({includeArchived:true}),
-        D.select(D.TABLES.categories,'*',(q)=>q.eq('is_active',true).order('sort_order')),
-        D.select(D.TABLES.contactCategories,'*',(q)=>q.limit(5000)),
-        D.select(D.TABLES.interactions,'*',(q)=>q.order('occurred_at',{ascending:false}).limit(5000)),
-        D.select(D.TABLES.followups,'*',(q)=>q.order('due_at',{ascending:true}).limit(5000))
-      ]);
-      Object.assign(state,{candidates,employers,contacts,categories,contactCategories,interactions,followups});
-      state.unified=buildUnified();state.loading=false;updateCounts();render();app.setSync('ok','Supabase sincronizado');
-    }catch(error){state.loading=false;app.setSync('error','Falha ao carregar');app.pageRoot.innerHTML=errorPanel(error);}
+  const U = window.T4V2, W = window.T4Work, M = window.T4Models, D = window.T4Data, R = window.T4Records;
+  const e = U.esc, a = U.attr;
+  const app = U.mount({ module: 'contacts', moduleLabel: 'Contatos', defaultView: 'all', views: [
+    { id: 'all', label: 'Agenda profissional', subtitle: 'Todos os relacionamentos da Talents 4, organizados e conectados.', icon: 'contact' },
+    { id: 'people', label: 'Pessoas', subtitle: 'Talentos, professores, funcionários e parceiros.', icon: 'people' },
+    { id: 'organizations', label: 'Organizações', subtitle: 'Empregadores, fornecedores e demais organizações.', icon: 'building' },
+    { id: 'followups', label: 'Acompanhamentos', subtitle: 'Próximos passos, prazos e responsáveis.', icon: 'bell' },
+    { id: 'categories', label: 'Categorias', subtitle: 'Um contato pode exercer mais de um papel.', icon: 'list' },
+    { id: 'duplicates', label: 'Revisar duplicidades', subtitle: 'Sinais para conferência humana. Nenhuma fusão automática.', icon: 'merge' }
+  ] });
+  const state = { talents: [], employers: [], contacts: [], categories: [], categoryLinks: [], relationships: [], interactions: [], followups: [], unified: [], query: '', category: '', status: '', owner: '', quick: 'all', loaded: false };
+  const sources = {
+    talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
+    employers: { label: 'Empregadores', load: () => D.loadEmployers({ activeOnly: false }) },
+    contacts: { label: 'Agenda profissional', load: () => D.loadContacts({ includeArchived: true }) },
+    categories: { label: 'Categorias', load: () => D.all(D.TABLES.categories) },
+    categoryLinks: { label: 'Papéis dos contatos', load: () => D.all(D.TABLES.contactCategories, '*', null, { orderKeys: ['contact_id', 'category_id'] }) },
+    relationships: { label: 'Relacionamentos', load: () => D.all(D.TABLES.relationships) },
+    interactions: { label: 'Interações', load: () => D.all(D.TABLES.interactions, '*', (q) => q.order('occurred_at', { ascending: false })) },
+    followups: { label: 'Acompanhamentos', load: () => D.all(D.TABLES.followups, '*', (q) => q.order('due_at')) }
+  };
+  const load = W.loader(app, state, sources, () => { state.unified = M.buildContacts(state.talents, state.employers, state.contacts, state.categories, state.categoryLinks); render(); });
+  const byKey = (key) => state.unified.find((r) => r.key === key);
+  const byContact = (id) => state.unified.find((r) => r.contactIds.some((key) => M.same(key, id)));
+  const relatedTo = (row, item) => row.contactIds.some((id) => M.same(id, item.contact_id));
+  const match = (values) => !state.query || M.norm(values.filter(M.present).join(' ')).includes(M.norm(state.query));
+  const nextFollowup = (row) => state.followups.find((f) => relatedTo(row, f) && f.status === 'Pendente');
+  function directoryRows() {
+    return state.unified.filter((r) => (!state.category || r.roles.includes(state.category)) && (!state.status || r.status === state.status) && (!state.owner || r.owner === state.owner) && (app.view !== 'people' || r.entityType === 'Pessoa') && (app.view !== 'organizations' || r.entityType === 'Organização') && (state.quick !== 'active' || r.status !== 'Arquivado') && (state.quick !== 'archived' || r.status === 'Arquivado') && (state.quick !== 'followups' || nextFollowup(r)) && match([r.displayName, r.email, r.phone, r.jobTitle, r.organization, r.city, r.roles.join(' '), r.link?.secondary_email, r.link?.whatsapp]));
   }
-
-  function errorPanel(error){return `${U.pageHead('Não foi possível carregar Contatos','Nenhum registro foi alterado.')}<div class="t4-alert error">${U.icon('warning')}<div><strong>Erro de leitura do Supabase</strong>${U.esc(error?.message||error)}</div></div><button class="t4-btn primary" data-action="reload">${U.icon('refresh')}Tentar novamente</button>`;}
-
-  function categoriesFor(contactId){
-    return state.contactCategories.filter((row)=>String(row.contact_id)===String(contactId)).map((row)=>categoryById(row.category_id)).filter(Boolean);
+  function filters() {
+    const roles = [...new Set(state.unified.flatMap((r) => r.roles))].sort();
+    return `<div class="t4-toolbar">${W.filter('category', 'Categoria', roles, state.category)}${W.filter('status', 'Situação', ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], state.status)}${W.filter('owner', 'Responsável', W.unique(state.unified, 'owner'), state.owner)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
   }
-
-  function buildUnified(){
-    const linked=new Map();
-    state.contacts.forEach((row)=>{if(row.source_system&&row.source_record_id)linked.set(sourceKey(row.source_system,row.source_record_id),row);});
-    const result=[];
-    state.candidates.forEach((row)=>{const link=linked.get(sourceKey('candidatos',row.id))||linked.get(sourceKey('candidate',row.id));result.push({key:`talent:${row.id}`,source:'talent',sourceId:row.id,contactId:link?.id||null,entityType:'Pessoa',displayName:row.nome_completo||'Talento sem nome',jobTitle:row.profissao_principal||row.area_profissional||'',organization:'',email:row.email||'',phone:row.telefone||'',city:row.cidade_atual||'',status:activeCandidate(row)?'Ativo':'Arquivado',stage:row.status_pipeline||row.substatus||'Sem etapa',contactStage:link?.relationship_stage||'Relacionamento',priority:row.prioridade_comercial||'Normal',roles:['Talento',...categoriesFor(link?.id).map((cat)=>roleLabel(cat.name)).filter((name)=>name!=='Talento')],owner:row.responsavel_interno||'',notes:link?.notes||'',raw:row,link});});
-    state.employers.forEach((row)=>{const link=linked.get(sourceKey('employers',row.id))||linked.get(sourceKey('employer',row.id));result.push({key:`employer:${row.id}`,source:'employer',sourceId:row.id,contactId:link?.id||null,entityType:'Organização',displayName:row.nome||'Empregador sem nome',jobTitle:row.area_atuacao||'',organization:'',email:row.email_principal||'',phone:row.telefone||'',city:row.cidade||'',status:activeEmployer(row)?'Ativo':'Arquivado',stage:row.status||'Ativo',contactStage:link?.relationship_stage||'Relacionamento',priority:row.prioridade_comercial||'Normal',roles:['Empregador',...categoriesFor(link?.id).map((cat)=>roleLabel(cat.name)).filter((name)=>name!=='Empregador')],owner:row.responsavel_interno||'',notes:link?.notes||row.descricao_resumida||'',raw:row,link});});
-    state.contacts.filter((row)=>!row.source_system||!row.source_record_id).forEach((row)=>{const org=contactById(row.primary_organization_id);result.push({key:`contact:${row.id}`,source:'contact',sourceId:row.id,contactId:row.id,entityType:row.entity_type||'Pessoa',displayName:row.display_name||'Contato sem nome',jobTitle:row.job_title||'',organization:org?.display_name||row.legal_name||'',email:row.email||'',phone:row.phone||row.whatsapp||'',city:row.city||'',status:row.archived_at?'Arquivado':row.status||'Ativo',stage:row.relationship_stage||'Novo',contactStage:row.relationship_stage||'Novo',priority:row.priority||'Normal',roles:categoriesFor(row.id).map((cat)=>roleLabel(cat.name)),owner:row.owner_username||'',notes:row.notes||'',raw:row,link:row});});
-    return result.sort((a,b)=>a.displayName.localeCompare(b.displayName,'pt-BR'));
+  function render() {
+    if (!state.loaded) return;
+    app.setSearchHandler((q) => { state.query = q; render(); }, 'Buscar nome, empresa, e-mail ou telefone…');
+    app.setPrimaryAction(app.view === 'categories' ? 'Nova categoria' : 'Novo contato', D.canEdit() ? () => app.view === 'categories' ? editCategory() : editContact() : null);
+    app.setCounts({ all: state.unified.length, people: state.unified.filter((r) => r.entityType === 'Pessoa').length, organizations: state.unified.filter((r) => r.entityType === 'Organização').length, followups: state.followups.filter((r) => r.status === 'Pendente').length, duplicates: M.duplicateGroups(state.unified).length });
+    let html = '';
+    if (['all', 'people', 'organizations'].includes(app.view)) html = directoryView();
+    else if (app.view === 'followups') html = followupsView();
+    else if (app.view === 'categories') html = categoriesView();
+    else html = duplicatesView();
+    app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
   }
-
-  function duplicateGroups(){
-    const maps=[new Map(),new Map()];
-    state.unified.forEach((row)=>{const email=emailKey(row.email),phone=phoneKey(row.phone);if(email){if(!maps[0].has(email))maps[0].set(email,[]);maps[0].get(email).push(row);}if(phone.length>=8){if(!maps[1].has(phone))maps[1].set(phone,[]);maps[1].get(phone).push(row);}});
-    return [...[...maps[0]].map(([value,rows])=>({type:'E-mail',value,rows})),...[...maps[1]].map(([value,rows])=>({type:'Telefone',value,rows}))].filter((group)=>group.rows.length>1);
+  function directoryView() {
+    const missing = state.unified.filter((r) => r.unresolved);
+    return `${app.view === 'all' ? `<div class="t4-directory-intro"><div><span class="t4-overline">REDE DE RELACIONAMENTOS</span><h2>Pessoas certas. Contexto sempre à mão.</h2><p>Uma agenda para todos — sem transformar todo contato em talento.</p></div><div class="t4-directory-total"><strong>${state.unified.length}</strong><span>contatos na base</span></div></div>` : ''}
+      ${missing.length ? W.note(`${missing.length} contatos possuem uma origem não encontrada entre os registros acessíveis. Eles continuam visíveis e identificados para revisão.`, 'warning') : ''}
+      ${W.chips([{ id: 'all', label: 'Todos', count: state.unified.length }, { id: 'active', label: 'Em relacionamento' }, { id: 'followups', label: 'Com próximo passo', icon: 'clock' }, { id: 'archived', label: 'Arquivados', icon: 'archive' }], state.quick)}${filters()}
+      ${contactTable(directoryRows())}`;
   }
-  function pendingFollowups(){return state.followups.filter((row)=>row.status==='Pendente');}
-  function updateCounts(){app.setCounts({all:state.unified.length,people:state.unified.filter((row)=>row.entityType==='Pessoa').length,organizations:state.unified.filter((row)=>row.entityType==='Organização').length,followups:pendingFollowups().length,duplicates:duplicateGroups().length});}
-
-  function filteredRows(type='all'){
-    const q=U.normalize(state.query);
-    return state.unified.filter((row)=>{
-      if(type==='people'&&row.entityType!=='Pessoa')return false;if(type==='organizations'&&row.entityType!=='Organização')return false;
-      if(state.category&&!row.roles.includes(state.category))return false;if(state.status&&row.status!==state.status)return false;
-      return !q||U.normalize([row.displayName,row.jobTitle,row.organization,row.email,row.phone,row.city,row.roles.join(' '),row.stage].join(' ')).includes(q);
-    });
+  function contactTable(rows, id = 'contacts') {
+    return W.table({ id, rows, columns: [
+      { key: 'displayName', label: 'Contato', required: true, render: (r) => W.person(r.displayName, [r.city, r.entityType].filter(Boolean).join(' · '), '', 'contact-detail', r.key) },
+      { key: 'roles', label: 'Categorias', value: (r) => r.roles.join(' '), render: (r) => `<div class="t4-chip-row">${(r.roles.length ? r.roles : ['Sem categoria']).map((v) => U.badge(v, v === 'Talento' ? 'info' : v === 'Empregador' ? 'success' : 'purple')).join('')}</div>` },
+      { key: 'organization', label: 'Organização / função', render: (r) => W.stack(r.organization || r.jobTitle, r.organization ? r.jobTitle : '') },
+      { key: 'email', label: 'Canais', render: (r) => W.stack(r.email || r.phone, r.email ? r.phone : '') },
+      { key: 'stage', label: 'Relacionamento', render: (r) => W.status(r.stage) }, { key: 'owner', label: 'Responsável' },
+      { key: 'next', label: 'Próximo passo', value: (r) => nextFollowup(r)?.due_at || '', render: (r) => { const f = nextFollowup(r); return f ? W.stack(f.title, U.formatDate(f.due_at, true)) : '<span class="t4-muted">Não definido</span>'; } },
+      { key: 'actions', label: '', sort: false, render: (r) => W.button('Abrir', 'contact-detail', r.key, { className: 'sm ghost', icon: 'chevron' }) }
+    ] });
   }
-
-  function render(){if(state.loading)return;({all:()=>renderDirectory('all'),people:()=>renderDirectory('people'),organizations:()=>renderDirectory('organizations'),followups:renderFollowups,duplicates:renderDuplicates}[app.view]||(()=>renderDirectory('all')))();}
-
-  function renderDirectory(type){
-    app.setPrimaryAction(D.canEdit()?'Novo contato':'',D.canEdit()?()=>openContactForm():null);
-    app.setSearchHandler((value)=>{state.query=value;renderDirectory(type);},'Buscar contato…');
-    const rows=filteredRows(type);const roles=[...new Set(state.unified.flatMap((row)=>row.roles))].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt-BR'));const statuses=[...new Set(state.unified.map((row)=>row.status))].filter(Boolean).sort();
-    const title=type==='people'?'Pessoas':type==='organizations'?'Organizações':'Agenda profissional de contatos';
-    const copy=type==='all'?'Talentos e empregadores são exibidos a partir dos cadastros canônicos; contatos gerais continuam independentes.':'A mesma ficha aparece em todas as visões, sem cópias paralelas.';
-    const active=rows.filter((row)=>row.status==='Ativo').length;const due=pendingFollowups().filter((row)=>rows.some((item)=>String(item.contactId)===String(row.contact_id))).length;
-    app.pageRoot.innerHTML=`${U.pageHead(title,copy,`<button class="t4-btn" data-action="reload">${U.icon('refresh')}Atualizar</button>`)}
-      ${type==='all'?`<section class="t4-kpi-grid">${U.kpi('Contatos visíveis',state.unified.length,'Pessoas e organizações')}${U.kpi('Ativos nesta visão',active,`${rows.length-active} fora da operação`,'good')}${U.kpi('Acompanhamentos pendentes',pendingFollowups().length,'Agenda de relacionamentos',pendingFollowups().some((row)=>new Date(row.due_at)<new Date())?'risk':'good')}${U.kpi('Possíveis duplicidades',duplicateGroups().length,'Revisão por e-mail ou telefone',duplicateGroups().length?'warn':'good')}</section>`:''}
-      <div class="t4-toolbar"><label class="t4-toolbar-search">${U.icon('search')}<input data-list-search type="search" value="${U.attr(state.query)}" placeholder="Nome, empresa, e-mail, telefone ou cidade…"></label><select data-category><option value="">Todas as categorias</option>${roles.map((item)=>`<option ${state.category===item?'selected':''}>${U.esc(item)}</option>`).join('')}</select><select data-status><option value="">Todos os status</option>${statuses.map((item)=>`<option ${state.status===item?'selected':''}>${U.esc(item)}</option>`).join('')}</select><span class="t4-badge dark">${rows.length} resultados</span></div>
-      ${rows.length?`<div class="t4-table-wrap"><table class="t4-table"><thead><tr><th>Contato</th><th>Categoria</th><th>Organização / função</th><th>Contato principal</th><th>Relacionamento</th><th>Responsável</th><th>Próximo passo</th><th></th></tr></thead><tbody>${rows.map((row)=>{const follow=state.followups.find((item)=>String(item.contact_id)===String(row.contactId)&&item.status==='Pendente');return `<tr data-open-contact="${U.attr(row.key)}"><td><div class="t4-inline-person"><span class="t4-avatar-sm">${U.esc(U.initials(row.displayName))}</span><span class="t4-inline-person-copy"><span class="t4-inline-person-name">${U.esc(row.displayName)}</span><span class="t4-inline-person-meta">${U.esc([row.city,row.status].filter(Boolean).join(' · '))}</span></span></div></td><td><div class="t4-chip-row">${(row.roles.length?row.roles:['Outro']).slice(0,2).map((role)=>U.badge(role,role==='Talento'?'info':role==='Empregador'?'success':'purple')).join('')}</div></td><td><span class="t4-cell-primary">${U.esc(row.organization||row.jobTitle||'—')}</span><div class="t4-cell-secondary">${U.esc(row.organization&&row.jobTitle?row.jobTitle:'')}</div></td><td><span class="t4-cell-primary">${U.esc(row.email||row.phone||'—')}</span><div class="t4-cell-secondary">${U.esc(row.email&&row.phone?row.phone:'')}</div></td><td>${U.badge(row.stage,U.toneForStatus(row.stage))}</td><td>${U.esc(row.owner||'—')}</td><td>${follow?`<span class="t4-cell-primary">${U.esc(follow.title)}</span><div class="t4-cell-secondary">${U.esc(U.formatRelative(follow.due_at))}</div>`:'—'}</td><td>${D.canEdit()?`<button class="t4-icon-btn" data-edit-contact="${U.attr(row.key)}">${U.icon('edit')}</button>`:''}</td></tr>`;}).join('')}</tbody></table></div>`:U.emptyState('Nenhum contato encontrado','Remova filtros ou cadastre um novo contato geral.',D.canEdit()?'Novo contato':'','new-contact')}`;
+  function followupTable(rows, id = 'followups') {
+    return W.table({ id, rows, columns: [
+      { key: 'title', label: 'Acompanhamento', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-followup" data-id="${a(r.id)}">${e(r.title)}</button><span class="t4-cell-secondary">${e(byContact(r.contact_id)?.displayName || 'Contato não encontrado')}</span>` },
+      { key: 'due_at', label: 'Prazo', render: (r) => `${e(U.formatDate(r.due_at, true))}${M.overdue(r.due_at, r.status) ? U.badge('Vencido', 'danger') : ''}` }, { key: 'assigned_username', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'priority', label: 'Prioridade' },
+      { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() && r.status === 'Pendente' ? W.button('Concluir', 'finish-followup', r.id, { className: 'sm', icon: 'check' }) : '' }
+    ] });
   }
-
-  function renderFollowups(){
-    app.setPrimaryAction('',null);app.setSearchHandler((value)=>{state.query=value;renderFollowups();},'Buscar acompanhamento…');const q=U.normalize(state.query);const rows=[...state.followups].filter((row)=>{const contact=state.unified.find((item)=>String(item.contactId)===String(row.contact_id));return !q||U.normalize([row.title,row.notes,row.assigned_username,contact?.displayName].join(' ')).includes(q);}).sort((a,b)=>String(a.due_at).localeCompare(String(b.due_at)));
-    app.pageRoot.innerHTML=`${U.pageHead('Acompanhamentos profissionais','Cada compromisso permanece ligado ao contato; atividades V2 podem refletir estes itens sem criar uma segunda agenda manual.')}<section class="t4-kpi-grid">${U.kpi('Pendentes',rows.filter((row)=>row.status==='Pendente').length,'Ações abertas')}${U.kpi('Vencidos',rows.filter((row)=>row.status==='Pendente'&&new Date(row.due_at)<new Date()).length,'Exigem atenção',rows.some((row)=>row.status==='Pendente'&&new Date(row.due_at)<new Date())?'risk':'good')}${U.kpi('Concluídos',rows.filter((row)=>row.status==='Concluído').length,'Histórico preservado','good')}${U.kpi('Contatos acompanhados',new Set(rows.map((row)=>row.contact_id)).size,'Relações com agenda')}</section>
-      <section class="t4-panel"><div class="t4-panel-body">${rows.length?`<div class="t4-timeline">${rows.map((row)=>{const contact=state.unified.find((item)=>String(item.contactId)===String(row.contact_id));const overdue=row.status==='Pendente'&&new Date(row.due_at)<new Date();return `<div class="t4-timeline-item"><span class="t4-timeline-dot">${U.icon(row.status==='Concluído'?'check':'clock')}</span><div><div class="t4-timeline-title">${U.esc(row.title)} ${U.badge(overdue?'Vencido':row.status,overdue?'danger':U.toneForStatus(row.status))}</div><div class="t4-timeline-meta">${U.esc(U.formatDate(row.due_at,true))} · ${U.esc(contact?.displayName||'Contato')}</div><div class="t4-timeline-copy">${U.esc(row.notes||'')}</div></div></div>`;}).join('')}</div>`:U.emptyState('Sem acompanhamentos','Adicione um acompanhamento na ficha de qualquer contato.')}</div></section>`;
+  function followupsView() {
+    const rows = state.followups.filter((r) => match([r.title, r.notes, byContact(r.contact_id)?.displayName, r.assigned_username]) && (!state.status || r.status === state.status));
+    return `<div class="t4-toolbar">${W.filter('status', 'Situação', ['Pendente', 'Concluído', 'Cancelado'], state.status)}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div><section class="t4-kpi-grid">${U.kpi('Pendentes', rows.filter((r) => r.status === 'Pendente').length, 'Próximas ações')}${U.kpi('Vencidos', rows.filter((r) => M.overdue(r.due_at, r.status)).length, 'Revisar prazo e responsável', 'warn')}${U.kpi('Concluídos', rows.filter((r) => r.status === 'Concluído').length, 'Histórico preservado', 'good')}${U.kpi('Contatos acompanhados', new Set(rows.map((r) => r.contact_id)).size, 'Neste recorte')}</section>` + followupTable(rows);
   }
-
-  function renderDuplicates(){
-    app.setPrimaryAction('',null);app.setSearchHandler(null,'Buscar…');const groups=duplicateGroups();
-    app.pageRoot.innerHTML=`${U.pageHead('Possíveis duplicidades','A lista aponta sinais objetivos; nenhuma mesclagem é automática.')}${groups.length?`<div class="t4-grid two">${groups.map((group)=>`<section class="t4-panel"><div class="t4-panel-head"><div class="t4-panel-head-copy"><div class="t4-panel-title">${U.esc(group.type)} repetido</div><div class="t4-panel-subtitle">${U.esc(group.value)}</div></div>${U.badge(`${group.rows.length} registros`,'warning')}</div><div class="t4-panel-body"><div class="t4-list">${group.rows.map((row)=>`<button type="button" class="t4-list-item" data-open-contact="${U.attr(row.key)}" style="width:100%;border:0;background:transparent;text-align:left;cursor:pointer"><span class="t4-avatar-sm">${U.esc(U.initials(row.displayName))}</span><span class="t4-list-main"><span class="t4-list-title">${U.esc(row.displayName)}</span><span class="t4-list-meta">${U.esc(row.roles.join(', ')||row.source)}</span></span>${U.badge(row.source==='contact'?'Contato geral':row.source==='talent'?'Talento':'Empregador')}</button>`).join('')}</div></div></section>`).join('')}</div>`:U.emptyState('Nenhuma duplicidade evidente','Não foram encontrados e-mails ou telefones repetidos entre os registros visíveis.')}`;
+  function categoriesView() {
+    return W.table({ id: 'categories', rows: state.categories.filter((r) => match([r.name, r.slug])), columns: [
+      { key: 'name', label: 'Categoria', required: true, render: (r) => U.badge(U.term(r.name), 'purple') }, { key: 'is_system', label: 'Origem', render: (r) => e(r.is_system ? 'Padrão do sistema' : 'Personalizada') }, { key: 'is_active', label: 'Situação', render: (r) => W.status(r.is_active ? 'Ativa' : 'Inativa') },
+      { key: 'count', label: 'Contatos', value: (r) => state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length, render: (r) => e(state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length) }, { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() && !r.is_system ? W.button('Editar', 'edit-category', r.id, { className: 'sm', icon: 'edit' }) : '' }
+    ] });
   }
-
-  function openContactDrawer(key){
-    const row=unifiedByKey(key);if(!row)return;const interactions=state.interactions.filter((item)=>String(item.contact_id)===String(row.contactId));const followups=state.followups.filter((item)=>String(item.contact_id)===String(row.contactId));
-    const drawer=U.openDrawer({title:row.displayName,subtitle:`${row.entityType} · ${row.roles.join(', ')||'Outro'}`,actions:`${D.canEdit()?`<button class="t4-btn primary" data-edit="${U.attr(key)}">${U.icon('edit')}Editar</button><button class="t4-btn" data-interaction="${U.attr(key)}">${U.icon('activity')}Registrar contato</button><button class="t4-btn" data-followup="${U.attr(key)}">${U.icon('calendar')}Agendar</button>`:''}${row.source==='talent'?`<a class="t4-btn" href="./index.html?view=talents&focus=${encodeURIComponent(row.sourceId)}">${U.icon('users')}Abrir em Talentos</a>`:row.source==='employer'?`<a class="t4-btn" href="./organizacional.html?view=employers&focus=${encodeURIComponent(row.sourceId)}">${U.icon('building')}Abrir no Organizacional</a>`:''}`,body:
-      `<section class="t4-detail-section"><div class="t4-detail-section-head"><h3>Visão essencial</h3>${U.badge(row.status,U.toneForStatus(row.status))}</div><div class="t4-detail-grid">${U.field('Categoria',row.roles.join(', ')||'Outro')}${U.field('Função',row.jobTitle)}${U.field('Organização',row.organization)}${U.field('Cidade',row.city)}${U.field('Relacionamento',row.stage)}${U.field('Responsável',row.owner)}</div></section><section class="t4-detail-section"><div class="t4-detail-section-head"><h3>Contato</h3></div><div class="t4-detail-grid">${U.field('E-mail',row.email)}${U.field('Telefone',row.phone)}</div></section><section class="t4-detail-section"><div class="t4-detail-section-head"><h3>Observações</h3></div><div class="t4-timeline-copy">${U.esc(row.notes||'Sem observações.')}</div></section>
-       <section class="t4-detail-section"><div class="t4-detail-section-head"><h3>Interações</h3><span class="t4-badge">${interactions.length}</span></div>${interactions.length?`<div class="t4-timeline">${interactions.slice(0,10).map((item)=>`<div class="t4-timeline-item"><span class="t4-timeline-dot">${U.icon(item.interaction_type==='E-mail'?'mail':item.interaction_type==='Telefone'?'phone':'note')}</span><div><div class="t4-timeline-title">${U.esc(item.subject||item.interaction_type)}</div><div class="t4-timeline-meta">${U.esc(U.formatDate(item.occurred_at,true))}</div><div class="t4-timeline-copy">${U.esc(item.summary)}</div></div></div>`).join('')}</div>`:'<div class="t4-cell-secondary">Nenhuma interação registrada.</div>'}</section>
-       <section class="t4-detail-section"><div class="t4-detail-section-head"><h3>Acompanhamentos</h3><span class="t4-badge">${followups.length}</span></div>${followups.length?`<div class="t4-list">${followups.slice(0,10).map((item)=>`<div class="t4-list-item"><span class="t4-timeline-dot">${U.icon(item.status==='Concluído'?'check':'clock')}</span><span class="t4-list-main"><span class="t4-list-title">${U.esc(item.title)}</span><span class="t4-list-meta">${U.esc(U.formatDate(item.due_at,true))}</span></span>${U.badge(item.status,U.toneForStatus(item.status))}</div>`).join('')}</div>`:'<div class="t4-cell-secondary">Nenhum acompanhamento agendado.</div>'}</section>`});
-    drawer.querySelector('[data-edit]')?.addEventListener('click',()=>{U.closeDrawer();openContactForm(row);});drawer.querySelector('[data-interaction]')?.addEventListener('click',()=>{U.closeDrawer();openInteractionForm(row);});drawer.querySelector('[data-followup]')?.addEventListener('click',()=>{U.closeDrawer();openFollowupForm(row);});
+  function duplicatesView() {
+    const groups = M.duplicateGroups(state.unified).filter((g) => match([g.value, ...g.rows.map((r) => r.displayName)]));
+    return W.note('E-mail ou telefone repetido é apenas um sinal. As comparações incluem e-mail secundário e WhatsApp; organizações e pessoas podem compartilhar canais legitimamente. Nenhum registro será unido ou excluído automaticamente.') +
+      (groups.length ? groups.map((g, i) => W.section(`${g.type}: ${g.value}`, contactTable(g.rows, `duplicate-${i}`), U.badge(`${g.rows.length} registros`, 'warning'))).join('') : U.emptyState('Nenhuma repetição encontrada', 'Esta checagem não substitui a revisão humana de nomes e vínculos.'));
   }
-
-  async function ensureContactLink(row){
-    if(row.contactId)return row.contactId;const payload={entity_type:row.entityType,display_name:row.displayName,email:row.email||null,phone:row.phone||null,city:row.city||null,status:'Ativo',relationship_stage:row.contactStage||'Relacionamento',priority:row.priority||'Normal',owner_username:row.owner||D.profile?.username||null,source_system:row.source==='talent'?'candidatos':'employers',source_record_id:String(row.sourceId)};const created=await D.insert(D.TABLES.contacts,payload);row.contactId=created.id;return created.id;
+  function contactDetail(row) {
+    if (!row) return;
+    const contact = row.link || {};
+    const relations = state.relationships.filter((r) => row.contactIds.some((id) => M.same(r.contact_id, id) || M.same(r.related_contact_id, id)));
+    const interactions = state.interactions.filter((r) => relatedTo(row, r));
+    const categories = state.categoryLinks.filter((r) => row.contactIds.some((id) => M.same(r.contact_id, id)));
+    U.openDrawer({ title: row.displayName, subtitle: `${row.entityType} · ${row.roles.join(', ') || 'Sem categoria'}`, actions: `${D.canEdit() ? W.button('Editar contato', 'edit-contact', row.key, { className: 'sm', icon: 'edit' }) + W.button('Nova interação', 'new-interaction', row.key, { className: 'sm', icon: 'note' }) + W.button('Agendar próximo passo', 'new-followup', row.key, { className: 'primary sm', icon: 'plus' }) : ''}${row.source === 'talent' ? W.link('Ficha do talento', `./index.html?talent=${encodeURIComponent(row.sourceId)}`, 'user') : row.source === 'employer' ? W.link('Dossiê do empregador', `./organizacional.html?employer=${encodeURIComponent(row.sourceId)}`, 'building') : ''}`,
+      body: `${row.unresolved ? W.note('O registro de origem não está entre os dados acessíveis. O contato e seu histórico foram preservados; confirme o vínculo antes de editar a identificação.', 'warning') : ''}
+        <div class="t4-detail-grid">${U.field('E-mail', row.email)}${U.field('E-mail secundário', contact.secondary_email)}${U.field('Telefone', row.phone)}${U.field('WhatsApp', contact.whatsapp)}${U.field('Função / área', row.jobTitle)}${U.field('Organização', row.organization)}${U.field('Cidade', row.city)}${U.field('País', contact.country)}${U.field('Endereço', contact.address_line)}${U.field('Código postal', contact.postal_code)}${U.field('Responsável', row.owner)}${U.field('Relacionamento', row.stage)}${U.field('Canal preferido', contact.preferred_channel)}${U.field('Idioma', contact.language)}</div>
+        <div class="t4-resource-links">${W.external('Site', contact.website || (row.source === 'employer' ? row.raw.site : ''))}${W.external('LinkedIn', contact.linkedin_url)}</div>
+        ${W.section('Papéis e categorias', `<div class="t4-chip-row">${categories.map((c) => `<span class="t4-category-tag">${e(U.term(W.find(state.categories, c.category_id)?.name || 'Categoria'))}${D.canEdit() ? `<button type="button" aria-label="Remover categoria" data-action="remove-category-link" data-id="${a(`${c.contact_id}|${c.category_id}`)}">×</button>` : ''}</span>`).join('') || '<span class="t4-muted">Sem categorias adicionais.</span>'}</div>`, D.canEdit() ? W.button('Adicionar', 'add-category', row.key, { className: 'sm', icon: 'plus' }) : '')}
+        ${W.section('Relacionamentos', relations.length ? relations.map((r) => { const isOwn = row.contactIds.some((id) => M.same(id, r.contact_id)); const target = byContact(isOwn ? r.related_contact_id : r.contact_id); return `<div class="t4-relation-row"><div><strong>${e(target?.displayName || 'Contato não encontrado')}</strong><span>${e(isOwn ? r.relationship_label : `${r.relationship_label} · vínculo recebido`)}${r.is_primary ? ' · principal' : ''}</span><small>${e(r.notes || '')}</small></div>${target ? W.button('Abrir', 'contact-detail', target.key, { className: 'sm ghost' }) : ''}${D.canEdit() ? W.button('Remover vínculo', 'remove-relation', r.id, { className: 'ghost sm' }) : ''}</div>`; }).join('') : '<p class="t4-muted">Nenhum relacionamento registrado.</p>', D.canEdit() ? W.button('Novo vínculo', 'new-relation', row.key, { className: 'sm', icon: 'link' }) : '')}
+        ${W.section('Próximos passos e histórico', followupTable(state.followups.filter((r) => relatedTo(row, r)), 'contact-followups'))}
+        ${W.section('Linha do tempo', W.table({ id: 'contact-timeline', rows: interactions, columns: [
+          { key: 'occurred_at', label: 'Data', render: (r) => e(U.formatDate(r.occurred_at, true)) }, { key: 'interaction_type', label: 'Canal' }, { key: 'subject', label: 'Assunto', required: true }, { key: 'summary', label: 'Resumo', render: (r) => `<span class="t4-preserve">${e(r.summary)}</span>` }, { key: 'outcome', label: 'Resultado' }, { key: 'edit', label: '', sort: false, render: (r) => D.canEdit() ? W.button('Editar', 'edit-interaction', r.id, { className: 'ghost sm' }) : '' }
+        ] }))}
+        <p class="t4-preserve">${e(contact.notes || '')}</p>${row.source === 'contact' && !row.unresolved && D.canEdit() ? `<div class="t4-chip-row">${W.button('Vincular a talento ou empregador existente', 'link-canonical', row.key, { className: 'sm', icon: 'link' })}${W.button(row.status === 'Arquivado' ? 'Reativar contato' : 'Arquivar contato', 'archive-contact', row.key, { className: 'sm', icon: 'archive' })}</div>` : ''}${R.storedFields(contact, ['id', 'display_name', 'email', 'secondary_email', 'phone', 'whatsapp', 'notes', 'country', 'city', 'address_line', 'postal_code', 'language', 'source_system', 'source_record_id'])}` });
   }
-
-  function openContactForm(row=null){
-    if(!D.canEdit())return U.toast('Seu perfil possui acesso somente para leitura.','warning');const general=!row||row.source==='contact';const entity=row?.entityType||'Pessoa';const categoryOptions=state.categories.filter((item)=>!['candidato','empregador'].includes(item.slug));const protectedCategoryIds=row?.contactId?categoriesFor(row.contactId).filter((item)=>['candidato','empregador'].includes(item.slug)).map((item)=>String(item.id)):[];
-    const modal=U.openModal({title:row?'Editar contato':'Novo contato',subtitle:general?'Contato geral independente: professor, funcionário, parceiro, fornecedor ou qualquer outra relação.':'Campos compartilhados serão atualizados no cadastro canônico.',wide:true,body:`<form id="contact-form"><div class="t4-form-grid three"><label class="t4-field"><span class="t4-field-label">Tipo *</span><select name="entity_type" ${general?'':'disabled'}><option ${entity==='Pessoa'?'selected':''}>Pessoa</option><option ${entity==='Organização'?'selected':''}>Organização</option></select></label><label class="t4-field t4-span-2"><span class="t4-field-label">Nome *</span><input name="display_name" required value="${U.attr(row?.displayName||'')}"></label><label class="t4-field"><span class="t4-field-label">Função / área</span><input name="job_title" value="${U.attr(row?.jobTitle||'')}"></label><label class="t4-field"><span class="t4-field-label">E-mail</span><input name="email" type="email" value="${U.attr(row?.email||'')}"></label><label class="t4-field"><span class="t4-field-label">Telefone</span><input name="phone" value="${U.attr(row?.phone||'')}"></label><label class="t4-field"><span class="t4-field-label">Cidade</span><input name="city" value="${U.attr(row?.city||'')}"></label><label class="t4-field"><span class="t4-field-label">Status</span><select name="status">${['Ativo','A acompanhar','Inativo','Arquivado'].map((item)=>`<option ${row?.status===item?'selected':''}>${item}</option>`).join('')}</select></label><label class="t4-field"><span class="t4-field-label">Relacionamento</span><select name="relationship_stage">${['Novo','Em contato','Relacionamento','Sem retorno','Encerrado'].map((item)=>`<option ${row?.contactStage===item?'selected':''}>${item}</option>`).join('')}</select></label>${general?`<div class="t4-field t4-span-3"><span class="t4-field-label">Categorias</span><div class="t4-chip-row">${categoryOptions.map((item)=>`<label class="t4-chip"><input type="checkbox" name="category_ids" value="${U.attr(item.id)}" ${row?.roles.includes(roleLabel(item.name))?'checked':''}>${U.esc(roleLabel(item.name))}</label>`).join('')}</div><span class="t4-field-help">Um contato pode exercer mais de um papel.</span></div>`:''}<label class="t4-field t4-span-3"><span class="t4-field-label">Observações</span><textarea name="notes">${U.esc(row?.notes||'')}</textarea></label></div></form>`,footer:`<button class="t4-btn" data-cancel>Cancelar</button><button class="t4-btn primary" data-save>${row?'Salvar alterações':'Criar contato'}</button>`});
-    modal.querySelector('[data-cancel]').addEventListener('click',U.closeModal);modal.querySelector('[data-save]').addEventListener('click',async()=>{const form=modal.querySelector('#contact-form');if(!form.reportValidity())return;const formData=new FormData(form);const categoryIds=[...new Set([...formData.getAll('category_ids').map(String),...protectedCategoryIds])];const data=Object.fromEntries(formData);delete data.category_ids;Object.keys(data).forEach((key)=>data[key]=String(data[key]).trim()||null);const button=modal.querySelector('[data-save]');button.disabled=true;try{if(!row||row.source==='contact'){let id=row?.sourceId;if(row)await D.update(D.TABLES.contacts,id,data,{select:false});else{id=(await D.insert(D.TABLES.contacts,{...data,priority:'Normal',owner_username:D.profile?.username||null})).id;}const existing=state.contactCategories.filter((item)=>String(item.contact_id)===String(id));const existingIds=new Set(existing.map((item)=>String(item.category_id)));for(const categoryId of categoryIds){if(!existingIds.has(categoryId))await D.insert(D.TABLES.contactCategories,{contact_id:id,category_id:categoryId},{select:false,single:false});}for(const item of existing){if(!categoryIds.includes(String(item.category_id))){const removed=await D.client.from(D.TABLES.contactCategories).delete().eq('contact_id',id).eq('category_id',item.category_id);if(removed.error)throw removed.error;}}}else if(row.source==='talent'){await D.update(D.TABLES.candidates,row.sourceId,{nome_completo:data.display_name,email:data.email,telefone:data.phone,cidade_atual:data.city,profissao_principal:data.job_title,ultima_atualizacao:new Date().toISOString(),atualizado_por:D.profile?.nome||'V2'},{select:false});const contactId=await ensureContactLink({...row,displayName:data.display_name,email:data.email,phone:data.phone,city:data.city});await D.update(D.TABLES.contacts,contactId,{display_name:data.display_name,email:data.email,phone:data.phone,city:data.city,notes:data.notes,status:data.status,relationship_stage:data.relationship_stage},{select:false});}else{await D.update(D.TABLES.employers,row.sourceId,{nome:data.display_name,email_principal:data.email,telefone:data.phone,cidade:data.city,area_atuacao:data.job_title,updated_at:new Date().toISOString()},{select:false});const contactId=await ensureContactLink({...row,displayName:data.display_name,email:data.email,phone:data.phone,city:data.city});await D.update(D.TABLES.contacts,contactId,{display_name:data.display_name,email:data.email,phone:data.phone,city:data.city,notes:data.notes,status:data.status,relationship_stage:data.relationship_stage},{select:false});}U.closeModal();U.toast('Contato salvo no Supabase.','success');await loadAll({background:true});}catch(error){U.toast(error.message||String(error),'error',6000);button.disabled=false;}});
+  async function ensureContact(row) {
+    if (row.contactId) return row.contactId;
+    if (!['talent', 'employer'].includes(row.source)) throw new Error('Contato inválido.');
+    const source = row.source === 'talent' ? 'candidatos' : 'employers';
+    const existing = await D.select(D.TABLES.contacts, '*', (q) => q.eq('source_system', source).eq('source_record_id', String(row.sourceId)).limit(1));
+    const created = existing[0] || await D.insert(D.TABLES.contacts, { id: D.uuid(), entity_type: row.entityType, display_name: row.displayName, email: row.email || null, phone: row.phone || null, source_system: source, source_record_id: String(row.sourceId), status: 'Ativo', relationship_stage: 'Relacionamento', priority: 'Normal' });
+    row.contactId = created.id; row.contactIds = [...new Set([...row.contactIds, created.id])]; row.link = created;
+    return created.id;
   }
-
-  function openInteractionForm(row){const modal=U.openModal({title:'Registrar interação',subtitle:row.displayName,body:`<form id="interaction-form"><div class="t4-form-grid"><label class="t4-field"><span class="t4-field-label">Tipo</span><select name="interaction_type">${['E-mail','Telefone','WhatsApp','Reunião','LinkedIn','Presencial','Nota','Outro'].map((item)=>`<option>${item}</option>`).join('')}</select></label><label class="t4-field"><span class="t4-field-label">Data e hora</span><input name="occurred_at" type="datetime-local" value="${new Date().toISOString().slice(0,16)}"></label><label class="t4-field t4-span-2"><span class="t4-field-label">Assunto</span><input name="subject"></label><label class="t4-field t4-span-2"><span class="t4-field-label">Resumo *</span><textarea name="summary" required></textarea></label></div></form>`,footer:'<button class="t4-btn" data-cancel>Cancelar</button><button class="t4-btn primary" data-save>Registrar</button>'});modal.querySelector('[data-cancel]').addEventListener('click',U.closeModal);modal.querySelector('[data-save]').addEventListener('click',async()=>{const form=modal.querySelector('#interaction-form');if(!form.reportValidity())return;const data=Object.fromEntries(new FormData(form));const button=modal.querySelector('[data-save]');button.disabled=true;try{data.contact_id=await ensureContactLink(row);await D.insert(D.TABLES.interactions,data,{select:false});U.closeModal();U.toast('Interação registrada.','success');await loadAll({background:true});}catch(error){U.toast(error.message||String(error),'error',6000);button.disabled=false;}});}
-
-  function openFollowupForm(row){const modal=U.openModal({title:'Novo acompanhamento',subtitle:row.displayName,body:`<form id="followup-form"><div class="t4-form-grid"><label class="t4-field t4-span-2"><span class="t4-field-label">Título *</span><input name="title" required></label><label class="t4-field"><span class="t4-field-label">Vencimento *</span><input name="due_at" type="datetime-local" required></label><label class="t4-field"><span class="t4-field-label">Prioridade</span><select name="priority">${['Normal','Alta','Crítica','Baixa'].map((item)=>`<option>${item}</option>`).join('')}</select></label><label class="t4-field t4-span-2"><span class="t4-field-label">Observações</span><textarea name="notes"></textarea></label></div></form>`,footer:'<button class="t4-btn" data-cancel>Cancelar</button><button class="t4-btn primary" data-save>Agendar</button>'});modal.querySelector('[data-cancel]').addEventListener('click',U.closeModal);modal.querySelector('[data-save]').addEventListener('click',async()=>{const form=modal.querySelector('#followup-form');if(!form.reportValidity())return;const data=Object.fromEntries(new FormData(form));const button=modal.querySelector('[data-save]');button.disabled=true;try{data.contact_id=await ensureContactLink(row);data.status='Pendente';data.assigned_username=D.profile?.username||null;await D.insert(D.TABLES.followups,data,{select:false});U.closeModal();U.toast('Acompanhamento agendado.','success');await loadAll({background:true});}catch(error){U.toast(error.message||String(error),'error',6000);button.disabled=false;}});}
-
-  app.onRoute(()=>render());const refreshTypedList=U.debounce(()=>{renderDirectory(app.view);requestAnimationFrame(()=>{const input=app.pageRoot.querySelector('[data-list-search]');if(input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}});},170);app.pageRoot.addEventListener('input',(event)=>{if(event.target.matches('[data-list-search]')){state.query=event.target.value;refreshTypedList();}});app.pageRoot.addEventListener('change',(event)=>{if(event.target.matches('[data-category]')){state.category=event.target.value;renderDirectory(app.view);}if(event.target.matches('[data-status]')){state.status=event.target.value;renderDirectory(app.view);}});app.pageRoot.addEventListener('click',(event)=>{const edit=event.target.closest('[data-edit-contact]');if(edit){event.stopPropagation();return openContactForm(unifiedByKey(edit.dataset.editContact));}const contact=event.target.closest('[data-open-contact]');if(contact)return openContactDrawer(contact.dataset.openContact);const action=event.target.closest('[data-action]')?.dataset.action;if(action==='reload')return loadAll();if(action==='new-contact')return openContactForm();});
-
-  async function bootstrap(){try{await D.init(app);await loadAll();const params=new URLSearchParams(location.search);const source=params.get('source'),id=params.get('id');if(source&&id){const key=source==='candidatos'?`talent:${id}`:source==='employers'?`employer:${id}`:'';if(key)openContactDrawer(key);}D.subscribe([D.TABLES.candidates,D.TABLES.employers,D.TABLES.contacts,D.TABLES.contactCategories,D.TABLES.interactions,D.TABLES.followups],U.debounce(()=>loadAll({background:true}),650),{name:'contacts'});}catch(error){app.setSync('error','Sessão indisponível');app.pageRoot.innerHTML=errorPanel(error);}}
-  bootstrap();
+  function editContact(row) {
+    if (!D.canEdit()) return;
+    const linked = row && row.source !== 'contact';
+    const data = row ? { ...row.link, entity_type: row.entityType, display_name: row.displayName, job_title: row.jobTitle, email: row.email, phone: row.phone, city: row.city, owner_username: row.owner, status: row.link?.status || 'Ativo', relationship_stage: row.stage, priority: row.link?.priority || 'Normal' }
+      : { entity_type: 'Pessoa', status: 'Ativo', relationship_stage: 'Novo', priority: 'Normal', owner_username: D.profile.username };
+    const id = row?.contactId || D.uuid();
+    const coreNames = ['display_name', 'job_title', 'email', 'phone', 'city', 'owner_username'];
+    return W.form({ title: row ? 'Editar contato' : 'Novo contato', row: data,
+      notice: linked ? 'Nome, função/área, e-mail, telefone, cidade e responsável pertencem ao cadastro original e aparecem nas outras áreas. Categorias e dados de relacionamento pertencem à agenda.' : 'Um contato geral não é transformado automaticamente em talento ou empregador. Você pode vinculá-lo a um cadastro existente pela ficha.',
+      fields: [
+        { section: 'Identificação e canais' },
+        { name: 'entity_type', label: 'Tipo de contato', type: 'select', options: ['Pessoa', 'Organização'], required: true, readonly: !!linked, placeholder: null },
+        { name: 'display_name', label: 'Nome de exibição', required: true, readonly: row?.unresolved },
+        { name: 'legal_name', label: 'Nome legal / razão social' }, { name: 'job_title', label: 'Função / área', readonly: row?.unresolved },
+        { name: 'email', label: 'E-mail principal', type: 'email', readonly: row?.unresolved }, { name: 'secondary_email', label: 'E-mail secundário', type: 'email' },
+        { name: 'phone', label: 'Telefone', readonly: row?.unresolved }, { name: 'whatsapp', label: 'WhatsApp' }, { name: 'website', label: 'Site', type: 'url' }, { name: 'linkedin_url', label: 'LinkedIn', type: 'url' },
+        { name: 'preferred_channel', label: 'Canal preferido', type: 'select', options: ['E-mail', 'Telefone', 'WhatsApp', 'LinkedIn', 'Outro'] }, { name: 'language', label: 'Idioma de comunicação' },
+        { section: 'Organização e endereço' },
+        { name: 'primary_organization_id', label: 'Organização principal', type: 'select', options: state.contacts.filter((r) => r.entity_type === 'Organização' && !M.same(r.id, row?.contactId)).map((r) => ({ value: r.id, label: byContact(r.id)?.displayName || r.display_name })), wide: true },
+        { name: 'address_line', label: 'Endereço', wide: true }, { name: 'city', label: 'Cidade', readonly: row?.unresolved }, { name: 'country', label: 'País' }, { name: 'postal_code', label: 'Código postal' },
+        { section: 'Relacionamento profissional' },
+        { name: 'status', label: 'Situação na agenda', type: 'select', options: ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], required: true, placeholder: null, help: 'Não altera a etapa seletiva nem exclui o cadastro original.' },
+        { name: 'relationship_stage', label: 'Etapa do relacionamento', type: 'select', options: ['Novo', 'Em contato', 'Relacionamento', 'Sem retorno', 'Encerrado'], required: true, placeholder: null },
+        { name: 'priority', label: 'Prioridade do contato', type: 'select', options: R.PRIORITIES, required: true, placeholder: null }, { name: 'owner_username', label: 'Responsável', readonly: row?.unresolved },
+        { name: 'source', label: 'Como chegou até nós?' }, { name: 'retention_review_at', label: 'Revisão de retenção', type: 'date' }, { name: 'notes', label: 'Observações', type: 'textarea', wide: true }
+      ], onSubmit: async (values, changes) => {
+        let sourceSaved = false;
+        try {
+          if (linked) {
+            const mapping = row.source === 'talent' ? { display_name: 'nome_completo', job_title: 'profissao_principal', email: 'email', phone: 'telefone', city: 'cidade_atual', owner_username: 'responsavel_interno' }
+              : { display_name: 'nome', job_title: 'area_atuacao', email: 'email_principal', phone: 'telefone', city: 'cidade', owner_username: 'responsavel_interno' };
+            const patch = Object.fromEntries(coreNames.filter((key) => key in changes).map((key) => [mapping[key], values[key]]));
+            if (Object.keys(patch).length) {
+              const table = row.source === 'talent' ? D.TABLES.candidates : D.TABLES.employers;
+              const expected = row.raw.updated_at || row.raw.ultima_atualizacao;
+              const opts = expected ? { expectedUpdatedAt: expected, expectedColumn: row.raw.updated_at ? 'updated_at' : 'ultima_atualizacao' } : {};
+              if (row.source === 'talent') patch.ultima_atualizacao = new Date().toISOString();
+              if (row.source === 'employer' && 'nome' in patch) patch.nome_normalizado = M.norm(patch.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+              row.raw = await D.update(table, row.sourceId, patch, opts);
+              sourceSaved = true;
+              row.displayName = values.display_name; row.email = values.email; row.phone = values.phone;
+            }
+            const meta = Object.fromEntries(Object.entries(changes).filter(([key]) => !coreNames.includes(key)));
+            if (Object.keys(meta).length || row.contactId && sourceSaved) {
+              const contactId = await ensureContact(row);
+              if ('status' in meta) meta.archived_at = values.status === 'Arquivado' ? new Date().toISOString() : null;
+              if (sourceSaved) for (const key of coreNames.filter((k) => k in changes)) meta[key] = values[key];
+              if (Object.keys(meta).length) await D.update(D.TABLES.contacts, contactId, meta, row.link.updated_at ? { expectedUpdatedAt: row.link.updated_at } : {});
+            }
+          } else {
+            if (!row) values.archived_at = values.status === 'Arquivado' ? new Date().toISOString() : null;
+            if ('status' in changes) changes.archived_at = values.status === 'Arquivado' ? new Date().toISOString() : null;
+            await W.saveRecord(D.TABLES.contacts, row?.link, values, changes, id);
+          }
+          U.toast('Contato salvo. Os cadastros vinculados usam os mesmos dados principais.', 'success');
+          await load();
+        } catch (error) {
+          if (sourceSaved) {
+            await load();
+            const partial = new Error('Os dados principais foram salvos, mas os complementos da agenda não foram confirmados. Reabra a ficha para conferir: ' + W.formatError(error));
+            partial.partial = true; throw partial;
+          }
+          throw error;
+        }
+      } });
+  }
+  async function editInteraction(row, contact) {
+    if (!D.canEdit()) return;
+    const contactId = row?.contact_id || contact?.contactId;
+    return W.recordForm({ title: row ? 'Editar interação' : 'Registrar interação', subtitle: contact?.displayName || byContact(contactId)?.displayName || '', table: D.TABLES.interactions, row: row || { occurred_at: new Date().toISOString(), interaction_type: 'Nota' }, fields: [
+      { name: 'interaction_type', label: 'Canal', type: 'select', options: ['E-mail', 'Telefone', 'WhatsApp', 'Reunião', 'LinkedIn', 'Presencial', 'Nota', 'Outro'], required: true, placeholder: null },
+      { name: 'occurred_at', label: 'Data e hora', type: 'datetime-local', required: true }, { name: 'subject', label: 'Assunto', wide: true }, { name: 'summary', label: 'Resumo da interação', type: 'textarea', required: true, wide: true }, { name: 'outcome', label: 'Resultado / decisão', type: 'textarea', wide: true }
+    ], async prepare(v) { if (!row) v.contact_id = contactId || await ensureContact(contact); }, after: load });
+  }
+  function editCategory(row) {
+    if (!D.canEdit() || row?.is_system) return;
+    return W.recordForm({ title: row ? 'Editar categoria' : 'Nova categoria', table: D.TABLES.categories, row: row || { color: '#245B85', is_active: true, sort_order: 100 }, fields: [
+      { name: 'name', label: 'Nome', required: true }, { name: 'color', label: 'Cor', type: 'color', required: true }, { name: 'sort_order', label: 'Ordem', type: 'number', required: true }, { name: 'is_active', label: 'Categoria ativa', type: 'checkbox' }
+    ], prepare(v) { if (!row) Object.assign(v, { slug: M.norm(v.name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), is_system: false }); }, after: load });
+  }
+  function addCategory(row) {
+    if (!D.canEdit()) return;
+    const roles = state.categories.filter((r) => r.is_active && !(r.is_system && /candidat|talento|empregador|employer/.test(M.norm(r.name))));
+    return W.form({ title: 'Adicionar categoria', subtitle: row.displayName, fields: [{ name: 'category_id', label: 'Categoria', type: 'select', options: R.choices(roles, 'name'), required: true }], onSubmit: async (values) => {
+      const contactId = await ensureContact(row);
+      if (state.categoryLinks.some((r) => M.same(r.contact_id, contactId) && M.same(r.category_id, values.category_id))) throw new Error('Este contato já possui a categoria.');
+      await D.insert(D.TABLES.contactCategories, { contact_id: contactId, category_id: values.category_id });
+      U.toast('Categoria vinculada.', 'success'); await load();
+    } });
+  }
+  function newRelationship(row) {
+    if (!D.canEdit()) return;
+    const choices = state.unified.filter((r) => r.key !== row.key && !r.unresolved);
+    return W.form({ title: 'Novo relacionamento', subtitle: row.displayName, fields: [
+      { name: 'related_key', label: 'Outro contato', type: 'select', options: choices.map((r) => ({ value: r.key, label: `${r.displayName} · ${r.entityType}` })), required: true, wide: true },
+      { name: 'relationship_label', label: 'Relação', placeholder: 'Ex.: Trabalha em, Professor de, Parceiro de', required: true, wide: true }, { name: 'is_primary', label: 'Vínculo principal', type: 'checkbox' }, { name: 'notes', label: 'Contexto do relacionamento', type: 'textarea', wide: true }
+    ], onSubmit: async (v) => {
+      const target = byKey(v.related_key);
+      if (!target || target.key === row.key) throw new Error('Selecione outro contato.');
+      const contactId = await ensureContact(row), targetId = await ensureContact(target);
+      if (v.is_primary && state.relationships.some((r) => M.same(r.contact_id, contactId) && r.is_primary)) throw new Error('Este contato já tem um vínculo principal. Revise o vínculo existente primeiro.');
+      await D.insert(D.TABLES.relationships, { id: D.uuid(), contact_id: contactId, related_contact_id: targetId, relationship_label: v.relationship_label, is_primary: v.is_primary, notes: v.notes });
+      U.toast('Relacionamento registrado nas duas fichas.', 'success'); await load();
+    } });
+  }
+  function linkCanonical(row) {
+    if (!D.canEdit() || row.source !== 'contact' || row.unresolved) return;
+    const targets = state.unified.filter((r) => r.source !== 'contact' && r.entityType === row.entityType && !r.contactId);
+    return W.form({ title: 'Vincular ao cadastro existente', subtitle: row.displayName,
+      notice: 'O cadastro escolhido passa a ser a fonte do nome e dos canais principais. O contato, suas observações e seu histórico permanecem preservados. Não cria um novo talento nem um novo empregador.', fields: [{ name: 'target_key', label: 'Cadastro original', type: 'select', options: targets.map((r) => ({ value: r.key, label: r.displayName })), required: true, wide: true }], onSubmit: async (v) => {
+        const target = byKey(v.target_key);
+        if (!target || target.contactId || target.entityType !== row.entityType) throw new Error('O vínculo não está mais disponível. Atualize a agenda.');
+        await D.update(D.TABLES.contacts, row.contactId, { source_system: target.source === 'talent' ? 'candidatos' : 'employers', source_record_id: String(target.sourceId) }, row.raw.updated_at ? { expectedUpdatedAt: row.raw.updated_at } : {});
+        U.toast('Vínculo confirmado. Histórico preservado.', 'success'); await load();
+      } });
+  }
+  W.bind(app, { change(key, value) { state[key] = value; render(); }, async action(action, id) {
+    if (action === 'reload') return D.session ? load() : location.reload();
+    if (action === 'clear') { state.category = ''; state.status = ''; state.owner = ''; state.query = ''; state.quick = 'all'; app.resetSearch(); render(); return; }
+    if (action === 'quick') { state.quick = id; render(); return; }
+    if (action === 'contact-detail') return contactDetail(byKey(id));
+    if (action === 'edit-contact') return editContact(byKey(id));
+    if (action === 'edit-category') return editCategory(W.find(state.categories, id));
+    if (action === 'new-interaction') return editInteraction(null, byKey(id));
+    if (action === 'edit-interaction') return editInteraction(W.find(state.interactions, id));
+    if (action === 'new-followup') { const row = byKey(id); return R.editFollowup(null, () => ensureContact(row), load); }
+    if (action === 'edit-followup') { const row = W.find(state.followups, id); if (D.canEdit()) return R.editFollowup(row, row.contact_id, load); U.openDrawer({ title: row.title, body: R.storedFields(row) }); return; }
+    if (action === 'finish-followup') { const row = W.find(state.followups, id); await D.update(D.TABLES.followups, id, { status: 'Concluído', completed_at: new Date().toISOString() }, row.updated_at ? { expectedUpdatedAt: row.updated_at } : {}); U.toast('Acompanhamento concluído.', 'success'); return load(); }
+    if (action === 'add-category') return addCategory(byKey(id));
+    if (action === 'new-relation') return newRelationship(byKey(id));
+    if (action === 'link-canonical') return linkCanonical(byKey(id));
+    if (action === 'remove-category-link') {
+      const [contact_id, category_id] = id.split('|');
+      if (!await U.confirm({ title: 'Remover esta categoria?', message: 'Somente a associação será removida. O contato, a categoria e o histórico serão preservados.', confirmLabel: 'Remover associação' })) return;
+      await D.removeAssociation(D.TABLES.contactCategories, { contact_id, category_id }); U.closeDrawer(); return load();
+    }
+    if (action === 'remove-relation') {
+      if (!await U.confirm({ title: 'Remover este relacionamento?', message: 'As duas fichas de contato permanecem. Apenas este vínculo será removido.', confirmLabel: 'Remover vínculo' })) return;
+      await D.removeAssociation(D.TABLES.relationships, { id }); U.closeDrawer(); return load();
+    }
+    if (action === 'archive-contact') {
+      const row = byKey(id), restore = row.status === 'Arquivado';
+      if (!await U.confirm({ title: restore ? 'Reativar contato?' : 'Arquivar contato?', message: `${row.displayName}: nenhuma interação ou acompanhamento será excluído.`, confirmLabel: restore ? 'Reativar' : 'Arquivar' })) return;
+      await D.update(D.TABLES.contacts, row.contactId, { status: restore ? 'Ativo' : 'Arquivado', archived_at: restore ? null : new Date().toISOString() }, row.raw.updated_at ? { expectedUpdatedAt: row.raw.updated_at } : {});
+      U.closeDrawer(); return load();
+    }
+  } });
+  app.onRoute(() => { state.status = ''; render(); });
+  W.start(app, async () => {
+    await load();
+    const p = new URLSearchParams(location.search);
+    if (!state.openedInitial && (p.has('contact') || p.has('talent') || p.has('employer'))) {
+      state.openedInitial = true;
+      contactDetail(p.has('contact') ? byContact(p.get('contact')) : byKey(`${p.has('talent') ? 'talent' : 'employer'}:${p.get('talent') || p.get('employer')}`));
+    }
+  }, [D.TABLES.candidates, D.TABLES.employers, D.TABLES.contacts, D.TABLES.categories, D.TABLES.contactCategories, D.TABLES.relationships, D.TABLES.interactions, D.TABLES.followups]);
 })();

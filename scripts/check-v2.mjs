@@ -1,132 +1,94 @@
+/* Validação da aplicação independente talents4-homologacao.
+   Não depende da antiga pasta v2/ nem executa SQL ou acessa bancos. */
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import vm from 'node:vm';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const v2Root = path.resolve(here, '..');
-const repoRoot = path.resolve(v2Root, '..');
-let failures = 0;
-
-function check(condition, message) {
-  if (condition) console.log(`OK: ${message}`);
-  else { console.error(`FALHA: ${message}`); failures += 1; }
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+let failures = 0, checks = 0;
+const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+function check(ok, label) { checks++; console[ok ? 'log' : 'error'](`${ok ? 'OK' : 'FALHA'}: ${label}`); if (!ok) failures++; }
+function walk(dir) {
+  return fs.readdirSync(path.join(root, dir), { withFileTypes: true }).flatMap((entry) => {
+    if (entry.name === '.git') return [];
+    const file = path.join(dir, entry.name);
+    return entry.isDirectory() ? walk(file) : [file.replaceAll(path.sep, '/')];
+  });
 }
-function read(relative) { return fs.readFileSync(path.join(v2Root, relative), 'utf8'); }
-function exists(relative) { return fs.existsSync(path.join(v2Root, relative)); }
-function withoutSqlCommentsAndStrings(source) {
-  return source
-    .replace(/--[^\n]*/g, ' ')
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/'(?:''|[^'])*'/g, "''");
+const files = walk('');
+const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
+const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALIDACAO_V2_1.md',
+  'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
+  ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
+  ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs'];
+for (const file of required) check(files.includes(file), `${file} existe`);
+if (failures) { console.error('Pacote incompleto; não publicar.'); process.exit(1); }
+
+for (const file of [...new Set([...required.filter((file) => /\.(?:m?js)$/.test(file)), ...files.filter((file) => /^(scripts|tests)\/[^/]+\.mjs$/.test(file))])]) {
+  const run = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
+  check(run.status === 0, `sintaxe de ${file}`); if (run.status) console.error(run.stderr);
 }
-
-const required = [
-  'index.html', 'organizacional.html', 'contatos.html', 'alemao.html', 'README_V2.md', 'PASSO_A_PASSO.md',
-  'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-data.js',
-  'assets/talents-v2.js', 'assets/organization-v2.js', 'assets/contacts-v2.js', 'assets/german-v2.js',
-  'supabase/00_preflight.sql', 'supabase/01_v2_integration.sql', 'supabase/02_postflight.sql', 'supabase/99_rollback_emergency.sql'
-];
-required.forEach((file) => check(exists(file), `${file} existe`));
-
-const jsFiles = required.filter((file) => file.endsWith('.js'));
-for (const file of jsFiles) {
-  const result = spawnSync(process.execPath, ['--check', path.join(v2Root, file)], { encoding: 'utf8' });
-  check(result.status === 0, `${file} possui JavaScript sintaticamente válido`);
-  if (result.status !== 0 && result.stderr) console.error(result.stderr.trim());
+for (const [name, module] of Object.entries(pages)) {
+  for (const demo of [false, true]) {
+    const file = `${demo ? 'demo/' : ''}${name}`, html = read(file);
+    const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map((m) => m[1]);
+    check(ids.length === new Set(ids).size && ids.includes('t4-app'), `${file}: IDs únicos e raiz da aplicação`);
+    check(html.includes(`data-t4-module="${module}"`), `${file}: módulo correto`);
+    check(/name="referrer" content="no-referrer"/.test(html), `${file}: referência não é enviada`);
+    check(!/\bon[a-z]+\s*=|<script(?![^>]*src=)[^>]*>\s*\S/i.test(html), `${file}: sem handlers ou scripts inline`);
+    const scriptRefs = [...html.matchAll(/<script\b([^>]*?)src="([^"]+)"[^>]*>/g)].map((m) => m[2]);
+    for (const ref of [...scriptRefs, ...[...html.matchAll(/<link[^>]*href="([^"]+)"/g)].map((m) => m[1])]) {
+      if (/^https:/.test(ref)) continue;
+      const resolved = path.resolve(root, path.dirname(file), ref);
+      check(resolved.startsWith(root + path.sep) && fs.existsSync(resolved), `${file}: referência local ${ref}`);
+    }
+    const core = scriptRefs.findIndex((r) => r.endsWith('t4-v2-core.js'));
+    const models = scriptRefs.findIndex((r) => r.endsWith('t4-v2-models.js'));
+    const data = scriptRefs.findIndex((r) => r.endsWith('t4-v2-data.js'));
+    const ui = scriptRefs.findIndex((r) => r.endsWith('t4-v2-ui.js'));
+    const records = scriptRefs.findIndex((r) => r.endsWith('t4-v2-records.js'));
+    check(core >= 0 && core < models && models < data && data < ui && ui < records, `${file}: dependências compartilhadas na ordem correta`);
+    check(/href="(?:\.\/|\.\.\/)assets\/t4-v2.css"/.test(html), `${file}: mesmo design system`);
+    check(html.includes('Content-Security-Policy') && html.includes("object-src 'none'"), `${file}: política de conteúdo`);
+    if (demo) {
+      check(html.includes("connect-src 'none'") && !/https:\/\/cdn/.test(html), `${file}: rede bloqueada e sem SDK externo`);
+      check(scriptRefs[0] === '../tests/fixtures-supabase.js', `${file}: dados fictícios carregados primeiro`);
+    } else {
+      check(scriptRefs[0] === 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3', `${file}: versão pública do SDK preservada e fixada`);
+      check(!html.includes('fixtures-supabase'), `${file}: não carrega dados fictícios`);
+    }
+  }
 }
-
-const runtimeContext = { console, setTimeout, clearTimeout, Intl, URL, URLSearchParams, crypto };
-runtimeContext.window = runtimeContext;
-vm.createContext(runtimeContext);
-vm.runInContext(read('assets/t4-v2-core.js'), runtimeContext, { filename: 't4-v2-core.js' });
-vm.runInContext(read('assets/t4-v2-data.js'), runtimeContext, { filename: 't4-v2-data.js' });
-check(runtimeContext.T4V2.term('Novo candidato') === 'Novo Talento', 'interface converte a etapa legada para Novo Talento');
-check(runtimeContext.T4V2.normalize('Ação MÉDICA') === 'acao medica', 'normalização de busca trata acentos e caixa');
-check(runtimeContext.T4Data.activeValue('NÃO') === false && runtimeContext.T4Data.activeValue(true) === true, 'normalização de status ativo trata legado e booleano');
-const legacyMatch = runtimeContext.T4Data.mapMatch({ id:'m1', candidato_id:'t1', empregador_id:'e1', status_vinculo:'Apresentado', match_strength:82 });
-check(legacyMatch.talent_id === 't1' && legacyMatch.employer_id === 'e1' && legacyMatch.overall_score === 82 && legacyMatch.modern === false, 'compatibilidade converte vínculos legados sem perder contexto');
-check(runtimeContext.T4Data.missingRelation({ code:'42P01' }) === true, 'modo compatível reconhece tabela V2 ausente');
-
-const htmlFiles = ['index.html', 'organizacional.html', 'contatos.html', 'alemao.html'];
-const expectedModules = { 'index.html':'talents', 'organizacional.html':'organization', 'contatos.html':'contacts', 'alemao.html':'german' };
-for (const file of htmlFiles) {
-  const html = read(file);
-  const ids = [...html.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map((match) => match[1]);
-  const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
-  check(duplicateIds.length === 0, `${file} não possui IDs estáticos duplicados`);
-  check(html.includes('href="./assets/t4-v2.css"'), `${file} usa o design system compartilhado`);
-  check(html.includes('src="./assets/t4-v2-core.js"'), `${file} usa o shell compartilhado`);
-  check(html.includes('src="./assets/t4-v2-data.js"'), `${file} usa a camada única do Supabase`);
-  check(html.includes(`data-t4-module="${expectedModules[file]}"`), `${file} declara o módulo correto`);
-  check(html.includes('Content-Security-Policy'), `${file} possui política de conteúdo`);
-  check(html.includes('name="referrer" content="no-referrer"'), `${file} não envia URL de referência`);
-  check((html.match(/@supabase\/supabase-js@2\.112\.3/g) || []).length === 1, `${file} fixa uma única versão do Supabase JS`);
-  const supabaseAt = html.indexOf('@supabase/supabase-js@2.112.3');
-  const coreAt = html.indexOf('t4-v2-core.js');
-  const dataAt = html.indexOf('t4-v2-data.js');
-  check(supabaseAt >= 0 && supabaseAt < coreAt && coreAt < dataAt, `${file} carrega dependências na ordem correta`);
+const core = read('assets/t4-v2-core.js'), css = read('assets/t4-v2.css');
+for (const file of Object.keys(pages)) check(core.includes(`href: './${file}'`), `switch ${file} presente no componente único`);
+check((core.match(/class="t4-switch-item/g) || []).length === 1, 'quatro switches gerados por um único componente');
+check(core.includes('aria-current') && core.includes('t4-skip'), 'navegação identifica a página e oferece atalho ao conteúdo');
+check(core.includes('dataset.saving') && core.includes('dataset.dirty'), 'formulário protege alterações não salvas e gravação em andamento');
+for (const color of ['#002a4a', '#dcd0c3', '#d50c2f', '#e63121', '#f07f00', '#fbb900', '#1e1349']) check(css.toLowerCase().includes(color), `paleta da marca contém ${color}`);
+check(css.includes('@media (max-width: 1000px)') && css.includes('@media (max-width: 680px)'), 'adaptação a telas menores');
+check(css.includes('prefers-reduced-motion') && css.includes(':focus-visible'), 'movimento reduzido e foco de teclado');
+check(css.includes('data-selected="false"') && css.includes('data-print-empty="true"') && css.includes('@media print'), 'impressão omite campos desmarcados e seções vazias');
+const cleanCSS = css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/g, '');
+let depth = 0; for (const c of cleanCSS) { if (c === '{') depth++; if (c === '}') depth--; if (depth < 0) break; }
+check(depth === 0, 'blocos CSS balanceados');
+const front = required.filter((file) => file.startsWith('assets/') || Object.hasOwn(pages, file)).map(read).join('\n');
+for (const [pattern, label] of [
+  [/sheets\.googleapis\.com|docs\.google\.com\/spreadsheets/i, 'integração com Google Planilhas'],
+  [/drive\.googleapis\.com|accounts\.google\.com\/gsi/i, 'API de Drive / OAuth Google'],
+  [/\bXLSX\b|\bSheetJS\b|\bMammoth\b/i, 'bibliotecas de importação legadas'],
+  [/\bclient_secret\b|\bservice_role\b|BEGIN PRIVATE KEY|ghp_[A-Za-z0-9]+/i, 'segredo administrativo'],
+  [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
+  [/fetch\s*\(\s*['"]https?:\/\//i, 'chamada direta a serviço externo'],
+  [/\.rpc\(/, 'execução de procedimento de banco pelo frontend']
+]) check(!pattern.test(front), `ausência de ${label}`);
+check(!required.some((file) => /\.sql$/i.test(file)), 'esta revisão de interface não depende de reaplicar SQL');
+const data = read('assets/t4-v2-data.js');
+check(data.includes('createClient(SUPABASE_URL, SUPABASE_ANON_KEY'), 'cliente Supabase público preservado');
+check(data.includes('expectedUpdatedAt') && data.includes('page.length') && data.includes('maxRows'), 'concorrência e paginação continuam protegidas');
+for (const token of data.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g) || []) {
+  const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString());
+  check(payload.role === 'anon', 'chave embutida é pública, não administrativa');
 }
-
-const core = read('assets/t4-v2-core.js');
-for (const link of ['./index.html', './organizacional.html', './contatos.html', './alemao.html']) {
-  check(core.includes(`href: '${link}'`), `shell compartilhado contém o switch ${link}`);
-}
-check((core.match(/class=\"t4-switch-item/g) || []).length === 1, 'os switches são gerados por um único componente');
-
-const css = read('assets/t4-v2.css');
-for (const color of ['#002a4a', '#dcd0c3', '#d50c2f', '#e63121', '#f07f00', '#fbb900', '#1e1349']) {
-  check(css.toLowerCase().includes(color), `identidade visual contém ${color.toUpperCase()}`);
-}
-check(css.includes('@media (max-width: 920px)') && css.includes('@media (max-width: 680px)'), 'layout possui adaptação responsiva');
-check(css.includes('@media (prefers-reduced-motion: reduce)'), 'layout respeita redução de movimento');
-
-const frontFiles = [...htmlFiles, 'assets/t4-v2-core.js', 'assets/t4-v2-data.js', 'assets/talents-v2.js', 'assets/organization-v2.js', 'assets/contacts-v2.js', 'assets/german-v2.js'];
-const front = frontFiles.map((file) => `\n/* ${file} */\n${read(file)}`).join('\n');
-const forbidden = [
-  [/sheets\.googleapis\.com/i, 'Google Sheets API'],
-  [/docs\.google\.com\/spreadsheets/i, 'links de Google Planilhas'],
-  [/drive\.googleapis\.com/i, 'Google Drive API'],
-  [/\bXLSX\b|\bSheetJS\b/i, 'biblioteca de planilhas'],
-  [/client_secret/i, 'client_secret'],
-  [/service_role/i, 'service_role no frontend'],
-  [/localStorage\b/, 'persistência de dados no localStorage'],
-  [/sessionStorage\b/, 'persistência de dados no sessionStorage']
-];
-for (const [pattern, label] of forbidden) check(!pattern.test(front), `frontend não contém ${label}`);
-check(/createClient\(SUPABASE_URL, SUPABASE_ANON_KEY/.test(front), 'frontend usa somente o cliente público do Supabase');
-check(!/fetch\s*\(\s*['"]https?:\/\//i.test(front), 'frontend não chama APIs externas por fetch');
-
-const preflight = withoutSqlCommentsAndStrings(read('supabase/00_preflight.sql'));
-const postflight = withoutSqlCommentsAndStrings(read('supabase/02_postflight.sql'));
-const mutation = /\b(create|alter|insert|update|delete|drop|grant|revoke|truncate)\b/i;
-check(!mutation.test(preflight), 'preflight é somente leitura');
-check(!mutation.test(postflight), 'postflight é somente leitura');
-
-const migration = read('supabase/01_v2_integration.sql');
-check(/^begin;/im.test(migration) && /^commit;/im.test(migration), 'migration é transacional');
-check(/create table if not exists public\.crm_activities/i.test(migration), 'migration cria a agenda integrada');
-check(/create table if not exists public\.talent_opportunity_matches/i.test(migration), 'migration cria compatibilidade por oportunidade');
-check(/enable row level security/gi.test(migration), 'migration habilita RLS');
-check(/revoke all on public\.crm_activities from public, anon, authenticated/i.test(migration), 'agenda bloqueia privilégios anônimos');
-check(/revoke all on public\.talent_opportunity_matches from public, anon, authenticated/i.test(migration), 'compatibilidades bloqueiam privilégios anônimos');
-check(!/drop\s+table/i.test(migration), 'migration principal não remove tabelas');
-check(!/alter\s+table[\s\S]{0,120}\bdrop\s+column/i.test(migration), 'migration principal não remove colunas');
-
-const status = spawnSync('git', ['status', '--porcelain'], { cwd: repoRoot, encoding: 'utf8' });
-check(status.status === 0, 'estado do repositório pode ser verificado');
-if (status.status === 0) {
-  const changed = status.stdout.trim().split('\n').filter(Boolean);
-  const outside = changed.filter((line) => !line.slice(3).startsWith('v2/'));
-  check(outside.length === 0, 'esta branch isolada não altera arquivos publicados fora de v2/');
-  if (outside.length) outside.forEach((line) => console.error(`  fora do escopo: ${line}`));
-}
-
-console.log('');
-if (failures) {
-  console.error(`${failures} verificação(ões) falharam.`);
-  process.exit(1);
-}
-console.log('V2 aprovada: arquivos isolados, shell padronizado e Supabase-only.');
+console.log(`\n${checks - failures}/${checks} verificações estáticas aprovadas.`);
+if (failures) process.exitCode = 1;
