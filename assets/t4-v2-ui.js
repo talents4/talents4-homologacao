@@ -3,6 +3,11 @@
   'use strict';
   const U = window.T4V2, D = window.T4Data, M = window.T4Models;
   const tableStates = new Map();
+  // The page re-renders after each checkbox change. Keep the active menu and
+  // its search term outside the HTML so multi-select filters do not collapse
+  // or lose the user's place while selecting several values.
+  let multiOpenKey = '';
+  const multiSearch = new Map();
   const e = U.esc, a = U.attr;
   const button = (label, action, id = '', options = {}) => `<button type="button" class="t4-btn ${a(options.className || '')}" data-action="${a(action)}" data-id="${a(id)}" ${options.disabled ? 'disabled' : ''} ${options.title ? `title="${a(options.title)}"` : ''}>${options.icon ? U.icon(options.icon) : ''}${e(label)}</button>`;
   const link = (label, href, icon = '') => `<a class="t4-btn sm" href="${a(href)}">${icon ? U.icon(icon) : ''}${e(label)}</a>`;
@@ -16,7 +21,8 @@
   const multiFilter = (name, label, values, selected = []) => {
     const picked = Array.isArray(selected) ? selected.map(String) : M.present(selected) ? [String(selected)] : [];
     const options = values.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
-    return `<details class="t4-multi-filter" data-multi-filter-menu="${a(name)}"><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options"><div class="t4-multi-option-actions"><span>Selecione uma ou mais opções</span><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${options.map((o, i) => `<label><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhuma opção disponível.</span>'}</div></details>`;
+    const query = multiSearch.get(String(name)) || '';
+    return `<details class="t4-multi-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">Buscar em ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="Buscar opção…" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${options.map((o) => `<label data-multi-filter-option="${a(name)}"><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhuma opção disponível.</span>'}</div></details>`;
   };
   const chips = (items, current, action = 'quick') => `<div class="t4-quickfilters" aria-label="Visões rápidas">${items.map((x) => `<button type="button" class="t4-quickfilter ${x.id === current ? 'active' : ''}" data-action="${a(action)}" data-id="${a(x.id)}" aria-pressed="${x.id === current}">${x.icon ? U.icon(x.icon) : ''}${e(x.label)}${x.count == null ? '' : `<span>${e(x.count)}</span>`}</button>`).join('')}</div>`;
   const note = (text, tone = 'info') => `<div class="t4-alert ${a(tone)}">${U.icon(tone === 'error' || tone === 'warning' ? 'warning' : 'note')}<div>${e(text)}</div></div>`;
@@ -181,16 +187,50 @@
     return load;
   }
   function bind(app, { action, change }) {
+    // Native <details> is intentionally used for keyboard and screen-reader
+    // support. Remembering the key makes a rerender feel like one continuous
+    // filter interaction instead of closing the popover after every click.
+    document.addEventListener('toggle', (event) => {
+      const menu = event.target.closest?.('details.t4-multi-filter');
+      if (!menu) return;
+      const key = menu.dataset.multiFilterMenu || '';
+      if (menu.open) multiOpenKey = key;
+      else if (multiOpenKey === key) multiOpenKey = '';
+    }, true);
+    document.addEventListener('click', (event) => {
+      const route = event.target.closest?.('[data-route]');
+      if (route) { multiOpenKey = ''; multiSearch.clear(); return; }
+      if (!event.target.closest?.('details.t4-multi-filter')) multiOpenKey = '';
+    }, true);
     document.addEventListener('click', async (event) => {
       const el = event.target.closest('[data-action]');
       if (!el || el.disabled) return;
+      if (el.dataset.action === 'clear') {
+        multiOpenKey = '';
+        multiSearch.clear();
+      }
+      if (el.dataset.action === 'multi-filter-clear') {
+        multiOpenKey = el.dataset.id || '';
+        multiSearch.delete(el.dataset.id || '');
+      }
       try { await action?.(el.dataset.action, el.dataset.id || '', el, event); }
       catch (error) { U.toast(formatError(error), 'error', 7500); }
+    });
+    app.pageRoot.addEventListener('input', (event) => {
+      if (!event.target.matches('[data-multi-filter-search]')) return;
+      const key = event.target.dataset.multiFilterSearch || '';
+      const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
+      multiSearch.set(key, event.target.value);
+      app.pageRoot.querySelectorAll('[data-multi-filter-option]').forEach((option) => {
+        if (option.dataset.multiFilterOption !== key) return;
+        option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
+      });
     });
     app.pageRoot.addEventListener('change', (event) => {
       if (event.target.matches('[data-filter]')) change?.(event.target.dataset.filter, event.target.value);
       if (event.target.matches('[data-multi-filter]')) {
         const key = event.target.dataset.multiFilter;
+        multiOpenKey = key;
         const selected = [...app.pageRoot.querySelectorAll('[data-multi-filter]')].filter((node) => node.dataset.multiFilter === key && node.checked).map((node) => node.value);
         change?.(key, selected);
       }

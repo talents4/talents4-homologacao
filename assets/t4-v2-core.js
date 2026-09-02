@@ -300,7 +300,16 @@
       <a class="t4-skip" href="#t4-page-root">Ir para o conteúdo</a><div class="t4-app">
         <aside class="t4-sidebar" aria-label="Navegação principal">
           <a class="t4-brand" href="./index.html" aria-label="Talents 4 V2">
-            <span class="t4-brand-mark">T4</span>
+            <svg class="t4-brand-logo" viewBox="0 0 76 52" role="img" aria-labelledby="t4-brand-logo-title">
+              <title id="t4-brand-logo-title">Talents 4</title>
+              <g fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 8h40c6 0 8 6 4 10L31 39c-3 4 0 8 5 8h19" />
+                <path d="M20 25v22" />
+                <path d="M40 8v11" />
+                <path d="M65 8v39" />
+                <path d="M57 25h14" />
+              </g>
+            </svg>
             <span><span class="t4-brand-name">Talents 4<span class="t4-brand-dot">.</span></span><span class="t4-brand-sub">RECRUTAMENTO INTERNACIONAL</span></span>
           </a>
           <div class="t4-sidebar-scroll">

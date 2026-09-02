@@ -12,6 +12,15 @@ for (const module of ['talents', 'organization', 'contacts', 'german']) {
     assert.equal(h.fixture.writes.length, 0); assert.equal(h.network.length, 0);
   });
 }
+test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar', async () => {
+  const h = await makeHarness().load('organization');
+  h.app.route('employers');
+  assert.match(h.html(), /data-multi-filter-search="employer"/);
+  assert.match(h.html(), /data-multi-filter="employer"/);
+  h.filter('employer', [h.id(101), h.id(102)]);
+  assert.match(h.html(), /2 selecionados/);
+  assert.equal(h.fixture.writes.length, 0);
+});
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
   for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas']]) {
