@@ -4,6 +4,11 @@
   const norm = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
   const same = (a, b) => a != null && b != null && String(a) === String(b);
   const active = (v) => v == null || !['false', '0', 'nao', 'no', 'inativo'].includes(norm(v));
+  // A database flag alone is not enough to determine whether a record should
+  // appear in the working queue. Legacy imports often keep ativo=true while
+  // the lifecycle field says Inativo, Arquivado, Excluído or Cancelado.
+  const negativeLifecycle = (value) => /^(inativ|arquiv|exclu|cancel|desist|rejeit|removid|encerr)/.test(norm(value));
+  const activeRecord = (row = {}) => active(row.ativo) && !row.deleted_at && !row.data_inativacao && !negativeLifecycle(row.status_pipeline || row.lifecycle_status || row.status);
   const present = (v) => v !== null && v !== undefined && String(v).trim() !== '';
   const finite = (v) => present(v) && Number.isFinite(Number(v));
   const number = (v) => finite(v) ? Number(v) : null;
@@ -115,7 +120,7 @@
         phone: (isTalent ? raw.telefone : raw.telefone) || link?.phone || '',
         city: (isTalent ? raw.cidade_atual : raw.cidade) || link?.city || '',
         jobTitle: (isTalent ? raw.profissao_principal || raw.area_profissional : raw.area_atuacao) || link?.job_title || '',
-        status: !active(raw.ativo) || raw.deleted_at || raw.data_inativacao ? 'Arquivado' : link?.archived_at ? 'Arquivado' : link?.status || 'Ativo',
+        status: !activeRecord(raw) || raw.deleted_at || raw.data_inativacao ? 'Arquivado' : link?.archived_at ? 'Arquivado' : link?.status || 'Ativo',
         stage: link?.relationship_stage || 'Relacionamento',
         owner: raw.responsavel_interno || link?.owner_username || '',
         roles: [...new Set([role, ...rolesFor(attached.map((r) => r.id))])],
@@ -167,6 +172,6 @@
     const allowed = ['employers', 'planEntries', 'meetings', 'weeklySummaries', 'operationalTasks', 'operationalMetrics', 'opTasks', 'opMetrics', 'dossiers'];
     return Object.fromEntries(allowed.filter((key) => p[key] != null).map((key) => [key, p[key]]));
   }
-  window.T4Models = Object.freeze({ norm, same, active, present, finite, number, dateOnly, today, isOpen, overdue,
+  window.T4Models = Object.freeze({ norm, same, active, negativeLifecycle, activeRecord, present, finite, number, dateOnly, today, isOpen, overdue,
     riskReasons, mergeMatches, canonicalMatch, selectionBucket, SELECTION_COLUMNS, buildContacts, duplicateGroups, safeUrl, snapshotEntries });
 })();

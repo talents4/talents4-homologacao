@@ -61,7 +61,9 @@
     ]
   };
   for (const fields of Object.values(FIELDS)) fields.forEach(Object.freeze);
-  const active = (r) => M.active(r.ativo) && !r.data_inativacao;
+  // A Talento marcado como Inativo/Arquivado/Cancelado deve sair da fila
+  // ativa mesmo quando uma importação antiga deixou ativo=true.
+  const active = (r) => M.activeRecord(r);
   const yes = (value) => value === true || ['sim', 'true', '1', 'yes'].includes(M.norm(value));
   const list = (value) => Array.isArray(value) ? value : M.present(value) ? [value] : [];
   const matches = (selected, values) => !list(selected).length || list(selected).some((s) => list(values).some((v) => M.norm(v) === M.norm(s)));

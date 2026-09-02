@@ -25,6 +25,8 @@ const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALID
   'assets/talents-mapping-models.js','assets/talents-mapping-ui.js','assets/talents-mapping.css','tests/fixtures-talents-mapping.js','tests/talents-mapping.test.mjs',
   'assets/t4-modern.js','assets/t4-modern.css',
   'assets/t4-v24.js','assets/t4-v24.css',
+  'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
+  'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
   'tests/talents-sql-contract.test.mjs','TALENTOS_V2_2.md','PASSO_A_PASSO_TALENTOS_V2_2.md','PREVIA_TALENTOS_V2_2.md'];
 for (const file of required) check(files.includes(file), `${file} existe`);
 if (failures) { console.error('Pacote incompleto; não publicar.'); process.exit(1); }
@@ -100,7 +102,21 @@ check(v24.includes('T4V24') && v24.includes('savedViews') && v24.includes('metri
 check(v24.includes('t4-table tbody tr') && v24.includes('trigger.click'), 'workbench abre prévia da linha sem perder o contexto');
 check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24CSS.includes('v24-command-list'), 'workbench V2.4 possui superfícies macOS e ações rápidas');
 check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
+const v25 = read('assets/t4-v25.js'), v25CSS = read('assets/t4-v25.css');
+check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
+check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado');
+check(v25CSS.includes('color-mix') && v25CSS.includes('prefers-reduced-motion') && v25CSS.includes('@supports not (backdrop-filter'), 'camada V2.5 possui cor de empregador, fallback e movimento reduzido');
+check(read('assets/t4-v2-ui.js').includes('multiFilter') && read('assets/t4-v2-ui.js').includes('data-multi-filter'), 'filtro múltiplo é componente compartilhado');
+const talentsV25 = read('assets/talents-v2.js'), organizationV25 = read('assets/organization-v2.js'), contactsV25 = read('assets/contacts-v2.js'), germanV25 = read('assets/german-v2.js');
+check(talentsV25.includes("selectionScope: 'active'") && talentsV25.includes('talentListTable') && talentsV25.includes('Liberado para apresentação'), 'Talentos inicia na fila ativa e possui lista analítica');
+check(organizationV25.includes("employerScope: 'active'") && organizationV25.includes('org-opportunities') && organizationV25.includes("const workViews = () => ''"), 'Organizacional separa lista, oportunidades e navegação oficial');
+check(contactsV25.includes("followupScope: 'open'") && contactsV25.includes("W.multiFilter('category'") && contactsV25.includes("label: 'Arquivo'"), 'Contatos inicia no ativo e usa filtros múltiplos');
+check(germanV25.includes("classScope: 'active'") && germanV25.includes("studentScope: 'current'") && germanV25.includes("W.multiFilter('status'"), 'Alemão inicia no acompanhamento atual e usa filtros múltiplos');
+check(!organizationV25.includes('T4V24.savedViews') && !talentsV25.includes('T4V24.savedViews'), 'navegação lateral não duplica a antiga barra de visões');
+check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
+check(read('TALENTOS_V2_5.md').includes('Supabase') && read('MANUAL_TALENTOS_V2_5.md').includes('Lista NectaNet') && read('PASSO_A_PASSO_TALENTOS_V2_5.md').includes('talents4/talents4-homologacao'), 'documentação V2.5 cobre produto, uso e upload');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
+for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-v25.css') && read(file).includes('t4-v25.js'), `${file}: camada V2.5 compartilhada presente`);
 check(data.includes('createClient(SUPABASE_URL, SUPABASE_ANON_KEY'), 'cliente Supabase público preservado');
 check(data.includes('expectedUpdatedAt') && data.includes('page.length') && data.includes('maxRows'), 'concorrência e paginação continuam protegidas');
 for (const token of data.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g) || []) {

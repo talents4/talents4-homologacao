@@ -3,14 +3,14 @@
   const U = window.T4V2, W = window.T4Work, M = window.T4Models, D = window.T4Data, R = window.T4Records;
   const e = U.esc, a = U.attr;
   const VIEWS = [
-    { id: 'overview', label: 'Visão de trabalho', subtitle: 'Aprendizagem, presença e próximos passos dos talentos.', icon: 'dashboard' },
+    { id: 'overview', label: 'Meu dia', subtitle: 'Aprendizagem, presença e próximos passos dos talentos.', icon: 'dashboard' },
     { id: 'classes', label: 'Turmas', subtitle: 'Instituição, professor, horários e recursos de cada turma.', icon: 'book' },
-    { id: 'students', label: 'Alunos e matrículas', subtitle: 'Uma matrícula ligada ao cadastro original do talento.', icon: 'graduation' },
-    { id: 'attention', label: 'Atenção e prazos', subtitle: 'Alertas explicados, sem confundir informação ausente com desempenho ruim.', icon: 'warning' },
-    { id: 'history', label: 'Histórico de evolução', subtitle: 'Presenças, avaliações, evolução, contatos e alertas.', icon: 'history' }
+    { id: 'students', label: 'Matrículas', subtitle: 'Uma matrícula ligada ao cadastro original do Talento.', icon: 'graduation' },
+    { id: 'attention', label: 'A acompanhar', subtitle: 'Alertas explicados, sem confundir informação ausente com desempenho ruim.', icon: 'warning' },
+    { id: 'history', label: 'Histórico de evolução', subtitle: 'Presenças, avaliações, evolução, contatos e alertas.', icon: 'history', primary: false }
   ];
   const app = U.mount({ module: 'german', moduleLabel: 'Alemão', views: VIEWS, defaultView: 'overview' });
-  const state = { talents: [], contacts: [], classes: [], enrollments: [], updates: [], teacherLink: false, classId: '', status: '', level: '', risk: '', query: '', display: 'cards', loaded: false };
+  const state = { talents: [], contacts: [], classes: [], enrollments: [], updates: [], teacherLink: false, classId: '', status: '', level: '', risk: '', query: '', display: 'cards', classScope: 'active', studentScope: 'current', loaded: false };
   const sources = {
     talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
     contacts: { label: 'Professores / contatos', load: () => D.loadContacts({ includeArchived: true }) },
@@ -23,6 +23,9 @@
   const name = (id) => R.talentName(state, id);
   const cls = (id) => W.find(state.classes, id);
   const current = (r) => ['Matriculado', 'Ativo', 'Pausado'].includes(r.status);
+  const values = (value) => Array.isArray(value) ? value.filter(M.present).map(String) : M.present(value) ? [String(value)] : [];
+  const firstValue = (value) => values(value)[0] || '';
+  const matches = (value, selected) => { const wanted = values(selected); return !wanted.length || wanted.some((item) => (Array.isArray(value) ? value : [value]).some((candidate) => M.norm(candidate) === M.norm(item))); };
   const teacher = (r) => {
     const c = W.find(state.contacts, r.teacher_contact_id);
     if (c && ['candidatos', 'candidate', 'candidates'].includes(c.source_system)) return W.find(state.talents, c.source_record_id)?.nome_completo || c.display_name;
@@ -30,10 +33,10 @@
   };
   const match = (values) => !state.query || M.norm(values.filter(M.present).join(' ')).includes(M.norm(state.query));
   function rows(attention = false) {
-    return state.enrollments.filter((r) => (!state.classId || M.same(r.class_id, state.classId)) && (!state.status || r.status === state.status) && (!state.level || r.current_level === state.level) && (!state.risk || r.risk_level === state.risk) && (!attention || M.riskReasons(r).length) && match([name(r.candidate_id), cls(r.class_id)?.name, r.owner_name, r.next_action, r.notes]));
+    return state.enrollments.filter((r) => matches(r.class_id, state.classId) && matches(r.status, state.status) && matches(r.current_level, state.level) && matches(r.risk_level, state.risk) && (!attention || M.riskReasons(r).length) && match([name(r.candidate_id), cls(r.class_id)?.name, r.owner_name, r.next_action, r.notes]));
   }
   function filters() {
-    return `<div class="t4-toolbar">${W.filter('classId', 'Turma', R.choices(state.classes, 'name'), state.classId)}${W.filter('status', 'Situação', ['Matriculado', 'Ativo', 'Pausado', 'Concluído', 'Desistente', 'Transferido'], state.status)}${W.filter('level', 'Nível', R.LEVELS, state.level)}${W.filter('risk', 'Risco', ['Baixo', 'Médio', 'Alto'], state.risk)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+    return `<div class="t4-toolbar">${W.multiFilter('classId', 'Turmas', R.choices(state.classes, 'name'), state.classId)}${W.multiFilter('status', 'Situações', ['Matriculado', 'Ativo', 'Pausado', 'Concluído', 'Desistente', 'Transferido'], state.status)}${W.multiFilter('level', 'Níveis', R.LEVELS, state.level)}${W.multiFilter('risk', 'Riscos', ['Baixo', 'Médio', 'Alto'], state.risk)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
   }
   function render() {
     if (!state.loaded) return;
@@ -41,7 +44,7 @@
     app.setCounts({ classes: state.classes.length, students: state.enrollments.filter(current).length, attention: state.enrollments.filter((r) => M.riskReasons(r).length).length, history: state.updates.length });
     const createClass = app.view === 'classes';
     app.setPrimaryAction(createClass ? 'Nova turma' : 'Nova matrícula', D.canEdit() ? () => createClass ? editClass() : editEnrollment() : null);
-    const html = ({ overview, classes: classesView, students: () => filters() + enrollmentTable(rows()), attention: () => filters() + W.note('Presença abaixo de 75%, risco alto, desempenho em atenção/crítico ou acompanhamento vencido. Somente matrículas em acompanhamento geram alertas.') + enrollmentTable(rows(true), 'attention'), history: historyView }[app.view] || overview)();
+    const html = ({ overview, classes: classesView, students: () => filters() + studentScopes() + enrollmentTable(rows(state.studentScope !== 'all' ? undefined : false).filter((r) => state.studentScope === 'current' ? current(r) : state.studentScope === 'closed' ? !current(r) : true)), attention: () => filters() + studentScopes() + W.note('A acompanhar = presença abaixo de 75%, risco alto, desempenho em atenção/crítico ou acompanhamento vencido. Somente matrículas em acompanhamento geram alertas.') + enrollmentTable(rows(true), 'attention'), history: historyView }[app.view] || overview)();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
   }
   function overview() {
@@ -60,10 +63,17 @@
     }).join('') || U.emptyState('Nenhuma turma neste recorte', 'As turmas encerradas continuam disponíveis em Turmas.')}</div>`;
   }
   function classesView() {
-    const list = state.classes.filter((r) => match([r.name, r.code, r.provider, teacher(r), r.schedule_text]));
-    return W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.display, 'display') + (state.display === 'cards' ? classCards(list) : W.table({ id: 'classes', rows: list, columns: [
+    const scope = state.classScope || 'active';
+    const closed = (r) => /conclu|cancel|encerr|arquiv/i.test(M.norm(r.status || ''));
+    const list = state.classes.filter((r) => (scope === 'active' ? !closed(r) : scope === 'closed' ? closed(r) : true) && match([r.name, r.code, r.provider, teacher(r), r.schedule_text]));
+    const count = (id) => state.classes.filter((r) => id === 'active' ? !closed(r) : id === 'closed' ? closed(r) : true).length;
+    return W.chips([{ id: 'active', label: 'Em andamento', count: count('active'), icon: 'book' }, { id: 'all', label: 'Todas', count: count('all'), icon: 'list' }, { id: 'closed', label: 'Histórico', count: count('closed'), icon: 'archive' }], scope, 'class-scope') + W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.display, 'display') + (state.display === 'cards' ? classCards(list) : W.table({ id: 'classes', rows: list, columns: [
       { key: 'name', label: 'Turma', required: true, render: (r) => `<button class="t4-row-link" data-action="class-detail" data-id="${a(r.id)}">${e(r.name)}</button><small class="t4-cell-secondary">${e(r.code)}</small>` }, { key: 'provider', label: 'Instituição' }, { key: 'teacher_name', label: 'Professor', value: teacher, render: (r) => e(teacher(r)) }, { key: 'schedule_text', label: 'Horário' }, { key: 'level_target', label: 'Nível-alvo' }, { key: 'expected_end_date', label: 'Previsão de término', render: (r) => e(U.formatDate(r.expected_end_date)) }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }
     ] }));
+  }
+  function studentScopes() {
+    const currentCount = state.enrollments.filter(current).length, closedCount = state.enrollments.filter((r) => !current(r)).length;
+    return W.chips([{ id: 'current', label: 'Em acompanhamento', count: currentCount, icon: 'graduation' }, { id: 'all', label: 'Todas as matrículas', count: state.enrollments.length, icon: 'list' }, { id: 'closed', label: 'Concluídas / encerradas', count: closedCount, icon: 'archive' }], state.studentScope || 'current', 'student-scope');
   }
   function enrollmentTable(list, id = 'students') {
     return W.table({ id, rows: list, columns: [
@@ -88,13 +98,13 @@
     ] });
   }
   function historyView() {
-    const list = state.updates.filter((r) => { const en = W.find(state.enrollments, r.enrollment_id); return (!state.classId || M.same(en?.class_id, state.classId)) && match([name(en?.candidate_id), r.note, r.kind, r.attendance_status]); });
-    return `<div class="t4-toolbar">${W.filter('classId', 'Turma', R.choices(state.classes, 'name'), state.classId)}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>` + historyTable(list);
+    const list = state.updates.filter((r) => { const en = W.find(state.enrollments, r.enrollment_id); return matches(en?.class_id, state.classId) && match([name(en?.candidate_id), r.note, r.kind, r.attendance_status]); });
+    return `<div class="t4-toolbar">${W.multiFilter('classId', 'Turmas', R.choices(state.classes, 'name'), state.classId)}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>` + historyTable(list);
   }
   function classDetail(row) {
     if (!row) return;
     U.openDrawer({ title: row.name, subtitle: `${row.code} · ${row.provider || 'Instituição não informada'}`, actions: `${D.canEdit() ? W.button('Editar turma', 'edit-class', row.id, { className: 'sm', icon: 'edit' }) + W.button('Matricular talento', 'enroll-in-class', row.id, { className: 'primary sm', icon: 'plus' }) : ''}${row.teacher_contact_id ? W.link('Ficha do professor', `./contatos.html?contact=${encodeURIComponent(row.teacher_contact_id)}`, 'contact') : ''}`,
-      body: `<div class="t4-detail-grid">${U.field('Professor', teacher(row))}${U.field('Instituição', row.provider)}${U.field('Modalidade', row.modality)}${U.field('Horários', row.schedule_text)}${U.field('Nível inicial', row.level_start)}${U.field('Meta', row.level_target)}${U.field('Início', U.formatDate(row.start_date))}${U.field('Término previsto', U.formatDate(row.expected_end_date))}${U.field('Capacidade', row.capacity)}${U.field('Situação', row.status)}</div><div class="t4-resource-links">${W.external('Link da aula', row.meeting_link)}${W.external('Materiais de apoio', row.drive_link)}</div><p class="t4-preserve">${e(row.notes || '')}</p>${W.section('Alunos desta turma', enrollmentTable(state.enrollments.filter((r) => M.same(r.class_id, row.id)), 'class-students'))}` });
+      body: `<div class="t4-detail-grid">${U.field('Professor', teacher(row))}${U.field('Instituição', row.provider)}${U.field('Modalidade', row.modality)}${U.field('Horários', row.schedule_text)}${U.field('Nível inicial', row.level_start)}${U.field('Meta', row.level_target)}${U.field('Início', U.formatDate(row.start_date))}${U.field('Término previsto', U.formatDate(row.expected_end_date))}${U.field('Capacidade', row.capacity)}${U.field('Situação', row.status)}</div><div class="t4-resource-links">${W.external('Link da aula', row.meeting_link)}${W.external('Materiais de apoio', row.drive_link)}</div><p class="t4-preserve">${e(row.notes || '')}</p>${W.section('Alunos em acompanhamento', enrollmentTable(state.enrollments.filter((r) => M.same(r.class_id, row.id) && current(r)), 'class-students'))}${state.enrollments.some((r) => M.same(r.class_id, row.id) && !current(r)) ? W.note('Matrículas concluídas ou encerradas ficam preservadas no Histórico e não competem com a turma atual.', 'info') : ''}` });
   }
   function enrollmentDetail(row) {
     if (!row) return;
@@ -118,7 +128,7 @@
   }
   function editEnrollment(row, classId) {
     if (!D.canEdit()) return;
-    return W.recordForm({ title: row ? 'Editar matrícula' : 'Nova matrícula', table: D.TABLES.enrollments, row: row || { class_id: classId || state.classId, status: 'Matriculado', enrolled_at: M.today(), progress_percent: 0, performance: 'Sem avaliação', risk_level: 'Baixo', exam_status: 'Não agendado', owner_name: D.profile.nome },
+    return W.recordForm({ title: row ? 'Editar matrícula' : 'Nova matrícula', table: D.TABLES.enrollments, row: row || { class_id: classId || firstValue(state.classId), status: 'Matriculado', enrolled_at: M.today(), progress_percent: 0, performance: 'Sem avaliação', risk_level: 'Baixo', exam_status: 'Não agendado', owner_name: D.profile.nome },
       notice: 'A evolução do curso aparece na ficha do talento. O nível informado no perfil é preservado separadamente; esta operação não sobrescreve o cadastro original.', fields: [
         { name: 'candidate_id', label: 'Talento', type: 'select', options: R.choices(state.talents, 'nome_completo'), required: true, readonly: !!row, wide: true }, { name: 'class_id', label: 'Turma', type: 'select', options: R.choices(state.classes, 'name'), required: true, readonly: !!row, wide: true },
         { name: 'status', label: 'Situação', type: 'select', options: ['Matriculado', 'Ativo', 'Pausado', 'Concluído', 'Desistente', 'Transferido'], required: true, placeholder: null }, { name: 'enrolled_at', label: 'Data da matrícula', type: 'date', required: true }, { name: 'completed_at', label: 'Data da conclusão', type: 'date' }, { name: 'owner_name', label: 'Responsável pelo acompanhamento' },
@@ -151,8 +161,10 @@
   W.bind(app, { change(key, value) { state[key] = value; render(); }, async action(action, id) {
     if (action === 'reload') return D.session ? load() : location.reload();
     if (action === 'go') return app.route(id);
-    if (action === 'clear') { state.classId = ''; state.status = ''; state.level = ''; state.risk = ''; state.query = ''; app.resetSearch(); render(); return; }
+    if (action === 'clear') { state.classId = []; state.status = []; state.level = []; state.risk = []; state.query = ''; state.classScope = 'active'; state.studentScope = 'current'; app.resetSearch(); render(); return; }
     if (action === 'display') { state.display = id; render(); return; }
+    if (action === 'class-scope') { state.classScope = ['active', 'all', 'closed'].includes(id) ? id : 'active'; render(); return; }
+    if (action === 'student-scope') { state.studentScope = ['current', 'all', 'closed'].includes(id) ? id : 'current'; state.status = ''; render(); return; }
     if (action === 'class-detail') return classDetail(cls(id));
     if (action === 'edit-class') return editClass(cls(id));
     if (action === 'enrollment-detail') return enrollmentDetail(W.find(state.enrollments, id));

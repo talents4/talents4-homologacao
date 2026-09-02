@@ -14,9 +14,10 @@ for (const module of ['talents', 'organization', 'contacts', 'german']) {
 }
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
-  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas'], ['summary', 'Revisão de perfis']]) {
+  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas']]) {
     h.app.route(view); assert.match(h.html(), new RegExp(text));
   }
+  h.app.route('summary'); h.filter('status', 'Concluído'); assert.match(h.html(), /Revisão de perfis/);
   assert.match(h.html(), /Apresentação/);
   assert.ok(!h.fixture.reads.some((r) => r.table === 'org_ui_state_snapshots'));
   await h.action('meeting-detail', h.id(1002)); assert.match(h.drawer.options.body, /Revisão do planejamento/);

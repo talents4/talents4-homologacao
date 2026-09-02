@@ -3,8 +3,8 @@
   'use strict';
   const U = window.T4V2, W = window.T4Work, D = window.T4Data, M = window.T4Models, T = window.T4TalentMapping;
   const e = U.esc, a = U.attr;
-  const labels = { stage: 'Etapas', german: 'Alemão', owner: 'Responsáveis', employer: 'Empregadores', cluster: 'Clusters', visa: 'Visto', qualification: 'Qualificação', cv: 'Novo CV', nectanet: 'Lista Nectanet' };
-  const quicks = [{ id: 'mine', label: 'Meus talentos', icon: 'user' }, { id: 'attention', label: 'Atenção', icon: 'warning' }, { id: 'course', label: 'Em acompanhamento de alemão', icon: 'graduation' }, { id: 'ready', label: 'Prontos para apresentar', icon: 'check' }];
+  const labels = { stage: 'Etapas', german: 'Alemão', owner: 'Responsáveis', employer: 'Empregadores', cluster: 'Clusters', visa: 'Visto', qualification: 'Qualificação', cv: 'Novo CV', nectanet: 'Lista NectaNet (Sim/Não)' };
+  const quicks = [{ id: 'mine', label: 'Meus talentos', icon: 'user' }, { id: 'attention', label: 'A acompanhar', icon: 'warning' }, { id: 'course', label: 'Em aulas', icon: 'graduation' }, { id: 'ready', label: 'Liberados para apresentar', icon: 'check' }];
   const profileFields = [
     ['perfil_titulo', 'Perfil / áreas de atuação'], ['perfil_comprovado', 'Perfil comprovado', 'textarea'], ['idiomas_contexto', 'Idiomas', 'textarea'],
     ['regra_revisao', 'Regra desta revisão', 'textarea'], ['premissa_projecao', 'Premissa da projeção B1', 'textarea'],
@@ -68,7 +68,7 @@
     function quickFilters() {
       const picked = (id) => state.quick.includes(id) || id === 'ready' && app.view === 'presentation';
       const all = !state.quick.length && app.view !== 'presentation';
-      return `<div class="tw-quickfilters" aria-label="Combinar filtros rápidos"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos os talentos <span>${state.talents.filter(T.active).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div>`;
+      return `<div class="tw-quickfilters" aria-label="Combinar filtros rápidos"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos ativos <span>${state.talents.filter(T.active).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div><p class="v25-help tw-filter-help">${U.icon('note')}Você pode combinar vários filtros; todos precisam ser atendidos. “A acompanhar” reúne pendência, prioridade, risco de curso ou ação vencida.</p>`;
     }
     function sheetTabs(current) {
       // As visões principais já estão na navegação lateral. Mantemos a função
@@ -89,7 +89,7 @@
       const people = filtered().filter((r) => T.yes(r.pronto_para_employer));
       const rows = T.presentationRows(state, people);
       const tabs = [['people','Talentos priorizados'],['partners','Nectanet Partner'],['companies','Empresas detalhadas']];
-      const top = (window.T4V24?.savedViews ? window.T4V24.savedViews([{ id:'all', label:'Todos', icon:'users', count:state.talents.filter(T.active).length }, { id:'ready', label:'Prontos', icon:'check', count:people.length }], 'ready') : '') + sheetTabs('presentation') + quickFilters() + toolbar({extended:true}) + `<div class="tw-sheet-heading"><div><span class="tw-kicker">APRESENTAÇÃO · NECTANET</span><h2>${people.length} Talento${people.length === 1 ? '' : 's'} liberado${people.length === 1 ? '' : 's'} para revisão</h2><p>Marcação de prontidão não envia perfis. Revise o conteúdo antes da apresentação.</p></div><div class="tw-mode-tabs">${tabs.map(([id,label]) => `<button type="button" data-action="presentation-tab" data-id="${id}" aria-pressed="${state.presentationTab === id}">${e(label)}</button>`).join('')}</div></div>`;
+      const top = sheetTabs('presentation') + quickFilters() + toolbar({extended:true}) + `<div class="tw-sheet-heading"><div><span class="tw-kicker">APRESENTAÇÃO · FILA DE LIBERAÇÃO</span><h2>${people.length} Talento${people.length === 1 ? '' : 's'} liberado${people.length === 1 ? '' : 's'} para revisão</h2><p>“Liberado” é uma decisão humana no cadastro do Talento. A Lista NectaNet (Sim/Não) é uma classificação independente e não libera nem envia perfis.</p></div><div class="tw-mode-tabs">${tabs.map(([id,label]) => `<button type="button" data-action="presentation-tab" data-id="${id}" aria-pressed="${state.presentationTab === id}">${e(label)}</button>`).join('')}</div></div>`;
       if (state.presentationTab !== 'people') return top + partners(people, state.presentationTab);
       const columns = T.FIELDS.presentation.map(([key,label,source,type]) => ({key,label,required:['nome_completo','lista_nectanet'].includes(key),className:`tw-col-${key}`,value:(r)=>type==='employer' ? state.employers.find((x)=>M.same(x.id,r[key]))?.nome || '' : r[key],render:(r) => {
         if (key === 'nome_completo') return W.person(r.nome_completo, r.profissao_principal || '', '', 'talent-detail', r.id);
@@ -101,7 +101,8 @@
         if (key === 'ingles' && r._englishFallback) content = `<span>${content}<small>Nível registrado na ficha anterior</small></span>`;
         return editCell(content, 'presentation-cell', JSON.stringify([r.id,key]), label, source === 'talent' || available('mappingProfiles'));
       }}));
-      return top + grid('presentation',rows,columns,'Nenhum Talento liberado neste recorte. Abra a ficha e revise “Liberação para apresentação”; nenhum perfil é liberado automaticamente.') + `<p class="tw-table-note">As 18 colunas seguem a ordem da planilha Nectanet. Clique em uma informação para editar; use Colunas para ajustar sua visualização.</p>`;
+      const legend = window.T4V25?.legend?.([{label:'Decisão humana de liberação',tone:'success'},{label:'Classificação NectaNet',tone:'info'},{label:'Dado ainda não informado',tone:''}]) || '';
+      return top + legend + grid('presentation',rows,columns,'Nenhum Talento liberado neste recorte. Abra a ficha e revise “Liberação para apresentação”; nenhum perfil é liberado automaticamente.') + `<p class="tw-table-note">As 18 colunas seguem a ordem da planilha Nectanet. Clique em uma informação para editar; use Colunas para ajustar sua visualização.</p>`;
     }
     function partners(people, mode) {
       const rows = T.partnerRows(state, people), fields = T.FIELDS[mode];
@@ -139,7 +140,7 @@
     function radar() {
       const ids = new Set(filtered().map((r) => String(r.id)));
       const rows = T.mappingRows(state).filter((r) => ids.has(String(r.talent_id)) && T.yes(r.nectanet));
-      return `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO · RADAR NECTANET</span><p class="t4-muted">Oportunidades NectaNet ligadas a Talentos ativos; não é etapa nem liberação.</p></div><div class="mx-segment" role="group" aria-label="Visões do mercado"><button type="button" data-action="go" data-id="opportunities" data-selected="false">Vagas cadastradas</button><button type="button" data-action="go" data-id="mapping-radar" data-selected="true">Radar NectaNet</button></div></div>` + quickFilters() + toolbar() + trackingTable(rows,true);
+      return `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO · RADAR NECTANET</span><p class="t4-muted">O Radar é uma lista de alvos NectaNet marcados no acompanhamento. Ele não muda a etapa da seleção e não equivale a “Liberado para apresentar”.</p></div><div class="mx-segment" role="group" aria-label="Visões do mercado"><button type="button" data-action="go" data-id="opportunities" data-selected="false">Vagas cadastradas</button><button type="button" data-action="go" data-id="mapping-radar" data-selected="true">Radar NectaNet</button></div></div>` + quickFilters() + toolbar() + trackingTable(rows,true);
     }
     function employerChoices() { return state.employers.map((r) => ({value:r.id,label:r.nome})); }
     function definition([key,label,source,type,options]) {

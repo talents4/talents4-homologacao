@@ -6,11 +6,11 @@
     { id: 'all', label: 'Agenda profissional', subtitle: 'Todos os relacionamentos da Talents 4, organizados e conectados.', icon: 'contact' },
     { id: 'people', label: 'Pessoas', subtitle: 'Talentos, professores, funcionários e parceiros.', icon: 'people' },
     { id: 'organizations', label: 'Organizações', subtitle: 'Empregadores, fornecedores e demais organizações.', icon: 'building' },
-    { id: 'followups', label: 'Acompanhamentos', subtitle: 'Próximos passos, prazos e responsáveis.', icon: 'bell' },
-    { id: 'categories', label: 'Categorias', subtitle: 'Um contato pode exercer mais de um papel.', icon: 'list' },
-    { id: 'duplicates', label: 'Revisar duplicidades', subtitle: 'Sinais para conferência humana. Nenhuma fusão automática.', icon: 'merge' }
+    { id: 'followups', label: 'Próximos passos', subtitle: 'Próximos passos, prazos e responsáveis.', icon: 'bell' },
+    { id: 'categories', label: 'Categorias', subtitle: 'Um contato pode exercer mais de um papel.', icon: 'list', primary: false },
+    { id: 'duplicates', label: 'Revisar duplicidades', subtitle: 'Sinais para conferência humana. Nenhuma fusão automática.', icon: 'merge', primary: false }
   ] });
-  const state = { talents: [], employers: [], contacts: [], categories: [], categoryLinks: [], relationships: [], interactions: [], followups: [], unified: [], query: '', category: '', status: '', owner: '', quick: 'all', loaded: false };
+  const state = { talents: [], employers: [], contacts: [], categories: [], categoryLinks: [], relationships: [], interactions: [], followups: [], unified: [], query: '', category: '', status: '', owner: '', quick: 'active', followupScope: 'open', loaded: false };
   const sources = {
     talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
     employers: { label: 'Empregadores', load: () => D.loadEmployers({ activeOnly: false }) },
@@ -27,12 +27,16 @@
   const relatedTo = (row, item) => row.contactIds.some((id) => M.same(id, item.contact_id));
   const match = (values) => !state.query || M.norm(values.filter(M.present).join(' ')).includes(M.norm(state.query));
   const nextFollowup = (row) => state.followups.find((f) => relatedTo(row, f) && f.status === 'Pendente');
+  const values = (value) => Array.isArray(value) ? value.filter(M.present).map(String) : M.present(value) ? [String(value)] : [];
+  const matches = (value, selected) => { const wanted = values(selected); return !wanted.length || wanted.some((item) => (Array.isArray(value) ? value : [value]).some((candidate) => M.norm(candidate) === M.norm(item))); };
+  const closedFollowup = (row) => /conclu|cancel|arquiv|encerr/i.test(M.norm(row?.status || '')) || !!row?.deleted_at;
+  const closedContact = (row) => /inativ|arquiv|exclu|cancel|encerr/i.test(M.norm(row?.status || '')) || !!row?.deleted_at;
   function directoryRows() {
-    return state.unified.filter((r) => (!state.category || r.roles.includes(state.category)) && (!state.status || r.status === state.status) && (!state.owner || r.owner === state.owner) && (app.view !== 'people' || r.entityType === 'Pessoa') && (app.view !== 'organizations' || r.entityType === 'Organização') && (state.quick !== 'active' || r.status !== 'Arquivado') && (state.quick !== 'archived' || r.status === 'Arquivado') && (state.quick !== 'followups' || nextFollowup(r)) && match([r.displayName, r.email, r.phone, r.jobTitle, r.organization, r.city, r.roles.join(' '), r.link?.secondary_email, r.link?.whatsapp]));
+    return state.unified.filter((r) => matches(r.roles, state.category) && matches(r.status, state.status) && matches(r.owner, state.owner) && (app.view !== 'people' || r.entityType === 'Pessoa') && (app.view !== 'organizations' || r.entityType === 'Organização') && (state.quick !== 'active' || !closedContact(r)) && (state.quick !== 'archived' || closedContact(r)) && (state.quick !== 'followups' || nextFollowup(r)) && match([r.displayName, r.email, r.phone, r.jobTitle, r.organization, r.city, r.roles.join(' '), r.link?.secondary_email, r.link?.whatsapp]));
   }
   function filters() {
     const roles = [...new Set(state.unified.flatMap((r) => r.roles))].sort();
-    return `<div class="t4-toolbar">${W.filter('category', 'Categoria', roles, state.category)}${W.filter('status', 'Situação', ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], state.status)}${W.filter('owner', 'Responsável', W.unique(state.unified, 'owner'), state.owner)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+    return `<div class="t4-toolbar">${W.multiFilter('category', 'Categorias', roles, state.category)}${W.multiFilter('status', 'Situações', ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], state.status)}${W.multiFilter('owner', 'Responsáveis', W.unique(state.unified, 'owner'), state.owner)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
   }
   function render() {
     if (!state.loaded) return;
@@ -48,9 +52,10 @@
   }
   function directoryView() {
     const missing = state.unified.filter((r) => r.unresolved);
-    return `${app.view === 'all' ? `<div class="t4-directory-intro"><div><span class="t4-overline">REDE DE RELACIONAMENTOS</span><h2>Pessoas certas. Contexto sempre à mão.</h2><p>Uma agenda para todos — sem transformar todo contato em talento.</p></div><div class="t4-directory-total"><strong>${state.unified.length}</strong><span>contatos na base</span></div></div>` : ''}
+    const activeCount = state.unified.filter((r) => !closedContact(r)).length, archiveCount = state.unified.filter(closedContact).length;
+    return `${app.view === 'all' ? `<div class="t4-directory-intro"><div><span class="t4-overline">REDE DE RELACIONAMENTOS</span><h2>Pessoas certas. Contexto sempre à mão.</h2><p>A agenda começa pelos relacionamentos ativos; o arquivo fica separado para consulta.</p></div><div class="t4-directory-total"><strong>${activeCount}</strong><span>ativos · ${archiveCount} no arquivo</span></div></div>` : ''}
       ${missing.length ? W.note(`${missing.length} contatos possuem uma origem não encontrada entre os registros acessíveis. Eles continuam visíveis e identificados para revisão.`, 'warning') : ''}
-      ${W.chips([{ id: 'all', label: 'Todos', count: state.unified.length }, { id: 'active', label: 'Em relacionamento' }, { id: 'followups', label: 'Com próximo passo', icon: 'clock' }, { id: 'archived', label: 'Arquivados', icon: 'archive' }], state.quick)}${filters()}
+      ${W.chips([{ id: 'active', label: 'Ativos', count: activeCount, icon: 'contact' }, { id: 'all', label: 'Todos os registros', count: state.unified.length, icon: 'list' }, { id: 'followups', label: 'Com próximo passo', icon: 'clock' }, { id: 'archived', label: 'Arquivo', count: archiveCount, icon: 'archive' }], state.quick)}${filters()}
       ${contactTable(directoryRows())}`;
   }
   function contactTable(rows, id = 'contacts') {
@@ -72,8 +77,10 @@
     ] });
   }
   function followupsView() {
-    const rows = state.followups.filter((r) => match([r.title, r.notes, byContact(r.contact_id)?.displayName, r.assigned_username]) && (!state.status || r.status === state.status));
-    return `<div class="t4-toolbar">${W.filter('status', 'Situação', ['Pendente', 'Concluído', 'Cancelado'], state.status)}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div><section class="t4-kpi-grid">${U.kpi('Pendentes', rows.filter((r) => r.status === 'Pendente').length, 'Próximas ações')}${U.kpi('Vencidos', rows.filter((r) => M.overdue(r.due_at, r.status)).length, 'Revisar prazo e responsável', 'warn')}${U.kpi('Concluídos', rows.filter((r) => r.status === 'Concluído').length, 'Histórico preservado', 'good')}${U.kpi('Contatos acompanhados', new Set(rows.map((r) => r.contact_id)).size, 'Neste recorte')}</section>` + followupTable(rows);
+    const scope = state.followupScope || 'open';
+    const rows = state.followups.filter((r) => (scope === 'open' ? !closedFollowup(r) : scope === 'closed' ? closedFollowup(r) : true) && matches(r.status, state.status) && match([r.title, r.notes, byContact(r.contact_id)?.displayName, r.assigned_username]));
+    const count = (which) => state.followups.filter((r) => which === 'open' ? !closedFollowup(r) : which === 'closed' ? closedFollowup(r) : true).length;
+    return W.chips([{ id: 'open', label: 'Pendentes', count: count('open'), icon: 'clock' }, { id: 'all', label: 'Todos os passos', count: count('all'), icon: 'list' }, { id: 'closed', label: 'Histórico', count: count('closed'), icon: 'archive' }], scope, 'followup-scope') + `<div class="t4-toolbar">${W.multiFilter('status', 'Situações', ['Pendente', 'Concluído', 'Cancelado'], state.status)}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div><section class="t4-kpi-grid">${U.kpi('Pendentes', rows.filter((r) => r.status === 'Pendente').length, 'Próximas ações')}${U.kpi('Vencidos', rows.filter((r) => M.overdue(r.due_at, r.status)).length, 'Revisar prazo e responsável', 'warn')}${U.kpi('Concluídos', rows.filter((r) => r.status === 'Concluído').length, 'Histórico preservado', 'good')}${U.kpi('Contatos acompanhados', new Set(rows.map((r) => r.contact_id)).size, 'Neste recorte')}</section>` + followupTable(rows);
   }
   function categoriesView() {
     return W.table({ id: 'categories', rows: state.categories.filter((r) => match([r.name, r.slug])), columns: [
@@ -231,8 +238,9 @@
   }
   W.bind(app, { change(key, value) { state[key] = value; render(); }, async action(action, id) {
     if (action === 'reload') return D.session ? load() : location.reload();
-    if (action === 'clear') { state.category = ''; state.status = ''; state.owner = ''; state.query = ''; state.quick = 'all'; app.resetSearch(); render(); return; }
+    if (action === 'clear') { state.category = []; state.status = []; state.owner = []; state.query = ''; state.quick = 'active'; state.followupScope = 'open'; app.resetSearch(); render(); return; }
     if (action === 'quick') { state.quick = id; render(); return; }
+    if (action === 'followup-scope') { state.followupScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (action === 'contact-detail') return contactDetail(byKey(id));
     if (action === 'edit-contact') return editContact(byKey(id));
     if (action === 'edit-category') return editCategory(W.find(state.categories, id));
@@ -260,7 +268,7 @@
       U.closeDrawer(); return load();
     }
   } });
-  app.onRoute(() => { state.status = ''; render(); });
+  app.onRoute(() => { state.status = ''; if (['all', 'people', 'organizations'].includes(app.view)) state.quick = 'active'; render(); });
   W.start(app, async () => {
     await load();
     const p = new URLSearchParams(location.search);

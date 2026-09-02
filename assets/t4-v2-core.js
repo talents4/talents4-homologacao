@@ -45,7 +45,8 @@
     eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     activity: '<path d="M3 12h4l2-7 4 14 2-7h6"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
-    command: '<path d="M7 3v4M17 3v4M7 17v4M17 17v4M3 7h4M17 7h4M3 17h4M17 17h4"/><rect x="7" y="7" width="10" height="10" rx="2"/>'
+    command: '<path d="M7 3v4M17 3v4M7 17v4M17 17v4M3 7h4M17 7h4M3 17h4M17 17h4"/><rect x="7" y="7" width="10" height="10" rx="2"/>',
+    more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'
   };
 
   const SWITCHES = [
@@ -293,6 +294,8 @@
     document.body.dataset.t4Module = moduleId;
     document.title = `${config.moduleLabel} · Talents 4`;
 
+    const primaryViews = views.filter((view) => view.primary !== false);
+    const secondaryViews = views.filter((view) => view.primary === false);
     root.innerHTML = `
       <a class="t4-skip" href="#t4-page-root">Ir para o conteúdo</a><div class="t4-app">
         <aside class="t4-sidebar" aria-label="Navegação principal">
@@ -303,7 +306,8 @@
           <div class="t4-sidebar-scroll">
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
               <div class="t4-nav-label">${esc(config.moduleLabel)}</div>
-              ${views.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
+              ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
+              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
               <div class="t4-nav-label">Áreas do sistema</div>
@@ -321,6 +325,7 @@
         <button type="button" class="t4-mobile-overlay" aria-label="Fechar menu"></button>
         <main class="t4-main">
           <header class="t4-topbar">
+            <div class="t4-window-controls" aria-hidden="true"><i></i><i></i><i></i></div>
             <button type="button" class="t4-icon-btn t4-mobile-menu" data-menu aria-label="Abrir menu">${icon('menu')}</button>
             <div class="t4-topbar-heading"><div class="t4-eyebrow">${esc(config.moduleLabel)}</div><h1 class="t4-page-title" data-page-title></h1><p class="t4-page-subtitle" data-page-subtitle></p></div>
             <div class="t4-topbar-spacer"></div>
@@ -329,7 +334,7 @@
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
-          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação V2.1'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Sem conexão com o banco · alterações descartadas ao recarregar' : 'Mesmo banco do sistema atual · salvar altera dados reais'}</span></div>
+          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação isolada · Supabase'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Sem conexão com o banco · alterações descartadas ao recarregar' : 'Supabase é a única fonte nesta fase · sem Planilhas, Drive ou backup externo'}</span></div>
           <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;
@@ -375,6 +380,8 @@
       });
       root.querySelector('[data-page-title]').textContent = view?.title || view?.label || '';
       root.querySelector('[data-page-subtitle]').textContent = view?.subtitle || config.subtitle || '';
+      const more = root.querySelector('.t4-nav-more');
+      if (more && secondaryViews.some((item) => item.id === currentView)) more.open = true;
       if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
       document.body.classList.remove('t4-sidebar-open');
     }
