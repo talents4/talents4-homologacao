@@ -31,4 +31,4 @@ Não é necessário instalar VS Code, Node, npm ou rodar servidor local. A demon
 
 O sistema não sincroniza Drive, Google Planilhas ou produção. Não executa SQL pelo front-end. A projeção B1 é apenas cenário de idioma; não aprova um Talento e não dispara apresentação.
 
-Para o roteiro detalhado, consulte [PASSO_A_PASSO.md](PASSO_A_PASSO.md) e [PASSO_A_PASSO_TALENTOS_V2_5.md](PASSO_A_PASSO_TALENTOS_V2_5.md).
+Antes de aplicar qualquer alteração no banco compartilhado, siga a [auditoria segura do contrato Frontend ↔ Supabase](SUPABASE_AUDITORIA.md). Para o roteiro detalhado de operação, consulte [PASSO_A_PASSO.md](PASSO_A_PASSO.md) e [PASSO_A_PASSO_TALENTOS_V2_5.md](PASSO_A_PASSO_TALENTOS_V2_5.md).
