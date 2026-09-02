@@ -719,3 +719,96 @@ body {
   .t4-brand-logo { forced-color-adjust: none; }
   .t4-more-filter-grid, [data-t4-module="talents"] .tw-more-filter-grid { background: Canvas !important; color: CanvasText; border-color: CanvasText !important; box-shadow: none !important; }
 }
+
+/* V2.6 · acabamento de produto: mais área útil, seleção explícita e estados
+   de dados compreensíveis. Este bloco é deliberadamente o último para que o
+   design system final governe as versões anteriores sem outra cascata. */
+.t4-sidebar { min-height: 0; }
+.t4-sidebar-scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-color: #b7c9d7 transparent; }
+.t4-brand { min-height: 124px; padding: 11px 15px 10px; }
+.t4-brand-logo { width: 142px; max-width: 142px; border-radius: 12px; box-shadow: 0 6px 14px rgba(0, 42, 74, .16); }
+.t4-brand:hover .t4-brand-logo, .t4-brand:focus-visible .t4-brand-logo { box-shadow: 0 8px 18px rgba(0, 42, 74, .21); }
+.t4-brand-lockup { gap: 6px; }
+.t4-brand-sub { font-size: 7px; line-height: 1.15; }
+.t4-sidebar-footer { flex: 0 0 auto; }
+.t4-topbar { position: sticky; top: 0; z-index: 40; }
+
+.v25-scope-strip { align-items: center; gap: 18px; }
+.v25-scope-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.t4-bulk-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 13px 0 16px; padding: 11px 14px; border: 1px solid #b7cbd9; border-radius: 14px; color: #244861; background: #f7fafc; box-shadow: 0 3px 9px rgba(0, 42, 74, .05); }
+.t4-bulk-bar.has-selection { border-color: #5a93bd; background: linear-gradient(105deg, #eaf4fb, #f8fbfd); box-shadow: 0 5px 16px rgba(0, 76, 125, .1); }
+.t4-bulk-bar > div:first-child { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 9px; align-items: center; min-width: 0; }
+.t4-bulk-icon { grid-row: span 2; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #0b63ce; background: #dcecf8; }
+.t4-bulk-bar strong, .t4-bulk-bar small { grid-column: 2; }
+.t4-bulk-bar strong { color: #002a4a; font-size: 12px; }
+.t4-bulk-bar small { margin-top: 2px; color: #5b7286; font-size: 10px; }
+.t4-bulk-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
+.t4-selection-cell { width: 42px; min-width: 42px; padding-right: 4px !important; padding-left: 4px !important; text-align: center; }
+[data-talent-select] { width: 16px; height: 16px; margin: 0; accent-color: #0b63ce; cursor: pointer; }
+.t4-card-select { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #5b7286; font-size: 10px; font-weight: 700; cursor: pointer; }
+.t4-card-select span { letter-spacing: .02em; }
+.mx-card.is-selected { border-color: #3e83b5; box-shadow: 0 0 0 3px rgba(11, 99, 206, .1), var(--v25-shadow); }
+
+.t4-source-status { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 14px; padding: 10px 13px; border: 1px solid #bfd3e1; border-radius: 12px; color: #36566c; background: #f5f9fb; }
+.t4-source-status-icon { display: grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; color: #0b63ce; }
+.t4-source-status strong { color: #173e5b; font-size: 11px; }
+.t4-source-status p { margin: 3px 0 0; color: #5b7286; font-size: 11px; line-height: 1.45; }
+.t4-source-status details { margin-top: 4px; font-size: 10px; }
+.t4-source-status summary { display: inline-block; color: #0b63ce; cursor: pointer; }
+.t4-source-status ul { margin: 5px 0 0 16px; padding: 0; color: #6a7d8e; }
+
+.t4-data-hero { display: grid; gap: 7px; padding: 5px 0 18px; }
+.t4-data-hero h3, .t4-data-summary h3 { margin: 0; color: #002a4a; font-size: 20px; letter-spacing: -.04em; }
+.t4-data-hero p, .t4-data-summary p, .t4-data-files p, .t4-data-export-grid p { margin: 0; color: #5b7286; font-size: 12px; line-height: 1.5; }
+.t4-dropzone { display: grid; place-items: center; min-height: 130px; margin-top: 8px; padding: 20px; border: 1px dashed #6e9cbd; border-radius: 16px; color: #174a6b; background: #f3f8fb; text-align: center; cursor: pointer; transition: border-color .16s ease, background .16s ease, transform .16s ease; }
+.t4-dropzone:hover, .t4-dropzone:focus-within { border-color: #0b63ce; background: #eaf4fb; transform: translateY(-1px); }
+.t4-dropzone input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.t4-dropzone > span { display: grid; justify-items: center; gap: 5px; }
+.t4-dropzone > span > .t4-icon { color: #0b63ce; }
+.t4-dropzone strong { font-size: 13px; }
+.t4-dropzone small { color: #6a8193; font-size: 10px; }
+.t4-data-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.t4-data-card, .t4-data-export-grid > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 14px; border: 1px solid #c3d3de; border-radius: 13px; background: #fbfdfe; }
+.t4-data-card-icon { display: grid; place-items: center; float: left; width: 27px; height: 27px; margin: 0 9px 20px 0; border-radius: 8px; color: #0b63ce; background: #e3f0f8; }
+.t4-data-card h3 { margin: 1px 0 4px; color: #173e5b; font-size: 12px; }
+.t4-data-card p { clear: both; margin: 0; color: #617789; font-size: 11px; line-height: 1.45; }
+.t4-data-card-badge { align-self: center; color: #6a8193; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.t4-data-export-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.t4-data-export-grid > div { display: grid; justify-content: stretch; gap: 6px; }
+.t4-data-export-grid strong { color: #244861; font-size: 11px; }
+.t4-data-export-grid > div > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.t4-data-summary { display: grid; grid-template-columns: minmax(220px, 1.5fr) repeat(5, minmax(92px, 1fr)); gap: 9px; align-items: stretch; padding-bottom: 14px; }
+.t4-data-summary > div:first-child { padding: 5px 5px 5px 0; }
+.t4-data-stat { display: grid; align-content: center; gap: 3px; min-height: 66px; padding: 9px 10px; border: 1px solid #c4d5df; border-radius: 11px; background: #f7fafc; }
+.t4-data-stat strong { color: #002a4a; font-size: 20px; letter-spacing: -.04em; }
+.t4-data-stat span { color: #63798a; font-size: 9px; line-height: 1.25; }
+.t4-data-files { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: 10px; padding: 12px 0; border-top: 1px solid #d5e0e8; border-bottom: 1px solid #d5e0e8; }
+.t4-data-files > div { display: grid; align-content: start; gap: 7px; }
+.t4-data-files strong { color: #244861; font-size: 11px; }
+.t4-data-files span { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 7px; align-items: center; padding: 7px 9px; border-radius: 9px; background: #f7fafc; }
+.t4-data-files span .t4-icon { grid-row: span 2; color: #0b63ce; }
+.t4-data-files span b { overflow: hidden; color: #244861; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.t4-data-files span small { grid-column: 2; color: #748999; font-size: 9px; }
+.t4-data-warnings { display: grid; gap: 7px; margin-top: 10px; }
+.t4-data-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.t4-preserve { word-break: break-word; }
+.t4-save-hint.error { color: #a2253e; }
+.t4-save-hint.success { color: #16704f; }
+
+@media (max-width: 900px) {
+  .t4-data-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .t4-data-summary > div:first-child { grid-column: 1 / -1; }
+  .t4-bulk-bar { align-items: flex-start; flex-direction: column; }
+  .t4-bulk-actions { width: 100%; justify-content: flex-start; }
+}
+@media (max-width: 680px) {
+  .t4-brand { min-height: 106px; padding: 8px 12px; }
+  .t4-brand-logo { width: 120px; max-width: 120px; }
+  .t4-brand-sub { display: none; }
+  .v25-scope-strip { align-items: flex-start; flex-direction: column; }
+  .v25-scope-actions { width: 100%; justify-content: flex-start; }
+  .t4-data-cards, .t4-data-export-grid, .t4-data-files { grid-template-columns: 1fr; }
+  .t4-data-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .t4-data-actions { align-items: stretch; flex-direction: column-reverse; }
+  .t4-data-actions .t4-btn { width: 100%; justify-content: center; }
+}

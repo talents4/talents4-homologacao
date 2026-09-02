@@ -156,14 +156,22 @@
   function partnerRows(state, talents) {
     const people = presentationRows(state, talents), employers = state.employers || [];
     const partnerById = new Map((state.mappingPartners || []).map((r) => [String(r.id), r]));
+    const importSnapshot = (notes) => {
+      const match = String(notes || '').match(/\[T4_IMPORT_PARTNER_V1\]\s*([\s\S]*?)\s*\[\/T4_IMPORT_PARTNER_V1\]/);
+      if (!match) return null;
+      try { return JSON.parse(match[1]); } catch { return null; }
+    };
     const ids = new Set([...partnerById.keys(), ...people.flatMap((p) => [p.employer_primary_id, p.employer_alt1_id, p.employer_alt2_id]).filter(M.present).map(String)]);
     return [...ids].map((id) => {
-      const e = employers.find((r) => M.same(r.id, id)), p = partnerById.get(id) || {};
+      const e = employers.find((r) => M.same(r.id, id)), p = partnerById.get(id) || {}, snapshot = importSnapshot(p.notes);
       const candidates = people.filter((r) => [r.employer_primary_id, r.employer_alt1_id, r.employer_alt2_id].some((x) => M.same(x, id)));
       const vacancyNames = (state.openings || []).filter((r) => M.same(r.employer_id, id) && !r.deleted_at && M.active(r.is_active) && openVacancy({vacancy_status:r.status})).map((r) => r.title);
-      return { ...p, id, empresa: e?.nome || 'Empregador não disponível', count: candidates.length,
-        talent_names: candidates.map((r) => r.nome_completo).join('\n'), areas: candidates.map((r) => r.area_profissional || '—').join('\n'),
-        german: candidates.map((r) => r.nivel_alemao || '—').join('\n'), english: candidates.map((r) => r.ingles || '—').join('\n'),
+      return { ...p, id, empresa: e?.nome || 'Empregador não disponível', count: snapshot?.count ?? candidates.length,
+        talent_names: snapshot?.talent_names || candidates.map((r) => r.nome_completo).join('\n'),
+        areas: snapshot?.areas || candidates.map((r) => r.area_profissional || '—').join('\n'),
+        german: snapshot?.german || candidates.map((r) => r.nivel_alemao || '—').join('\n'),
+        english: snapshot?.english || candidates.map((r) => r.ingles || '—').join('\n'),
+        notes: snapshot?.notes || p.notes,
         sector: e?.area_atuacao || p.sector, openings: vacancyNames.join('\n') || p.openings_note,
         description: e?.descricao_resumida || p.description, send_email: p.send_email || e?.email_principal, _employer: e };
     });

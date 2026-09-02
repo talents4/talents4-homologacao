@@ -335,7 +335,7 @@
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
-          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação isolada · Supabase'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Sem conexão com o banco · alterações descartadas ao recarregar' : 'Supabase é a única fonte nesta fase · sem Planilhas, Drive ou backup externo'}</span></div>
+          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação isolada'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Explore o fluxo com dados de exemplo; alterações não são persistidas.' : 'Ambiente separado para validar o CRM antes da operação principal.'}</span></div>
           <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;

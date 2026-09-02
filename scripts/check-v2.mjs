@@ -26,6 +26,7 @@ const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALID
   'assets/t4-modern.js','assets/t4-modern.css',
   'assets/t4-v24.js','assets/t4-v24.css',
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
+  'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs',
   'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
   'tests/talents-sql-contract.test.mjs','TALENTOS_V2_2.md','PASSO_A_PASSO_TALENTOS_V2_2.md','PREVIA_TALENTOS_V2_2.md'];
 for (const file of required) check(files.includes(file), `${file} existe`);
@@ -86,7 +87,7 @@ const front = required.filter((file) => file.startsWith('assets/') || Object.has
 for (const [pattern, label] of [
   [/sheets\.googleapis\.com|docs\.google\.com\/spreadsheets/i, 'integração com Google Planilhas'],
   [/drive\.googleapis\.com|accounts\.google\.com\/gsi/i, 'API de Drive / OAuth Google'],
-  [/\bXLSX\b|\bSheetJS\b|\bMammoth\b/i, 'bibliotecas de importação legadas'],
+  [/\bSheetJS\b|\bMammoth\b/i, 'bibliotecas de importação legadas'],
   [/\bclient_secret\b|\bservice_role\b|BEGIN PRIVATE KEY|ghp_[A-Za-z0-9]+/i, 'segredo administrativo'],
   [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
   [/fetch\s*\(\s*['"]https?:\/\//i, 'chamada direta a serviço externo'],
@@ -117,6 +118,11 @@ check(organizationV25.includes("employerScope: 'active'") && organizationV25.inc
 check(contactsV25.includes("followupScope: 'open'") && contactsV25.includes("W.multiFilter('category'") && contactsV25.includes("label: 'Arquivo'"), 'Contatos inicia no ativo e usa filtros múltiplos');
 check(germanV25.includes("classScope: 'active'") && germanV25.includes("studentScope: 'current'") && germanV25.includes("W.multiFilter('status'"), 'Alemão inicia no acompanhamento atual e usa filtros múltiplos');
 check(!organizationV25.includes('T4V24.savedViews') && !talentsV25.includes('T4V24.savedViews'), 'navegação lateral não duplica a antiga barra de visões');
+const importExport = read('assets/t4-import-export.js'), workbook = read('assets/t4-workbook.js');
+check(importExport.includes('parseBooks') && importExport.includes('Confirmar importação') && importExport.includes('buildNectaWorkbook') && importExport.includes('buildMappingWorkbook'), 'Centro de dados possui prévia, confirmação e os dois modelos de exportação');
+check(talentsV25.includes('A seleção não altera etapas') && importExport.includes('source.mapping.radar'), 'importação respeita seleção manual e preserva o radar');
+check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbook.includes('pageBreaks'), 'leitor e escritor local preservam abas, congelamento e quebra de página');
+check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
 check(read('TALENTOS_V2_5.md').includes('Supabase') && read('MANUAL_TALENTOS_V2_5.md').includes('Lista NectaNet') && read('PASSO_A_PASSO_TALENTOS_V2_5.md').includes('talents4/talents4-homologacao'), 'documentação V2.5 cobre produto, uso e upload');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);

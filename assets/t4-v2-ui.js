@@ -156,10 +156,18 @@
   }
   function sourceAlerts(state, names = Object.keys(state.sources || {})) {
     const warnings = names.flatMap((key) => state.sources?.[key]?.warnings || []);
-    return [...(D.readWarnings || []), ...warnings].map((message) => note(message, 'warning')).join('') + names.filter((key) => state.sources?.[key]?.error || state.sources?.[key]?.available === false).map((key) => {
+    const unavailable = names.filter((key) => state.sources?.[key]?.available === false);
+    const failed = names.filter((key) => state.sources?.[key]?.error);
+    const visibleWarnings = [...(D.readWarnings || []), ...warnings].map((message) => note(message, 'warning')).join('');
+    const errors = failed.map((key) => {
       const src = state.sources[key];
-      return note(`${src.label || key}: ${src.available === false ? 'fonte não disponível neste banco; esta área não foi considerada vazia.' : formatError(src.error)}${src.stale ? ' Os dados anteriores foram mantidos; os totais podem estar desatualizados.' : ''}`, 'warning');
+      return note(`${src.label || key}: ${formatError(src.error)}${src.stale ? ' Os dados anteriores foram mantidos.' : ''}`, 'error');
     }).join('');
+    if (!unavailable.length) return visibleWarnings + errors;
+    const labels = unavailable.map((key) => state.sources[key]?.label || key);
+    const stale = names.some((key) => state.sources?.[key]?.stale);
+    const details = unavailable.map((key) => `<li>${e(state.sources[key]?.label || key)}: fonte não disponível neste banco; a fila principal continua disponível.</li>`).join('');
+    return `${visibleWarnings}${errors}<div class="t4-source-status" role="status"><span class="t4-source-status-icon">${U.icon('info')}</span><div><strong>Dados complementares aguardando importação</strong><p>${e(labels.length === 1 ? 'Há um conjunto complementar que ainda não foi carregado.' : `${labels.length} conjuntos complementares ainda não foram carregados.`)} Use <b>Centro de dados</b> para importar os dois modelos oficiais quando quiser enriquecer o mapeamento.${stale ? ' Os dados anteriores foram mantidos onde possível.' : ''}</p><details><summary>Ver detalhes</summary><ul>${details}</ul></details></div></div>`;
   }
   function loader(app, state, sources, render) {
     let pending = null, again = false;
@@ -244,7 +252,7 @@
       document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
     }).catch((error) => {
       app.setSync('error', 'Acesso indisponível');
-      app.pageRoot.innerHTML = note(formatError(error), 'error') + button('Tentar novamente', 'reload', '', { icon: 'refresh' }) + link('Abrir login do CRM', '/talents4/index.html');
+      app.pageRoot.innerHTML = note(formatError(error), 'error') + button('Tentar novamente', 'reload', '', { icon: 'refresh' }) + link('Abrir login do CRM', './index.html');
     });
     window.addEventListener('pagehide', () => { unsubscribe?.(); D.dispose(); });
     window.addEventListener('beforeunload', (event) => {
