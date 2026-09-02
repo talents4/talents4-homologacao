@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talents 4 | CRM Pipeline</title>
+    <style>
+        /* Variáveis de Sistema Apple */
+        :root {
+            --bg-mac: #F5F5F7;
+            --sidebar-bg: rgba(232, 232, 237, 0.6);
+            --panel-bg: rgba(255, 255, 255, 0.85);
+            --accent: #0071E3;
+            --text-main: #1D1D1F;
+            --text-muted: #86868B;
+            --border: rgba(0,0,0,0.06);
+            --blur: blur(20px);
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            background-color: var(--bg-mac);
+            color: var(--text-main);
+            display: grid;
+            grid-template-columns: 260px 1fr; /* Sidebar + Conteúdo */
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Glassmorphism */
+        .sidebar {
+            background: var(--sidebar-bg);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo-container {
+            padding: 0 12px 32px 12px;
+            text-align: left;
+        }
+
+        .logo-container img {
+            height: 48px;
+            width: auto;
+        }
+
+        .nav-item {
+            padding: 10px 14px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .nav-item.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: rgba(0,0,0,0.04);
+        }
+
+        /* Área Principal de Pipeline (Master-Detail) */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px; /* Lista + Dossiê Lateral */
+            height: 100vh;
+        }
+
+        .pipeline-list {
+            padding: 32px;
+            overflow-y: auto;
+        }
+
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 24px;
+        }
+
+        /* Tabela Matricial (A evolução do Kanban) */
+        .matrix-row {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            display: grid;
+            grid-template-columns: 2fr 2fr 3fr;
+            align-items: center;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            cursor: pointer;
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+
+        .matrix-row:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+        }
+
+        /* Stepper Visual Linear */
+        .stepper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .step-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #E5E5EA;
+        }
+        .step-dot.completed { background: var(--accent); }
+        .step-dot.active { 
+            background: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+        }
+        .step-line {
+            height: 2px;
+            width: 20px;
+            background: #E5E5EA;
+        }
+        .step-line.completed { background: var(--accent); }
+
+        /* Dossiê Lateral (Slide-over) */
+        .detail-panel {
+            background: var(--panel-bg);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-left: 1px solid var(--border);
+            padding: 32px 24px;
+            overflow-y: auto;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(0,0,0,0.05);
+        }
+        .badge.blue { background: rgba(0, 113, 227, 0.1); color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar com Fundo Claro -->
+    <div class="sidebar">
+        <div class="logo-container">
+            <!-- Puxando sua logo de fundo claro -->
+            <img src="../image_3528c4.png" alt="Talents 4 Logo">
+        </div>
+        <div class="nav-item">Meu Dia</div>
+        <div class="nav-item">Base de Talentos</div>
+        <div class="nav-item active">Seleções (Pipeline)</div>
+        <div class="nav-item">Oportunidades</div>
+    </div>
+
+    <!-- Conteúdo Principal Dividido -->
+    <div class="main-content">
+        
+        <!-- Lado Esquerdo: Lista de Pipeline -->
+        <div class="pipeline-list">
+            <div class="page-title">Acompanhamento de Seleções</div>
+            
+            <!-- Exemplo de Linha 1 (Focado no seu contexto de TI/Redes) -->
+            <div class="matrix-row">
+                <div>
+                    <div style="font-weight: 600;">Jean Carlos L. Duarte</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">A2/B1 • Network Automation Engineer</div>
+                </div>
+                
+                <div>
+                    <span class="badge">Hubert Burda Media</span>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">SLA: Aguardando há 2 dias</div>
+                </div>
+
+                <!-- O Novo Kanban Linear -->
+                <div class="stepper">
+                    <div class="step-dot completed" title="Análise"></div>
+                    <div class="step-line completed"></div>
+                    <div class="step-dot completed" title="Apresentado"></div>
+                    <div class="step-line completed"></div>
+                    <div class="step-dot active" title="Entrevista"></div>
+                    <div class="step-line"></div>
+                    <div class="step-dot" title="Proposta"></div>
+                    <div class="step-line"></div>
+                    <div class="step-dot" title="Contratado"></div>
+                    <span style="font-size: 12px; margin-left: 8px; font-weight: 500; color: var(--accent);">Entrevista</span>
+                </div>
+            </div>
+
+            <!-- Exemplo de Linha 2 -->
+            <div class="matrix-row">
+                <div>
+                    <div style="font-weight: 600;">Daniel Henrique</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">A2 • Industriemechaniker</div>
+                </div>
+                
+                <div>
+                    <span class="badge blue">Richter Aluminium GmbH</span>
+                    <div style="font-size: 12px; color: #FF3B30; margin-top: 4px;">SLA: Atrasado (15 dias)</div>
+                </div>
+
+                <div class="stepper">
+                    <div class="step-dot completed"></div>
+                    <div class="step-line completed"></div>
+                    <div class="step-dot active"></div>
+                    <div class="step-line"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-line"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-line"></div>
+                    <div class="step-dot"></div>
+                    <span style="font-size: 12px; margin-left: 8px; font-weight: 500; color: var(--accent);">Apresentado</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lado Direito: Dossiê Rápido -->
+        <div class="detail-panel">
+            <h3 style="margin-top: 0;">Detalhes da Seleção</h3>
+            <div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
+                <strong>Talento:</strong> Jean Carlos L. Duarte<br>
+                <strong>Vaga:</strong> Network Automation Engineer<br>
+                <strong>Empresa:</strong> Hubert Burda Media (Offenburg)
+            </div>
+            
+            <h4>Métricas de Aderência</h4>
+            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
+                <div style="flex: 1; background: rgba(52, 199, 89, 0.1); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: 700; color: #34C759;">95%</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Técnica</div>
+                </div>
+                <div style="flex: 1; background: rgba(255, 149, 0, 0.1); padding: 12px; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 20px; font-weight: 700; color: #FF9500;">60%</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">Viabilidade</div>
+                </div>
+            </div>
+
+            <h4>Próxima Ação</h4>
+            <textarea style="width: 100%; border-radius: 8px; border: 1px solid var(--border); padding: 10px; font-family: inherit; resize: vertical;" rows="3" placeholder="Ex: Enviar e-mail cobrando feedback da entrevista técnica."></textarea>
+            <button style="margin-top: 12px; width: 100%; background: var(--accent); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;">Salvar e Notificar</button>
+        </div>
+
+    </div>
+</body>
+</html>
