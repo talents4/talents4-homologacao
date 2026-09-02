@@ -30,6 +30,16 @@ test('filtros rápidos combinam curso e atenção sem trazer todos os alunos',as
   assert.equal((text(h).match(/aria-pressed="true"/g)||[]).length,2);
   await h.action('quick','attention'); assert.match(text(h),/Sofia Almeida/);
 });
+test('barra de filtros expõe o essencial e agrupa critérios avançados',async()=>{
+  const h=await boot();
+  h.app.route('presentation');
+  assert.match(text(h),/Filtrar talentos/);
+  assert.match(text(h),/Mais filtros/);
+  assert.match(text(h),/As opções de um grupo são alternativas/);
+  assert.doesNotMatch(text(h),/Você pode combinar vários filtros/);
+  assert.doesNotMatch(text(h),/t4-window-controls/);
+  assert.equal(h.fixture.writes.length,0);
+});
 test('liberação e Lista Nectanet são independentes; selecionar pronto abre as 18 colunas',async()=>{
   const h=await boot(); await h.action('quick','ready');
   assert.match(text(h),/Empresa alternativa 2/); assert.match(text(h),/Marina Duarte/); assert.doesNotMatch(text(h),/Lucas Vieira/);

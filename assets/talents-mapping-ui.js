@@ -3,8 +3,8 @@
   'use strict';
   const U = window.T4V2, W = window.T4Work, D = window.T4Data, M = window.T4Models, T = window.T4TalentMapping;
   const e = U.esc, a = U.attr;
-  const labels = { stage: 'Etapas', german: 'Alemão', owner: 'Responsáveis', employer: 'Empregadores', cluster: 'Clusters', visa: 'Visto', qualification: 'Qualificação', cv: 'Novo CV', nectanet: 'Lista NectaNet (Sim/Não)' };
-  const quicks = [{ id: 'mine', label: 'Meus talentos', icon: 'user' }, { id: 'attention', label: 'A acompanhar', icon: 'warning' }, { id: 'course', label: 'Em aulas', icon: 'graduation' }, { id: 'ready', label: 'Liberados para apresentar', icon: 'check' }];
+  const labels = { stage: 'Etapas', german: 'Alemão', owner: 'Responsáveis', employer: 'Empregadores', cluster: 'Clusters', visa: 'Visto', qualification: 'Qualificação', cv: 'Novo CV', nectanet: 'Lista NectaNet' };
+  const quicks = [{ id: 'mine', label: 'Meus talentos', icon: 'user' }, { id: 'attention', label: 'A acompanhar', icon: 'warning' }, { id: 'course', label: 'Em aulas', icon: 'graduation' }, { id: 'ready', label: 'Prontos para apresentar', icon: 'check' }];
   const profileFields = [
     ['perfil_titulo', 'Perfil / áreas de atuação'], ['perfil_comprovado', 'Perfil comprovado', 'textarea'], ['idiomas_contexto', 'Idiomas', 'textarea'],
     ['regra_revisao', 'Regra desta revisão', 'textarea'], ['premissa_projecao', 'Premissa da projeção B1', 'textarea'],
@@ -13,7 +13,7 @@
   const safe = (value) => M.safeUrl(value);
   function create({ state, app, load, render, talentDetail }) {
     state.filters ||= {}; state.quick = T.list(state.quick).filter((x) => x !== 'all');
-    state.multiOpen = ''; state.multiSearch ||= {}; state.mappingStatus ||= []; state.presentationTab ||= 'people'; state.workFilters ||= {};
+    state.multiOpen = ''; state.multiSearch ||= {}; state.mappingStatus ||= []; state.presentationTab ||= 'people'; state.workFilters ||= {}; state.moreFiltersOpen = !!state.moreFiltersOpen;
     const filtered = (options = {}) => T.filterTalents(state, { profile: D.profile, ...options });
     const available = (key) => state.sources?.[key]?.available === true && !state.sources[key].error;
     const requireSource = (key) => { if (!available(key)) throw new Error('Os campos de mapeamento não estão disponíveis. Confira a pré-checagem do Supabase; nenhuma alteração foi gravada.'); };
@@ -40,19 +40,22 @@
     }
     function multi(key, options, selected, label, counts = null) {
       const search = state.multiSearch[key] || '';
-      return `<details class="tw-multiselect" data-tw-multi="${a(key)}" ${state.multiOpen === key ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}">${e(label)}<span>${selected.length ? `${selected.length} selecionado${selected.length > 1 ? 's' : ''}` : 'Todos'}</span>${U.icon('chevron')}</summary><div class="tw-options"><input type="search" data-tw-search="${a(key)}" placeholder="Buscar opção…" aria-label="Buscar em ${a(label)}" value="${a(search)}"><div class="tw-option-actions">${W.button('Todas', 'multi-all', key, { className: 'ghost sm' })}${W.button('Limpar', 'multi-clear', key, { className: 'ghost sm' })}</div><div class="tw-option-list">${options.map((o, i) => `<label data-tw-option="${a(M.norm(o.label))}" ${search && !M.norm(o.label).includes(M.norm(search)) ? 'hidden' : ''}><input id="tw-${a(key)}-${i}" type="checkbox" data-tw-check="${a(key)}" value="${a(o.value)}" ${selected.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span>${counts ? `<small>${counts(o.value)}</small>` : ''}</label>`).join('') || '<p class="tw-muted">Nenhuma opção neste recorte.</p>'}</div><p>Mais de uma opção: aceita qualquer uma.</p></div></details>`;
+      return `<details class="tw-multiselect" data-tw-multi="${a(key)}" ${state.multiOpen === key ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><strong>${e(label)}</strong><span>${selected.length ? `${selected.length} selecionado${selected.length > 1 ? 's' : ''}` : 'Todos'}</span>${U.icon('chevron')}</summary><div class="tw-options"><div class="tw-options-head"><span>Filtrar ${e(label)}</span><button type="button" class="tw-options-close" data-action="multi-close" data-id="${a(key)}" aria-label="Fechar filtro">×</button></div><input type="search" data-tw-search="${a(key)}" placeholder="Buscar opção…" aria-label="Buscar em ${a(label)}" value="${a(search)}"><div class="tw-option-actions">${W.button('Selecionar todos', 'multi-all', key, { className: 'ghost sm' })}${W.button('Limpar', 'multi-clear', key, { className: 'ghost sm' })}</div><div class="tw-option-list">${options.map((o, i) => `<label data-tw-option="${a(M.norm(o.label))}" ${search && !M.norm(o.label).includes(M.norm(search)) ? 'hidden' : ''}><input id="tw-${a(key)}-${i}" type="checkbox" data-tw-check="${a(key)}" value="${a(o.value)}" ${selected.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span>${counts ? `<small>${counts(o.value)}</small>` : ''}</label>`).join('') || '<p class="tw-muted">Nenhuma opção neste recorte.</p>'}</div><p>Dentro deste filtro, vale qualquer opção selecionada.</p></div></details>`;
     }
     function toolbar({ extended = false, archived = false } = {}) {
       const people = state.talents.filter((r) => T.active(r) !== archived);
       const keys = ['stage', 'german', 'owner', 'employer', ...(extended ? ['cluster', 'visa', 'qualification', 'cv', 'nectanet'] : [])];
-      const count = Object.values(state.filters).reduce((n, v) => n + v.length, 0);
-      return `<div class="tw-filter-surface"><div class="tw-filter-row">${keys.map((key) => {
+      const count = Object.values(state.filters).reduce((n, v) => n + (Array.isArray(v) ? v.length : 0), 0);
+      const renderFilter = (key) => {
         const selected = state.filters[key] || [], options = valuesFor(key, people);
         for (const s of selected) if (!options.some((o) => o.value === s)) options.push({value:s,label:s});
         const counts = new Map();
         for (const person of filtered({archived,ignore:key})) for (const choice of valuesFor(key,[person])) counts.set(choice.value,(counts.get(choice.value)||0)+1);
         return multi(key, options, selected, labels[key], (value) => counts.get(value)||0);
-      }).join('')}<div class="tw-filter-tools">${W.button('Limpar filtros', 'clear', '', {className:'ghost sm'})}${W.button('Atualizar', 'reload', '', {className:'sm',icon:'refresh'})}</div></div><div class="tw-filter-summary"><span>${count ? `${count} opção(ões) selecionada(s)` : 'Sem filtros adicionais'} · Entre grupos, todos os critérios precisam ser atendidos.</span>${count ? `<div class="tw-active-filters">${Object.entries(state.filters).flatMap(([key, selected]) => selected.map((value) => `<button type="button" data-action="filter-remove" data-id="${a(JSON.stringify([key,value]))}">${e(labels[key])}: ${e(valuesFor(key, people).find((o) => o.value === value)?.label || value)} <span aria-hidden="true">×</span></button>`)).join('')}</div>` : ''}</div></div>`;
+      };
+      const primaryKeys = keys.slice(0, 4), extraKeys = keys.slice(4);
+      const activeExtra = extraKeys.reduce((n, key) => n + (state.filters[key] || []).length, 0);
+      return `<div class="tw-filter-surface"><div class="tw-filter-head"><div><span class="tw-filter-title">Filtrar talentos</span><span class="tw-filter-caption">Escolha critérios para montar o recorte.</span></div><div class="tw-filter-tools">${W.button('Limpar filtros', 'clear', '', {className:'ghost sm'})}${W.button('Atualizar', 'reload', '', {className:'sm',icon:'refresh'})}</div></div><div class="tw-filter-row">${primaryKeys.map(renderFilter).join('')}${extraKeys.length ? `<details class="tw-more-filters" ${state.moreFiltersOpen ? 'open' : ''}><summary><strong>Mais filtros</strong><span>${activeExtra ? `${activeExtra} ativo${activeExtra > 1 ? 's' : ''}` : 'opcional'}</span>${U.icon('chevron')}</summary><div class="tw-more-filter-grid">${extraKeys.map(renderFilter).join('')}</div></details>` : ''}</div><div class="tw-filter-summary"><span>${count ? `${count} critério${count > 1 ? 's' : ''} ativo${count > 1 ? 's' : ''}` : 'Nenhum filtro adicional'} · As opções de um grupo são alternativas; os grupos se acumulam.</span>${count ? `<div class="tw-active-filters">${Object.entries(state.filters).flatMap(([key, selected]) => (Array.isArray(selected) ? selected : []).map((value) => `<button type="button" data-action="filter-remove" data-id="${a(JSON.stringify([key,value]))}">${e(labels[key])}: ${e(valuesFor(key, people).find((o) => o.value === value)?.label || value)} <span aria-hidden="true">×</span></button>`)).join('')}</div>` : ''}</div></div>`;
     }
     const workLabels = {selectionStage:'Etapas da seleção',selectionEmployer:'Empregadores',selectionOwner:'Responsáveis',activityOwner:'Responsáveis'};
     function workOptions(key) {
@@ -68,7 +71,7 @@
     function quickFilters() {
       const picked = (id) => state.quick.includes(id) || id === 'ready' && app.view === 'presentation';
       const all = !state.quick.length && app.view !== 'presentation';
-      return `<div class="tw-quickfilters" aria-label="Combinar filtros rápidos"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos ativos <span>${state.talents.filter(T.active).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div><p class="v25-help tw-filter-help">${U.icon('note')}Você pode combinar vários filtros; todos precisam ser atendidos. “A acompanhar” reúne pendência, prioridade, risco de curso ou ação vencida.</p>`;
+      return `<div class="tw-quickfilters" aria-label="Visões rápidas"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos ativos <span>${state.talents.filter(T.active).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div><p class="v25-help tw-filter-help">${U.icon('note')}Escolha uma visão rápida ou combine filtros. Remova cada critério no próprio chip.</p>`;
     }
     function sheetTabs(current) {
       // As visões principais já estão na navegação lateral. Mantemos a função
@@ -89,7 +92,7 @@
       const people = filtered().filter((r) => T.yes(r.pronto_para_employer));
       const rows = T.presentationRows(state, people);
       const tabs = [['people','Talentos priorizados'],['partners','Nectanet Partner'],['companies','Empresas detalhadas']];
-      const top = sheetTabs('presentation') + quickFilters() + toolbar({extended:true}) + `<div class="tw-sheet-heading"><div><span class="tw-kicker">APRESENTAÇÃO · FILA DE LIBERAÇÃO</span><h2>${people.length} Talento${people.length === 1 ? '' : 's'} liberado${people.length === 1 ? '' : 's'} para revisão</h2><p>“Liberado” é uma decisão humana no cadastro do Talento. A Lista NectaNet (Sim/Não) é uma classificação independente e não libera nem envia perfis.</p></div><div class="tw-mode-tabs">${tabs.map(([id,label]) => `<button type="button" data-action="presentation-tab" data-id="${id}" aria-pressed="${state.presentationTab === id}">${e(label)}</button>`).join('')}</div></div>`;
+      const top = sheetTabs('presentation') + quickFilters() + toolbar({extended:true}) + `<div class="tw-sheet-heading"><div><span class="tw-kicker">APRESENTAÇÃO · FILA DE LIBERAÇÃO</span><h2>${people.length} Talento${people.length === 1 ? '' : 's'} pronto${people.length === 1 ? '' : 's'} para revisão</h2><p>Pronto para apresentar é uma liberação manual. Lista NectaNet é uma classificação de mercado separada e não altera a etapa.</p></div><div class="tw-mode-tabs">${tabs.map(([id,label]) => `<button type="button" data-action="presentation-tab" data-id="${id}" aria-pressed="${state.presentationTab === id}">${e(label)}</button>`).join('')}</div></div>`;
       if (state.presentationTab !== 'people') return top + partners(people, state.presentationTab);
       const columns = T.FIELDS.presentation.map(([key,label,source,type]) => ({key,label,required:['nome_completo','lista_nectanet'].includes(key),className:`tw-col-${key}`,value:(r)=>type==='employer' ? state.employers.find((x)=>M.same(x.id,r[key]))?.nome || '' : r[key],render:(r) => {
         if (key === 'nome_completo') return W.person(r.nome_completo, r.profissao_principal || '', '', 'talent-detail', r.id);
@@ -102,7 +105,7 @@
         return editCell(content, 'presentation-cell', JSON.stringify([r.id,key]), label, source === 'talent' || available('mappingProfiles'));
       }}));
       const legend = window.T4V25?.legend?.([{label:'Decisão humana de liberação',tone:'success'},{label:'Classificação NectaNet',tone:'info'},{label:'Dado ainda não informado',tone:''}]) || '';
-      return top + legend + grid('presentation',rows,columns,'Nenhum Talento liberado neste recorte. Abra a ficha e revise “Liberação para apresentação”; nenhum perfil é liberado automaticamente.') + `<p class="tw-table-note">As 18 colunas seguem a ordem da planilha Nectanet. Clique em uma informação para editar; use Colunas para ajustar sua visualização.</p>`;
+      return top + legend + grid('presentation',rows,columns,'Nenhum Talento pronto neste recorte. Abra a ficha e revise a liberação antes de apresentar.') + `<p class="tw-table-note">As 18 colunas seguem a ordem da planilha Nectanet. Clique em uma informação para editar; use Colunas para ajustar sua visualização.</p>`;
     }
     function partners(people, mode) {
       const rows = T.partnerRows(state, people), fields = T.FIELDS[mode];
@@ -140,7 +143,7 @@
     function radar() {
       const ids = new Set(filtered().map((r) => String(r.id)));
       const rows = T.mappingRows(state).filter((r) => ids.has(String(r.talent_id)) && T.yes(r.nectanet));
-      return `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO · RADAR NECTANET</span><p class="t4-muted">O Radar é uma lista de alvos NectaNet marcados no acompanhamento. Ele não muda a etapa da seleção e não equivale a “Liberado para apresentar”.</p></div><div class="mx-segment" role="group" aria-label="Visões do mercado"><button type="button" data-action="go" data-id="opportunities" data-selected="false">Vagas cadastradas</button><button type="button" data-action="go" data-id="mapping-radar" data-selected="true">Radar NectaNet</button></div></div>` + quickFilters() + toolbar() + trackingTable(rows,true);
+      return `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO · RADAR NECTANET</span><p class="t4-muted">Alvos NectaNet marcados no acompanhamento. O Radar não é uma etapa e não libera apresentações.</p></div><div class="mx-segment" role="group" aria-label="Visões do mercado"><button type="button" data-action="go" data-id="opportunities" data-selected="false">Vagas cadastradas</button><button type="button" data-action="go" data-id="mapping-radar" data-selected="true">Radar NectaNet</button></div></div>` + quickFilters() + toolbar() + trackingTable(rows,true);
     }
     function employerChoices() { return state.employers.map((r) => ({value:r.id,label:r.nome})); }
     function definition([key,label,source,type,options]) {
@@ -265,6 +268,7 @@
         if (app.view === 'presentation' && ['all','ready'].includes(id)) app.route('talents'); else render(); return true;
       }
       if (action === 'filter-remove') { const [key,value]=JSON.parse(id); state.filters[key]=(state.filters[key]||[]).filter((v) => v !== value); render(); return true; }
+      if (action === 'multi-close') { state.multiOpen=''; render(); return true; }
       if (action === 'multi-clear' || action === 'multi-all') {
         const vals = action === 'multi-clear' ? [] : id === 'mappingStatus' ? [...new Set(T.mappingRows(state).filter((r) => M.same(r.talent_id,state.mappingTalent)).map((r) => r.vacancy_status))] : id in workLabels ? workOptions(id).map((o)=>String(o.value)) : valuesFor(id,state.talents.filter((r) => T.active(r) !== (app.view === 'archived' || app.view === 'mapping' && !!state.mappingArchived))).map((o) => o.value);
         if (id === 'mappingStatus') state.mappingStatus=vals; else if(id in workLabels) state.workFilters[id]=vals; else state.filters[id]=vals; state.multiOpen=id; render(); return true;
@@ -303,7 +307,7 @@
     document.addEventListener('click',(event) => {
       const menu=event.target.closest?.('[data-tw-multi]');
       if (menu) state.multiOpen=menu.dataset.twMulti;
-      else {state.multiOpen=''; document.querySelectorAll('[data-tw-multi][open]').forEach((n) => n.removeAttribute('open'));}
+      else if (!event.target.closest?.('.tw-more-filters')) {state.multiOpen=''; state.moreFiltersOpen=false; document.querySelectorAll('[data-tw-multi][open], .tw-more-filters[open]').forEach((n) => n.removeAttribute('open'));}
     });
     document.addEventListener('keydown',(event) => {
       if (event.key !== 'Escape') return;
@@ -316,6 +320,12 @@
         state.multiOpen=menu.dataset.twMulti;
         document.querySelectorAll('[data-tw-multi][open]').forEach((other)=>{if(other!==menu) other.removeAttribute('open');});
       } else if(state.multiOpen===menu.dataset.twMulti) state.multiOpen='';
+    },true);
+    document.addEventListener('toggle',(event)=>{
+      const menu=event.target;
+      if(!menu.isConnected || !menu.matches?.('details.tw-more-filters')) return;
+      state.moreFiltersOpen=menu.open;
+      if(!menu.open) state.multiOpen='';
     },true);
     return { filtered, toolbar, workToolbar, quickFilters, sheetTabs, presentation, tracking, summary, radar, available, action, change, mappingProfile, readiness };
   }

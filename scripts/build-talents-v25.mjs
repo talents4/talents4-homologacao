@@ -1,4 +1,4 @@
-/* Empacota a V2.5.1 isolada. Nunca faz push, deploy, SQL, backup ou acesso ao Supabase. */
+/* Empacota a V2.5.2 isolada. Nunca faz push, deploy, SQL, backup ou acesso ao Supabase. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,12 +19,12 @@ if (run('git', ['status', '--porcelain']).trim()) throw new Error('A árvore pre
 run(process.execPath, ['scripts/check-v2.mjs']);
 run(process.execPath, ['--test', ...tests]);
 
-const output = fs.mkdtempSync(path.join(parent, 'talents4-v251-entrega-'));
-const stage = fs.mkdtempSync(path.join(parent, 'talents4-v251-stage-'));
+const output = fs.mkdtempSync(path.join(parent, 'talents4-v252-entrega-'));
+const stage = fs.mkdtempSync(path.join(parent, 'talents4-v252-stage-'));
 const pages = ['index.html', 'organizacional.html', 'alemao.html', 'contatos.html'];
-const assets = fs.readdirSync(path.join(root, 'assets')).filter((name) => /\.(?:js|css)$/.test(name));
+const assets = fs.readdirSync(path.join(root, 'assets')).filter((name) => /\.(?:js|css|png)$/.test(name));
 
-const preview = path.join(stage, 'preview-talentos-v2-5-1');
+const preview = path.join(stage, 'preview-talentos-v2-5-2');
 fs.mkdirSync(preview, { recursive: true });
 fs.cpSync(path.join(root, 'assets'), path.join(preview, 'assets'), { recursive: true });
 fs.mkdirSync(path.join(preview, 'tests'), { recursive: true });
@@ -44,22 +44,22 @@ const data = fs.readFileSync(dataPath, 'utf8')
   .replace("const ROOT_LOGIN = '/talents4/index.html';", "const ROOT_LOGIN = './index.html';");
 if (/\.supabase\.co|eyJ[A-Za-z0-9_-]+\./.test(data)) throw new Error('Configuração real encontrada na prévia sem banco.');
 fs.writeFileSync(dataPath, data);
-fs.writeFileSync(path.join(preview, 'LEIA_ME.md'), `# Talents 4 V2.5.1 · prévia sem banco
+fs.writeFileSync(path.join(preview, 'LEIA_ME.md'), `# Talents 4 V2.5.2 · prévia sem banco
 
 Esta pasta usa dados fictícios, não faz chamadas de rede e não grava alterações. Abra index.html.
 
 Use / para a busca, Ctrl+K ou ⌘K para ações rápidas, e clique em nomes para abrir o Inspector lateral. Os filtros aceitam várias opções: opções do mesmo grupo usam OU; grupos diferentes usam E.
 `);
 
-const previewZip = path.join(output, 'Talents4_V2_5_1_PREVIA_SEM_BANCO.zip');
-run('zip', ['-q', '-r', previewZip, 'preview-talentos-v2-5-1'], stage);
+const previewZip = path.join(output, 'Talents4_V2_5_2_PREVIA_SEM_BANCO.zip');
+run('zip', ['-q', '-r', previewZip, 'preview-talentos-v2-5-2'], stage);
 run('unzip', ['-tq', previewZip]);
 
-const fullZip = path.join(output, 'Talents4_V2_5_1_CODIGO_COMPLETO.zip');
+const fullZip = path.join(output, 'Talents4_V2_5_2_CODIGO_COMPLETO.zip');
 run('git', ['archive', '--format=zip', `--output=${fullZip}`, 'HEAD']);
 run('unzip', ['-tq', fullZip]);
 
-const incremental = path.join(stage, 'talents4-v2-5-1-incremental');
+const incremental = path.join(stage, 'talents4-v2-5-2-incremental');
 fs.mkdirSync(incremental, { recursive: true });
 const copy = (relative) => {
   const source = path.join(root, relative), destination = path.join(incremental, relative);
@@ -74,13 +74,13 @@ for (const relative of [
   'scripts/check-v2.mjs', 'scripts/build-package.mjs', 'scripts/build-talents-v24.mjs', 'scripts/build-talents-v25.mjs',
   'README.md', 'TALENTOS_V2_5.md', 'PASSO_A_PASSO_TALENTOS_V2_5.md', 'MANUAL_TALENTOS_V2_5.md'
 ]) if (fs.existsSync(path.join(root, relative))) copy(relative);
-const incrementalZip = path.join(output, 'Talents4_V2_5_1_ATUALIZACAO_INCREMENTAL.zip');
-run('zip', ['-q', '-r', incrementalZip, 'talents4-v2-5-1-incremental'], stage);
+const incrementalZip = path.join(output, 'Talents4_V2_5_2_ATUALIZACAO_INCREMENTAL.zip');
+run('zip', ['-q', '-r', incrementalZip, 'talents4-v2-5-2-incremental'], stage);
 run('unzip', ['-tq', incrementalZip]);
 
 const files = [previewZip, fullZip, incrementalZip];
 fs.writeFileSync(path.join(output, 'SHA256SUMS.txt'), files.map((file) => `${sha(file)}  ${path.basename(file)}`).join('\n') + '\n');
 fs.writeFileSync(path.join(output, 'PASSO_A_PASSO_TALENTOS_V2_5.md'), fs.readFileSync(path.join(root, 'PASSO_A_PASSO_TALENTOS_V2_5.md')));
 fs.writeFileSync(path.join(output, 'MANUAL_TALENTOS_V2_5.md'), fs.readFileSync(path.join(root, 'MANUAL_TALENTOS_V2_5.md')));
-fs.writeFileSync(path.join(output, 'VERIFICACAO_LOCAL.txt'), 'Talents 4 V2.5.1 · homologação isolada\nSem push, deploy, SQL, Google Planilhas, Google Drive, backup ou alteração de banco.\n');
+fs.writeFileSync(path.join(output, 'VERIFICACAO_LOCAL.txt'), 'Talents 4 V2.5.2 · homologação isolada\nSem push, deploy, SQL, Google Planilhas, Google Drive, backup ou alteração de banco.\n');
 console.log(JSON.stringify({ output, previewZip, fullZip, incrementalZip }, null, 2));
