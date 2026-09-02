@@ -15,7 +15,7 @@
     { id: 'mapping-radar', label: 'Radar NectaNet', title: 'Radar NectaNet', subtitle: 'Alvos NectaNet e avaliações individuais, sem misturar pessoas ou scores.', icon: 'briefcase' },
     { id: 'archived', label: 'Talentos arquivados', title: 'Talentos arquivados', subtitle: 'Histórico de saída e possibilidade de reativação, sem exclusão.', icon: 'archive' }
   ] });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', quick: [], board: 'board', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', quick: [], board: 'list', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
   const sources = {
     talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
     employers: { label: 'Empregadores', load: () => D.loadEmployers({ activeOnly: false }) },
@@ -105,7 +105,7 @@
   function selectionsView() {
     const list = state.selections.rows.filter((r) => T.matches(state.workFilters.selectionStage,r.stage) && T.matches(state.workFilters.selectionEmployer,r.employer_id) && T.matches(state.workFilters.selectionOwner,r.owner_username) && match([R.talentName(state, r.talent_id), R.employerName(state, r.employer_id), W.find(state.openings, r.opening_id)?.title, r.next_action]));
     const closed = list.filter((r) => M.selectionBucket(r) === 'closed');
-    return `<div class="t4-view-context"><p>O quadro organiza as <strong>seleções por empregador</strong>. Níveis de alemão, documentos e dados pessoais permanecem na ficha do talento.</p>${W.chips([{ id: 'board', label: 'Quadro', icon: 'columns' }, { id: 'list', label: 'Lista completa', icon: 'list' }], state.board, 'board')}</div>${workspace.workToolbar('selections')}${state.board === 'list' ? R.selectionTable(state, list) : R.selectionBoard(state, list.filter((r) => M.selectionBucket(r) !== 'closed')) + W.section('Encerrados e histórico', R.selectionTable(state, closed, 'closed-selections'))}`;
+    return `<div class="t4-view-context"><p>O <strong>registro analítico</strong> organiza as relações Talento–empregador–vaga. O quadro é opcional para uma leitura visual rápida; prazos, responsáveis e detalhes ficam na lista.</p>${W.chips([{ id: 'list', label: 'Registro analítico', icon: 'list' }, { id: 'board', label: 'Quadro opcional', icon: 'columns' }], state.board, 'board')}</div>${workspace.workToolbar('selections')}${state.board === 'list' ? R.selectionTable(state, list) : R.selectionBoard(state, list.filter((r) => M.selectionBucket(r) !== 'closed')) + W.section('Encerrados e histórico', R.selectionTable(state, closed, 'closed-selections'))}`;
   }
   function opportunitiesView() {
     const list = state.openings.filter((r) => T.matches(state.workFilters.selectionEmployer,r.employer_id) && match([r.title, r.area, r.location, R.employerName(state, r.employer_id)]));

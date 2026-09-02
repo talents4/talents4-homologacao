@@ -113,7 +113,7 @@
   function selectionTable(state, rows, id = 'selections') {
     return W.table({ id, rows, columns: [
       { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => W.person(talentName(state, r.talent_id), W.find(state.talents, r.talent_id)?.profissao_principal || '', '', 'selection-detail', r.key) },
-      { key: 'employer_id', label: 'Empregador / vaga', value: (r) => employerName(state, r.employer_id), render: (r) => W.stack(employerName(state, r.employer_id), r.opening_id ? W.find(state.openings, r.opening_id)?.title || 'Vaga não encontrada' : 'Vínculo geral · anterior à V2') },
+      { key: 'employer_id', label: 'Empregador / vaga', value: (r) => employerName(state, r.employer_id), render: (r) => { const employer = W.find(state.employers, r.employer_id); const name = window.T4Modern?.employer ? window.T4Modern.employer(employer || { nome: employerName(state, r.employer_id), id: r.employer_id }) : e(employerName(state, r.employer_id)); return W.stack(name, r.opening_id ? W.find(state.openings, r.opening_id)?.title || 'Vaga não encontrada' : 'Vínculo geral · anterior à V2'); } },
       { key: 'stage', label: 'Etapa', render: (r) => W.status(r.stage) },
       { key: 'next_action', label: 'Próxima ação', render: (r) => W.stack(r.next_action, M.dateOnly(r.next_action_at) ? U.formatDate(r.next_action_at) : '') },
       { key: 'owner_username', label: 'Responsável' },
