@@ -133,7 +133,13 @@ export function makeHarness({ role = 'admin', query = '' } = {}) {
   h.run('assets/t4-v2-records.js'); h.run('assets/t4-v2-pdf.js');
   h.D = window.T4Data; h.M = window.T4Models; h.W = window.T4Work; h.R = window.T4Records; h.U = window.T4V2;
   h.init = () => h.D.init({ setSync() {}, setUser() {} }, { redirect: false });
-  h.load = async (module) => { h.run(`assets/${module}-v2.js`); await Promise.all(h.boot); return h; };
+  h.load = async (module) => {
+    if (module === 'talents') {
+      h.run('tests/fixtures-talents-mapping.js');
+      h.run('assets/talents-mapping-models.js'); h.run('assets/talents-mapping-ui.js'); h.T = window.T4TalentMapping;
+    }
+    h.run(`assets/${module}-v2.js`); await Promise.all(h.boot); return h;
+  };
   h.action = (name, id = '') => h.bindings.action(name, id, new Element());
   h.filter = (key, value) => h.bindings.change(key, value);
   h.fields = () => [...h.forms.at(-1).fields.keys()];

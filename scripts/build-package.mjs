@@ -9,6 +9,18 @@ import { createHash } from 'node:crypto';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const parent = path.resolve(process.argv[2] || path.dirname(root));
 const baseline = process.argv[3] || '1662156';
+if (fs.existsSync(path.join(root, 'TALENTOS_V2_4.md'))) {
+  const result = spawnSync(process.execPath, [path.join(root, 'scripts/build-talents-v24.mjs'), ...(process.argv[2] ? [process.argv[2]] : [])], { stdio: 'inherit' });
+  process.exit(result.status ?? 1);
+}
+if (fs.existsSync(path.join(root, 'TALENTOS_V2_3.md'))) {
+  const result = spawnSync(process.execPath, [path.join(root, 'scripts/build-talents-v23.mjs'), ...(process.argv[2] ? [process.argv[2]] : [])], { stdio: 'inherit' });
+  process.exit(result.status ?? 1);
+}
+if (fs.existsSync(path.join(root, 'TALENTOS_V2_2.md'))) {
+  const result = spawnSync(process.execPath, [path.join(root, 'scripts/build-talents-v22.mjs'), ...(process.argv[2] ? [process.argv[2]] : [])], { stdio: 'inherit' });
+  process.exit(result.status ?? 1);
+}
 function run(cmd, args, cwd = root) {
   const result = spawnSync(cmd, args, { cwd, encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`${cmd} falhou: ${result.stderr || result.stdout || result.error}`);

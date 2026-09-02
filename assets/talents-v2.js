@@ -39,6 +39,15 @@
   function filtered(archived = false) {
     return workspace.filtered({ archived });
   }
+  function talentViews(archived = false) {
+    const activeCount = state.talents.filter(active).length;
+    const readyCount = state.talents.filter((r) => active(r) && T.yes(r.pronto_para_employer)).length;
+    const current = archived ? 'archived' : app.view === 'presentation' || state.quick.includes('ready') ? 'ready' : state.quick[0] || 'all';
+    const items = archived
+      ? [{ id: 'archived', label: 'Arquivados', icon: 'archive', count: state.talents.filter((r) => !active(r)).length }, { id: 'all', label: 'Voltar à base', icon: 'users', count: activeCount }]
+      : [{ id: 'all', label: 'Todos', icon: 'users', count: activeCount }, { id: 'mine', label: 'Meus', icon: 'user' }, { id: 'attention', label: 'Atenção', icon: 'warning' }, { id: 'course', label: 'Em aulas', icon: 'graduation' }, { id: 'ready', label: 'Prontos', icon: 'check', count: readyCount }];
+    return window.T4V24?.savedViews ? window.T4V24.savedViews(items, current) : '';
+  }
   async function loadPresentationFields() {
     let columns = ['id', 'experiencia_profissional_tempo', 'perfil_profissional_para_apresentacao', 'lingua_estrangeira', 'nivel_lingua_estrangeira'];
     const absent = [];
@@ -78,7 +87,7 @@
     if (!archived && state.quick.includes('ready')) return workspace.presentation();
     const rows = filtered(archived);
     const mode = `<div class="mx-toolbar"><div><span class="mx-eyebrow">${archived ? 'HISTÓRICO PRESERVADO' : 'FICHA ÚNICA DE CADA TALENTO'}</span><p class="t4-muted">${rows.length} registro(s) neste recorte</p></div><div class="mx-segment" role="group" aria-label="Visualização da base"><button type="button" data-action="talent-display" data-id="cards" data-selected="${state.display === 'cards'}">Cartões</button><button type="button" data-action="talent-display" data-id="list" data-selected="${state.display === 'list'}">Lista</button><button type="button" data-action="talent-display" data-id="table" data-selected="${state.display === 'table'}">Tabela completa</button></div></div>`;
-    return `${workspace.sheetTabs('talents')}${archived ? W.note('Nenhum talento é excluído por esta tela. A ficha completa, as seleções e o histórico de aulas continuam acessíveis.') : workspace.quickFilters()}${workspace.toolbar({archived})}${mode}${state.display === 'cards' ? talentCards(rows) : talentTable(rows)}`;
+    return `${talentViews(archived)}${archived ? W.note('Nenhum talento é excluído por esta tela. A ficha completa, as seleções e o histórico de aulas continuam acessíveis.') : workspace.quickFilters()}${workspace.toolbar({archived})}${mode}${state.display === 'cards' ? talentCards(rows) : talentTable(rows)}`;
   }
   function talentCards(list) {
     return `<div class="mx-cards">${list.map((r) => {
@@ -209,6 +218,13 @@
   W.bind(app, { change(key, value) { if (workspace.change(key,value)) return; state[key] = value; render(); }, async action(action, id) {
     if (action === 'reload') return D.session ? load() : location.reload();
     if (action === 'go') return app.route(id);
+    if (action === 'v24-view') {
+      if (id === 'archived') { state.quick = []; app.route('archived'); return; }
+      if (id === 'ready') { state.quick = ['ready']; app.route('presentation'); return; }
+      state.quick = id === 'all' ? [] : [id];
+      app.route('talents');
+      return;
+    }
     if (action === 'talent-display') { state.display = ['cards','list','table'].includes(id) ? id : 'list'; render(); return; }
     if (action === 'clear') { state.stage = ''; state.german = ''; state.employer = ''; state.owner = ''; state.filters = {}; state.workFilters = {}; state.quick = []; state.mappingStatus = []; state.multiSearch = {}; state.query = ''; app.resetSearch(); render(); return; }
     if (await workspace.action(action,id)) return;

@@ -44,7 +44,8 @@
     download: '<path d="M12 4v12M7 11l5 5 5-5M5 20h14"/>',
     eye: '<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     activity: '<path d="M3 12h4l2-7 4 14 2-7h6"/>',
-    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    command: '<path d="M7 3v4M17 3v4M7 17v4M17 17v4M3 7h4M17 7h4M3 17h4M17 17h4"/><rect x="7" y="7" width="10" height="10" rx="2"/>'
   };
 
   const SWITCHES = [
@@ -324,6 +325,7 @@
             <div class="t4-topbar-heading"><div class="t4-eyebrow">${esc(config.moduleLabel)}</div><h1 class="t4-page-title" data-page-title></h1><p class="t4-page-subtitle" data-page-subtitle></p></div>
             <div class="t4-topbar-spacer"></div>
             <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><span class="t4-keycap">/</span></label>
+            <button type="button" class="t4-command-trigger" data-command aria-label="Abrir ações rápidas">${icon('command')}<span>Ações</span><kbd>⌘K</kbd></button>
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
@@ -335,6 +337,34 @@
     const pageRoot = root.querySelector('#t4-page-root');
     const search = root.querySelector('[data-global-search]');
     const primary = root.querySelector('[data-primary]');
+    const command = root.querySelector('[data-command]');
+
+    function openCommandPalette() {
+      const nav = [...root.querySelectorAll('[data-route]')]
+        .filter((node, index, all) => all.findIndex((item) => item.dataset.route === node.dataset.route) === index)
+        .slice(0, 12);
+      const primaryLabel = root.querySelector('[data-primary-label]')?.textContent?.trim();
+      const items = [
+        { id: 'search', label: 'Buscar nesta área', copy: 'Use a busca global para encontrar pessoas, empresas ou ações.', icon: 'search' },
+        ...(primaryLabel && !primary.hidden ? [{ id: 'primary', label: primaryLabel, copy: 'Abrir a criação rápida deste espaço.', icon: 'plus' }] : []),
+        ...nav.map((node) => ({ id: `route:${node.dataset.route}`, label: node.querySelector('.t4-nav-text')?.textContent?.trim() || node.dataset.route, copy: 'Abrir espaço de trabalho', icon: node.querySelector('.t4-nav-icon .t4-icon') ? 'arrow' : 'note' }))
+      ];
+      const modal = openModal({
+        title: 'Ações rápidas',
+        subtitle: 'Navegue, busque e crie sem perder o contexto.',
+        body: `<div class="v24-command-list" role="menu" aria-label="Ações rápidas">${items.map((item, index) => `<button type="button" class="v24-command-item" data-command-item="${attr(item.id)}" role="menuitem"><span class="v24-command-icon">${icon(item.icon)}</span><span><strong>${esc(item.label)}</strong><small>${esc(item.copy)}</small></span><kbd>${index < 9 ? index + 1 : ''}</kbd></button>`).join('')}</div>`,
+        footer: '<span class="t4-save-hint">Esc fecha · / vai para a busca</span><button type="button" class="t4-btn" data-cancel>Fechar</button>'
+      });
+      modal.querySelector('[data-cancel]')?.addEventListener('click', closeModal);
+      modal.querySelectorAll('[data-command-item]').forEach((item) => item.addEventListener('click', () => {
+        const value = item.dataset.commandItem;
+        closeModal();
+        if (value === 'search') { search.focus(); return; }
+        if (value === 'primary') { primary.click(); return; }
+        if (value.startsWith('route:')) route(value.slice(6));
+      }));
+      return modal;
+    }
 
     function renderRoute(options = {}) {
       const view = views.find((item) => item.id === currentView) || views[0];
@@ -366,6 +396,7 @@
       try { await primaryHandler?.(); }
       catch (error) { toast(error?.message || 'Não foi possível abrir esta ação. Atualize a tela.', 'error', 6500); }
     });
+    command?.addEventListener('click', openCommandPalette);
     search.addEventListener('input', debounce(() => searchHandler?.(search.value), 160));
     window.addEventListener('popstate', () => { currentView = getRequestedView(); renderRoute(); });
 
@@ -378,6 +409,10 @@
       if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) {
         event.preventDefault();
         search.focus();
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        openCommandPalette();
       }
     });
 

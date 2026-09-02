@@ -34,6 +34,13 @@
   const actions = (row, kind) => D.canEdit() ? W.button('Editar', `edit-${kind}`, row.id, { className: 'sm ghost', icon: 'edit' }) : '';
   const months = () => [...new Set([M.today().slice(0, 7), ...operationalKeys.flatMap((key) => state[key].map((r) => r.month_ref || String(r.scheduled_at || '').slice(0, 7)))])].filter(Boolean).sort().reverse();
   const toolbar = (rows = [], opts = {}) => `<div class="t4-toolbar">${W.filter('employer', 'Empregador', R.choices(state.employers, 'nome'), state.employer)}${opts.noMonth ? '' : W.filter('month', 'Período', months(), state.month)}${opts.noStatus ? '' : W.filter('status', 'Situação', W.unique(rows, 'status'), state.status)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+  const workViews = (current) => window.T4V24?.savedViews ? window.T4V24.savedViews([
+    { id: 'overview', label: 'Meu dia', icon: 'dashboard' },
+    { id: 'employers', label: 'Empregadores', icon: 'building', count: state.employers.filter((r) => M.active(r.ativo) && !r.deleted_at).length },
+    { id: 'pipeline', label: 'Seleções', icon: 'columns', count: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length },
+    { id: 'opportunities', label: 'Oportunidades', icon: 'briefcase', count: state.openings.filter((r) => !/fechad|cancel/i.test(r.status || '')).length },
+    { id: 'calendar', label: 'Agenda', icon: 'calendar' }
+  ], current) : '';
   const available = (key) => state.sources[key]?.available === true;
   const can = (key) => D.canEdit() && available(key) && (key !== 'selections' || state.selections.modern);
   function events() {
@@ -68,7 +75,7 @@
     const pending = events().filter((r) => scoped(r) && matchQuery(r) && M.isOpen(r.status));
     const late = pending.filter((r) => M.overdue(r.due, r.status));
     const soon = pending.filter((r) => r.due && !M.overdue(r.due, r.status));
-    return `<div class="t4-work-intro"><div><span class="t4-overline">OPERAÇÃO E RELACIONAMENTO</span><h2>O próximo passo de cada parceria.</h2><p>Acompanhe decisões, avance seleções e mantenha o contexto da equipe.</p></div>${W.button('Ver calendário', 'go', 'calendar', { icon: 'calendar' })}</div>
+    return workViews('overview') + `<div class="t4-work-intro"><div><span class="t4-overline">OPERAÇÃO E RELACIONAMENTO</span><h2>O próximo passo de cada parceria.</h2><p>Acompanhe decisões, avance seleções e mantenha o contexto da equipe.</p></div>${W.button('Ver calendário', 'go', 'calendar', { icon: 'calendar' })}</div>
       <section class="t4-kpi-grid">${U.kpi('Empregadores ativos', available('employers') ? activeEmployers.length : '—', 'Base de relacionamento')}${U.kpi('Vagas abertas', available('openings') ? state.openings.filter((r) => M.isOpen(r.status) && !/fechad/i.test(r.status)).reduce((n, r) => n + (Number(r.quantity) || 0), 0) : '—', 'Quantidade de posições')}${U.kpi('Ações em aberto', pending.length, 'Nas fontes carregadas')}${U.kpi('Prazos vencidos', late.length, 'Revisar com a equipe', late.length ? 'risk' : 'good')}</section>
       ${W.section('Precisa de atenção', eventTable(late, 'org-late'), U.badge(late.length, late.length ? 'danger' : 'success'))}
       ${W.section('A seguir', eventTable(soon, 'org-soon'), W.button('Agenda completa', 'go', 'calendar', { className: 'ghost sm' }))}
@@ -85,7 +92,7 @@
   }
   function employersView() {
     const rows = state.employers.filter((r) => (!state.employer || M.same(r.id, state.employer)) && (!state.status || (r.status || 'Ativo') === state.status) && matchQuery(r));
-    return toolbar(state.employers, { noMonth: true }) + W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.display, 'display') + (state.display === 'cards' ? employerCards(rows) : W.table({ id: 'employers', rows, columns: [
+    return workViews('employers') + toolbar(state.employers, { noMonth: true }) + W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.display, 'display') + (state.display === 'cards' ? employerCards(rows) : W.table({ id: 'employers', rows, columns: [
       { key: 'nome', label: 'Empregador', required: true, render: (r) => W.person(r.nome, r.area_atuacao || '', '', 'employer-detail', r.id) }, { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }
     ] }));
   }
@@ -143,12 +150,12 @@
   }
   function opportunitiesView() {
     const rows = state.openings.filter((r) => scoped(r) && matchQuery(r) && (!state.status || r.status === state.status));
-    return `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO DE OPORTUNIDADES</span><p class="t4-muted">Uma vaga pode receber vários Talentos; o vínculo é acompanhado em Seleções.</p></div><div class="mx-segment" role="group" aria-label="Modo de oportunidades"><span class="mx-segment-label">${rows.length} vaga(s)</span></div></div>` + toolbar(state.openings, { noMonth: true }) + opportunityRegister(rows);
+    return workViews('opportunities') + `<div class="mx-toolbar"><div><span class="mx-eyebrow">MERCADO DE OPORTUNIDADES</span><p class="t4-muted">Uma vaga pode receber vários Talentos; o vínculo é acompanhado em Seleções.</p></div><div class="mx-segment" role="group" aria-label="Modo de oportunidades"><span class="mx-segment-label">${rows.length} vaga(s)</span></div></div>` + toolbar(state.openings, { noMonth: true }) + opportunityRegister(rows);
   }
   function pipelineView() {
     const rows = state.selections.rows.filter((r) => scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && (!state.status || r.stage === state.status));
     const activeRows = rows.filter((r) => M.selectionBucket(r) !== 'closed'), closedRows = rows.filter((r) => M.selectionBucket(r) === 'closed');
-    return `<div class="mx-toolbar"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><p class="t4-muted">A seleção é uma relação operacional entre Talento, empregador e vaga. A ficha da pessoa continua em Talentos.</p></div><div class="mx-segment" role="group" aria-label="Modo de visualização das seleções"><button type="button" data-action="display" data-id="list" data-selected="${state.display === 'list'}">Registro analítico</button><button type="button" data-action="display" data-id="cards" data-selected="${state.display === 'cards'}">Quadro opcional</button></div></div>` + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(activeRows) + selectionRegister(activeRows) + (closedRows.length ? W.section('Encerrados / removidos', selectionRegister(closedRows, true)) : '') +
+    return workViews('pipeline') + `<div class="mx-toolbar"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><p class="t4-muted">A seleção é uma relação operacional entre Talento, empregador e vaga. A ficha da pessoa continua em Talentos.</p></div><div class="mx-segment" role="group" aria-label="Modo de visualização das seleções"><button type="button" data-action="display" data-id="list" data-selected="${state.display === 'list'}">Registro analítico</button><button type="button" data-action="display" data-id="cards" data-selected="${state.display === 'cards'}">Quadro opcional</button></div></div>` + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(activeRows) + selectionRegister(activeRows) + (closedRows.length ? W.section('Encerrados / removidos', selectionRegister(closedRows, true)) : '') +
       W.section('Reposições', replacementTable(state.replacements.filter(scoped)), can('replacements') ? W.button('Nova reposição', 'new-replacement', '', { className: 'sm', icon: 'plus' }) : '');
   }
   function selectionRegister(rows, closed = false) {
@@ -290,6 +297,7 @@
   W.bind(app, { change(key, value) { state[key] = value; render(); }, async action(name, id) {
     if (name === 'reload') return D.session ? load() : location.reload();
     if (name === 'go') { U.closeDrawer(); state.status = ''; app.route(id); return; }
+    if (name === 'v24-view') { U.closeDrawer(); state.status = ''; state.employer = ''; app.route(id); return; }
     if (name === 'display') { state.display = id; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
     if (name === 'clear') { state.employer = ''; state.month = ''; state.status = ''; state.query = ''; app.resetSearch(); render(); return; }

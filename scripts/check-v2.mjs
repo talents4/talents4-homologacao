@@ -21,7 +21,11 @@ const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 
 const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALIDACAO_V2_1.md',
   'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
-  ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs'];
+  ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
+  'assets/talents-mapping-models.js','assets/talents-mapping-ui.js','assets/talents-mapping.css','tests/fixtures-talents-mapping.js','tests/talents-mapping.test.mjs',
+  'assets/t4-modern.js','assets/t4-modern.css',
+  'assets/t4-v24.js','assets/t4-v24.css',
+  'tests/talents-sql-contract.test.mjs','TALENTOS_V2_2.md','PASSO_A_PASSO_TALENTOS_V2_2.md','PREVIA_TALENTOS_V2_2.md'];
 for (const file of required) check(files.includes(file), `${file} existe`);
 if (failures) { console.error('Pacote incompleto; não publicar.'); process.exit(1); }
 
@@ -61,6 +65,10 @@ for (const [name, module] of Object.entries(pages)) {
   }
 }
 const core = read('assets/t4-v2-core.js'), css = read('assets/t4-v2.css');
+const mappingCSS=read('assets/talents-mapping.css');
+check(mappingCSS.includes('[data-t4-module="talents"]') && mappingCSS.includes('.tw-'), 'refinamento visual possui escopo exclusivo de Talentos');
+for(const file of ['organizacional.html','alemao.html','contatos.html'])check(!read(file).includes('talents-mapping'), `${file}: não carrega o refinamento específico de Talentos`);
+check(mappingCSS.includes(':focus-visible') && mappingCSS.includes('prefers-reduced-motion'), 'Talentos mantém foco de teclado e movimento reduzido');
 for (const file of Object.keys(pages)) check(core.includes(`href: './${file}'`), `switch ${file} presente no componente único`);
 check((core.match(/class="t4-switch-item/g) || []).length === 1, 'quatro switches gerados por um único componente');
 check(core.includes('aria-current') && core.includes('t4-skip'), 'navegação identifica a página e oferece atalho ao conteúdo');
@@ -82,8 +90,17 @@ for (const [pattern, label] of [
   [/fetch\s*\(\s*['"]https?:\/\//i, 'chamada direta a serviço externo'],
   [/\.rpc\(/, 'execução de procedimento de banco pelo frontend']
 ]) check(!pattern.test(front), `ausência de ${label}`);
-check(!required.some((file) => /\.sql$/i.test(file)), 'esta revisão de interface não depende de reaplicar SQL');
+check(!front.includes('10_additive.sql') && !front.includes('supabase/migrations'), 'interface não aplica SQL automaticamente; campos novos exigem pré-checagem separada');
 const data = read('assets/t4-v2-data.js');
+const modern = read('assets/t4-modern.js'), modernCSS = read('assets/t4-modern.css');
+check(modern.includes('T4Modern') && modern.includes('color') && modern.includes('manual'), 'camada moderna compartilhada possui cores seguras e manual');
+check(modernCSS.includes('-apple-system') && modernCSS.includes('prefers-reduced-motion'), 'camada moderna usa tipografia de sistema e movimento reduzido');
+const v24 = read('assets/t4-v24.js'), v24CSS = read('assets/t4-v24.css');
+check(v24.includes('T4V24') && v24.includes('savedViews') && v24.includes('metricStrip'), 'workbench V2.4 possui visões salvas e indicadores');
+check(v24.includes('t4-table tbody tr') && v24.includes('trigger.click'), 'workbench abre prévia da linha sem perder o contexto');
+check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24CSS.includes('v24-command-list'), 'workbench V2.4 possui superfícies macOS e ações rápidas');
+check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
+for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
 check(data.includes('createClient(SUPABASE_URL, SUPABASE_ANON_KEY'), 'cliente Supabase público preservado');
 check(data.includes('expectedUpdatedAt') && data.includes('page.length') && data.includes('maxRows'), 'concorrência e paginação continuam protegidas');
 for (const token of data.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g) || []) {
