@@ -5,161 +5,256 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Talents 4 | CRM Pipeline</title>
     <style>
-        /* Variáveis de Sistema Apple */
         :root {
-            --bg-mac: #F5F5F7;
-            --sidebar-bg: rgba(232, 232, 237, 0.6);
-            --panel-bg: rgba(255, 255, 255, 0.85);
-            --accent: #0071E3;
+            --accent: #007AFF;
+            --accent-hover: #005bb5;
             --text-main: #1D1D1F;
             --text-muted: #86868B;
-            --border: rgba(0,0,0,0.06);
-            --blur: blur(20px);
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --blur: blur(40px);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 12px 48px rgba(0, 0, 0, 0.12);
         }
 
+        /* Fundo dinâmico para o vidro funcionar */
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-            background-color: var(--bg-mac);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             color: var(--text-main);
             display: grid;
-            grid-template-columns: 260px 1fr; /* Sidebar + Conteúdo */
+            grid-template-columns: 240px 1fr;
             height: 100vh;
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* Sidebar Glassmorphism */
         .sidebar {
-            background: var(--sidebar-bg);
+            background: var(--glass-bg);
             backdrop-filter: var(--blur);
             -webkit-backdrop-filter: var(--blur);
-            border-right: 1px solid var(--border);
-            padding: 24px 16px;
+            border-right: 1px solid var(--glass-border);
+            padding: 32px 16px;
             display: flex;
             flex-direction: column;
+            box-shadow: 1px 0 24px rgba(0,0,0,0.03);
+            z-index: 10;
         }
 
         .logo-container {
-            padding: 0 12px 32px 12px;
-            text-align: left;
+            padding: 0 12px 40px 12px;
         }
 
         .logo-container img {
-            height: 48px;
+            height: 42px;
             width: auto;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
         }
 
         .nav-item {
-            padding: 10px 14px;
-            margin-bottom: 4px;
-            border-radius: 8px;
+            padding: 10px 16px;
+            margin-bottom: 6px;
+            border-radius: 10px;
             font-size: 14px;
             font-weight: 500;
-            color: var(--text-main);
             cursor: pointer;
             transition: all 0.2s ease;
+            color: var(--text-muted);
         }
 
         .nav-item.active {
             background: var(--accent);
             color: white;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            font-weight: 600;
         }
 
         .nav-item:hover:not(.active) {
-            background: rgba(0,0,0,0.04);
+            background: rgba(255,255,255, 0.5);
+            color: var(--text-main);
         }
 
-        /* Área Principal de Pipeline (Master-Detail) */
+        /* Área Central */
         .main-content {
             display: grid;
-            grid-template-columns: 1fr 400px; /* Lista + Dossiê Lateral */
+            grid-template-columns: 1fr 380px;
             height: 100vh;
         }
 
         .pipeline-list {
-            padding: 32px;
+            padding: 40px;
             overflow-y: auto;
         }
 
         .page-title {
-            font-size: 24px;
-            font-weight: 600;
-            margin-bottom: 24px;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 32px;
+            color: #111;
         }
 
-        /* Tabela Matricial (A evolução do Kanban) */
+        /* Cards Matriciais Refinados */
         .matrix-row {
-            background: white;
-            border-radius: 12px;
-            padding: 16px 20px;
-            margin-bottom: 12px;
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px 24px;
+            margin-bottom: 16px;
             display: grid;
-            grid-template-columns: 2fr 2fr 3fr;
+            grid-template-columns: 1.5fr 1.2fr 2fr;
             align-items: center;
-            border: 1px solid var(--border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+            border: 1px solid white;
+            box-shadow: var(--shadow);
             cursor: pointer;
-            transition: transform 0.1s ease, box-shadow 0.1s ease;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
 
         .matrix-row:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-hover);
         }
 
-        /* Stepper Visual Linear */
+        .candidate-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+        .candidate-meta { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            background: #F2F2F7;
+            color: var(--text-main);
+        }
+        .badge.blue { background: #E5F0FF; color: var(--accent); }
+
+        /* Stepper Estilo Apple */
         .stepper {
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: flex-end;
+            gap: 2px;
         }
-
         .step-dot {
-            width: 10px;
-            height: 10px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
-            background: #E5E5EA;
-        }
-        .step-dot.completed { background: var(--accent); }
-        .step-dot.active { 
-            background: var(--accent);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.2);
+            background: #D1D1D6;
+            transition: all 0.3s ease;
         }
         .step-line {
-            height: 2px;
-            width: 20px;
-            background: #E5E5EA;
+            height: 3px;
+            width: 24px;
+            background: #D1D1D6;
+            border-radius: 2px;
+            transition: all 0.3s ease;
         }
-        .step-line.completed { background: var(--accent); }
-
-        /* Dossiê Lateral (Slide-over) */
-        .detail-panel {
-            background: var(--panel-bg);
-            backdrop-filter: var(--blur);
-            -webkit-backdrop-filter: var(--blur);
-            border-left: 1px solid var(--border);
-            padding: 32px 24px;
-            overflow-y: auto;
+        .step-dot.completed, .step-line.completed { background: var(--accent); }
+        .step-dot.active { 
+            background: white;
+            border: 3px solid var(--accent);
+            width: 10px;
+            height: 10px;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.2);
         }
-
-        .badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 20px;
+        .step-label {
             font-size: 12px;
             font-weight: 600;
-            background: rgba(0,0,0,0.05);
+            color: var(--accent);
+            margin-left: 12px;
+            min-width: 80px;
         }
-        .badge.blue { background: rgba(0, 113, 227, 0.1); color: var(--accent); }
+
+        /* Painel Lateral Direito (Dossiê) */
+        .detail-panel {
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-left: 1px solid var(--glass-border);
+            padding: 40px 32px;
+            overflow-y: auto;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.02);
+        }
+
+        .detail-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+            margin-bottom: 24px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        h4 { margin: 0 0 16px 0; font-size: 15px; color: #111; }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        .metric-box {
+            background: white;
+            padding: 16px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.04);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+        .metric-value { font-size: 24px; font-weight: 800; }
+        .metric-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        .val-green { color: #34C759; }
+        .val-orange { color: #FF9500; }
+
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 12px;
+            border: 1px solid #D1D1D6;
+            padding: 16px;
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            background: rgba(255,255,255,0.8);
+            transition: border 0.2s ease;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: white;
+        }
+
+        .btn-primary {
+            margin-top: 16px;
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+            transition: all 0.2s ease;
+        }
+        .btn-primary:hover {
+            background: var(--accent-hover);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
-
-    <!-- Sidebar com Fundo Claro -->
     <div class="sidebar">
         <div class="logo-container">
-            <!-- Puxando sua logo de fundo claro -->
-            <img src="../image_3528c4.png" alt="Talents 4 Logo">
+            <img src="../image_3528c4.png" alt="Talents 4 Logo" onerror="this.src='https://via.placeholder.com/150x50?text=Talents+4'">
         </div>
         <div class="nav-item">Meu Dia</div>
         <div class="nav-item">Base de Talentos</div>
@@ -167,93 +262,73 @@
         <div class="nav-item">Oportunidades</div>
     </div>
 
-    <!-- Conteúdo Principal Dividido -->
     <div class="main-content">
-        
-        <!-- Lado Esquerdo: Lista de Pipeline -->
         <div class="pipeline-list">
             <div class="page-title">Acompanhamento de Seleções</div>
             
-            <!-- Exemplo de Linha 1 (Focado no seu contexto de TI/Redes) -->
             <div class="matrix-row">
                 <div>
-                    <div style="font-weight: 600;">Jean Carlos L. Duarte</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">A2/B1 • Network Automation Engineer</div>
+                    <div class="candidate-name">Jean Carlos L. Duarte</div>
+                    <div class="candidate-meta">A2/B1 • Network Automation Engineer</div>
                 </div>
-                
                 <div>
                     <span class="badge">Hubert Burda Media</span>
-                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">SLA: Aguardando há 2 dias</div>
+                    <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px; font-weight: 500;">SLA: Aguardando há 2 dias</div>
                 </div>
-
-                <!-- O Novo Kanban Linear -->
                 <div class="stepper">
-                    <div class="step-dot completed" title="Análise"></div>
-                    <div class="step-line completed"></div>
-                    <div class="step-dot completed" title="Apresentado"></div>
-                    <div class="step-line completed"></div>
-                    <div class="step-dot active" title="Entrevista"></div>
-                    <div class="step-line"></div>
-                    <div class="step-dot" title="Proposta"></div>
-                    <div class="step-line"></div>
-                    <div class="step-dot" title="Contratado"></div>
-                    <span style="font-size: 12px; margin-left: 8px; font-weight: 500; color: var(--accent);">Entrevista</span>
+                    <div class="step-dot completed"></div><div class="step-line completed"></div>
+                    <div class="step-dot completed"></div><div class="step-line completed"></div>
+                    <div class="step-dot active"></div><div class="step-line"></div>
+                    <div class="step-dot"></div><div class="step-line"></div>
+                    <div class="step-dot"></div>
+                    <div class="step-label">Entrevista</div>
                 </div>
             </div>
 
-            <!-- Exemplo de Linha 2 -->
             <div class="matrix-row">
                 <div>
-                    <div style="font-weight: 600;">Daniel Henrique</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">A2 • Industriemechaniker</div>
+                    <div class="candidate-name">Daniel Henrique</div>
+                    <div class="candidate-meta">A2 • Industriemechaniker</div>
                 </div>
-                
                 <div>
                     <span class="badge blue">Richter Aluminium GmbH</span>
-                    <div style="font-size: 12px; color: #FF3B30; margin-top: 4px;">SLA: Atrasado (15 dias)</div>
+                    <div style="font-size: 12px; color: #FF3B30; margin-top: 6px; font-weight: 600;">SLA: Atrasado (15 dias)</div>
                 </div>
-
                 <div class="stepper">
-                    <div class="step-dot completed"></div>
-                    <div class="step-line completed"></div>
-                    <div class="step-dot active"></div>
-                    <div class="step-line"></div>
+                    <div class="step-dot completed"></div><div class="step-line completed"></div>
+                    <div class="step-dot active"></div><div class="step-line"></div>
+                    <div class="step-dot"></div><div class="step-line"></div>
+                    <div class="step-dot"></div><div class="step-line"></div>
                     <div class="step-dot"></div>
-                    <div class="step-line"></div>
-                    <div class="step-dot"></div>
-                    <div class="step-line"></div>
-                    <div class="step-dot"></div>
-                    <span style="font-size: 12px; margin-left: 8px; font-weight: 500; color: var(--accent);">Apresentado</span>
+                    <div class="step-label">Apresentado</div>
                 </div>
             </div>
         </div>
 
-        <!-- Lado Direito: Dossiê Rápido -->
         <div class="detail-panel">
-            <h3 style="margin-top: 0;">Detalhes da Seleção</h3>
-            <div style="background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 16px;">
-                <strong>Talento:</strong> Jean Carlos L. Duarte<br>
-                <strong>Vaga:</strong> Network Automation Engineer<br>
-                <strong>Empresa:</strong> Hubert Burda Media (Offenburg)
+            <h3 style="margin-top: 0; font-size: 20px; letter-spacing: -0.3px;">Detalhes da Seleção</h3>
+            <div class="detail-card">
+                <div style="margin-bottom: 8px;"><strong>Talento:</strong> Jean Carlos L. Duarte</div>
+                <div style="margin-bottom: 8px;"><strong>Vaga:</strong> Network Automation Engineer</div>
+                <div><strong>Empresa:</strong> Hubert Burda Media</div>
             </div>
             
             <h4>Métricas de Aderência</h4>
-            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
-                <div style="flex: 1; background: rgba(52, 199, 89, 0.1); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 20px; font-weight: 700; color: #34C759;">95%</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">Técnica</div>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-value val-green">95%</div>
+                    <div class="metric-label">Técnica</div>
                 </div>
-                <div style="flex: 1; background: rgba(255, 149, 0, 0.1); padding: 12px; border-radius: 8px; text-align: center;">
-                    <div style="font-size: 20px; font-weight: 700; color: #FF9500;">60%</div>
-                    <div style="font-size: 11px; color: var(--text-muted);">Viabilidade</div>
+                <div class="metric-box">
+                    <div class="metric-value val-orange">60%</div>
+                    <div class="metric-label">Viabilidade</div>
                 </div>
             </div>
 
             <h4>Próxima Ação</h4>
-            <textarea style="width: 100%; border-radius: 8px; border: 1px solid var(--border); padding: 10px; font-family: inherit; resize: vertical;" rows="3" placeholder="Ex: Enviar e-mail cobrando feedback da entrevista técnica."></textarea>
-            <button style="margin-top: 12px; width: 100%; background: var(--accent); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer;">Salvar e Notificar</button>
+            <textarea rows="4" placeholder="Ex: Enviar e-mail cobrando feedback da entrevista técnica."></textarea>
+            <button class="btn-primary">Salvar e Notificar</button>
         </div>
-
     </div>
 </body>
 </html>
