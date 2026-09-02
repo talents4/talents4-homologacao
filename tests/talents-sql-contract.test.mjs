@@ -36,3 +36,11 @@ test('contrato do banco separa scores, valida origem e prende melhores alvos ao 
   assert.match(code,/o\.employer_id::text/);assert.match(code,/origin->>'opening_id'/);
   assert.doesNotMatch(code,/update\s+public\.(?:candidatos|talent_opportunity_matches)/i);
 });
+test('auditoria do contrato do frontend é somente leitura e cobre presença, tipo e segurança',()=>{
+  const raw=clean(sql('30_frontend_schema_audit.sql'));
+  const code=raw.replace(/'(?:''|[^'])*'/g,"''");
+  assert.match(code,/^\s*with\b/i);
+  assert.doesNotMatch(code,/\b(create|alter|drop|insert\s+into|update\s+public|delete\s+from|truncate|grant|revoke|begin|commit)\b/i);
+  for(const table of ['candidatos','employers','employer_openings','talent_opportunity_matches','talent_mapping_profiles','contact_records','german_course_enrollments','usuarios']) assert.match(raw,new RegExp("'"+table+"'"));
+  for(const token of ['information_schema.columns','pg_class','pg_policies','pg_proc','COLUNA_AUSENTE_OBRIGATORIA','TIPO_DIVERGENTE','RLS_AUSENTE']) assert.match(raw,new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+});

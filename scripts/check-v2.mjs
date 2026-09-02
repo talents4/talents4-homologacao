@@ -18,7 +18,7 @@ function walk(dir) {
 }
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
-const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALIDACAO_V2_1.md',
+const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPABASE_AUDITORIA.md',
   'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
@@ -28,14 +28,34 @@ const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'VALID
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
   'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs',
   'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
-  'tests/talents-sql-contract.test.mjs','TALENTOS_V2_2.md','PASSO_A_PASSO_TALENTOS_V2_2.md','PREVIA_TALENTOS_V2_2.md'];
+  'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql'];
 for (const file of required) check(files.includes(file), `${file} existe`);
+for (const file of [
+  'TALENTOS_V2_2.md', 'PASSO_A_PASSO_TALENTOS_V2_2.md', 'PREVIA_TALENTOS_V2_2.md',
+  'scripts/build-talents-v22.mjs', 'scripts/build-talents-v23.mjs', 'scripts/build-talents-v24.mjs',
+  'scripts/build-package.mjs', 'tests/talents-v22-baseline.json'
+]) check(!files.includes(file), `${file} legado não está no pacote`);
 if (failures) { console.error('Pacote incompleto; não publicar.'); process.exit(1); }
 
 for (const file of [...new Set([...required.filter((file) => /\.(?:m?js)$/.test(file)), ...files.filter((file) => /^(scripts|tests)\/[^/]+\.mjs$/.test(file))])]) {
   const run = spawnSync(process.execPath, ['--check', path.join(root, file)], { encoding: 'utf8' });
   check(run.status === 0, `sintaxe de ${file}`); if (run.status) console.error(run.stderr);
 }
+// Impede a reincidência da classe de bug já ocorrida: nenhum nome global pode
+// ser definido por mais de um arquivo, pois a ordem de carregamento decide
+// silenciosamente qual versão permanecerá ativa.
+const globalOwners = new Map();
+for (const file of files.filter((f) => /^assets\/.*\.js$/.test(f))) {
+  for (const match of read(file).matchAll(/\b(?:window|global)\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=/g)) {
+    const name = match[1];
+    if (!globalOwners.has(name)) globalOwners.set(name, new Set());
+    globalOwners.get(name).add(file);
+  }
+}
+const collisions = [...globalOwners].filter(([, owners]) => owners.size > 1);
+check(collisions.length === 0, 'nenhum nome global (window.*) é definido por mais de um arquivo');
+for (const [name, owners] of collisions) console.error(`  colisão: ${name} definido em ${[...owners].join(', ')}`);
+
 for (const [name, module] of Object.entries(pages)) {
   for (const demo of [false, true]) {
     const file = `${demo ? 'demo/' : ''}${name}`, html = read(file);
@@ -125,6 +145,8 @@ check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbo
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
 check(read('TALENTOS_V2_5.md').includes('Supabase') && read('MANUAL_TALENTOS_V2_5.md').includes('Lista NectaNet') && read('PASSO_A_PASSO_TALENTOS_V2_5.md').includes('talents4/talents4-homologacao'), 'documentação V2.5 cobre produto, uso e upload');
+check(read('SUPABASE_AUDITORIA.md').includes('30_frontend_schema_audit.sql') && /não execute[\s`*]+10_additive\.sql/i.test(read('SUPABASE_AUDITORIA.md')), 'auditoria do Supabase tem roteiro seguro e explícito');
+check(read('manual-talentos.html').includes('./index.html?view=manual') && !/<script\b/i.test(read('manual-talentos.html')), 'endereço antigo do manual redireciona sem código legado');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-v25.css') && read(file).includes('t4-v25.js'), `${file}: camada V2.5 compartilhada presente`);
 check(data.includes('createClient(SUPABASE_URL, SUPABASE_ANON_KEY'), 'cliente Supabase público preservado');

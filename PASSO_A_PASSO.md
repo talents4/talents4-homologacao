@@ -13,7 +13,7 @@ Abra **https://talents4.github.io/talents4-homologacao/**. Confirme que a faixa 
 3. Selecione juntos os dois arquivos oficiais:
    - `Mapeamento candidatos - Nectanet.xlsm`;
    - `Cópia de Mapeamento Talents 4 2026.08.31.xlsx`.
-4. Aguarde a prévia. Para os arquivos de referência atuais, ela deve reconhecer aproximadamente 2 arquivos, 136 linhas de priorização, 76 parceiros, 162 empresas, 123 linhas de acompanhamento e 9 contextos de Talento. O resumo e o radar também aparecem na conferência.
+4. Aguarde a prévia. Com a versão de 31/08/2026 dos dois arquivos citados acima, ela reconheceu 2 arquivos, 136 linhas de priorização, 76 parceiros, 162 empresas, 123 linhas de acompanhamento e 9 contextos de Talento — números de referência apenas para essa data; eles mudam a cada nova versão da planilha oficial. O que importa conferir é se as contagens exibidas na prévia batem com o que você espera dos arquivos que está subindo agora, não com estes números fixos. O resumo e o radar também aparecem na conferência.
 5. Confira os nomes e as abas. Se houver aba desconhecida ou número inesperado, clique em **Escolher outros arquivos**.
 6. Se estiver tudo correto, clique em **Confirmar importação**.
 

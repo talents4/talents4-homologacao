@@ -71,8 +71,9 @@ for (const relative of [
   ...pages.map((file) => `demo/${file}`),
   ...assets.map((name) => `assets/${name}`),
   ...fs.readdirSync(path.join(root, 'tests')).filter((name) => name.endsWith('.mjs') || name.endsWith('.js')).map((name) => `tests/${name}`),
-  'scripts/check-v2.mjs', 'scripts/build-package.mjs', 'scripts/build-talents-v24.mjs', 'scripts/build-talents-v25.mjs',
-  'README.md', 'TALENTOS_V2_5.md', 'PASSO_A_PASSO_TALENTOS_V2_5.md', 'MANUAL_TALENTOS_V2_5.md'
+  'scripts/check-v2.mjs', 'scripts/build-talents-v25.mjs',
+  'README.md', 'TALENTOS_V2_5.md', 'PASSO_A_PASSO.md', 'PASSO_A_PASSO_TALENTOS_V2_5.md', 'MANUAL_TALENTOS_V2_5.md', 'SUPABASE_AUDITORIA.md', 'manual-talentos.html',
+  'supabase/talents-v22/00_preflight.sql', 'supabase/talents-v22/10_additive.sql', 'supabase/talents-v22/20_verify.sql', 'supabase/talents-v22/30_frontend_schema_audit.sql'
 ]) if (fs.existsSync(path.join(root, relative))) copy(relative);
 const incrementalZip = path.join(output, 'Talents4_V2_5_2_ATUALIZACAO_INCREMENTAL.zip');
 run('zip', ['-q', '-r', incrementalZip, 'talents4-v2-5-2-incremental'], stage);
