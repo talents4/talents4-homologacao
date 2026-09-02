@@ -133,6 +133,22 @@
         } else if (!['resumo bw', 'radar nectanet'].includes(sheetKey)) result.unknownSheets.push(sheet.name);
       }
     }
+    // Alguns .xlsm exportados do Google Sheets carregam o resultado de
+    // FILTER/TEXTJOIN como texto de fallback (__xludf.DUMMYFUNCTION), em vez
+    // do valor visível. Reconstituir esses quatro campos a partir da aba
+    // oficial de Talentos evita gravar a fórmula quebrada no CRM.
+    const formulaFallback = (value) => /__xludf\.DUMMYFUNCTION|^IFERROR\(/i.test(String(value || ''));
+    const relatedCandidates = (company) => result.presentation.filter((candidate) =>
+      ['employer_primary', 'employer_alt1', 'employer_alt2'].some((key) => normalizeCompany(candidate[key]) === normalizeCompany(company)));
+    const uniqueLines = (rows, key) => [...new Set(rows.map((row) => String(row[key] || '').trim()).filter(has))].join('\n');
+    result.partners.forEach((partner) => {
+      if (![partner.talent_names, partner.areas, partner.german, partner.english].some(formulaFallback)) return;
+      const related = relatedCandidates(partner.empresa);
+      partner.talent_names = uniqueLines(related, 'nome_completo');
+      partner.areas = uniqueLines(related, 'area_profissional');
+      partner.german = uniqueLines(related, 'nivel_alemao');
+      partner.english = uniqueLines(related, 'ingles');
+    });
     return result;
   }
 
@@ -175,10 +191,14 @@
   function companyName(value) {
     if (!has(value)) return '';
     const raw = String(value).replace(/\r/g, '').trim();
-    if (!raw || /^(nenhuma|não informado|nao informado|—|-)$/i.test(raw)) return '';
+    if (!raw || /^(nenhuma|não informado|nao informado|a definir|não definido|nao definido|sem informação|sem informacao|n\/a|—|-)$/i.test(raw)) return '';
+    // A planilha usa ocasionalmente “Empresa: URL” ou quebra o nome e a
+    // URL em linhas separadas. O CRM deve guardar a empresa como entidade;
+    // links pertencem ao campo de referência/vaga, nunca ao nome.
+    if (/^\d+(?:[.,]\d+)?$/.test(raw)) return '';
     const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
     const first = lines.find((line) => !/^https?:\/\//i.test(line)) || lines[0] || raw;
-    return first.replace(/\s*:\s*$/, '').trim();
+    return first.replace(/\s*:\s*https?:\/\/.*$/i, '').replace(/\s*:\s*$/, '').trim();
   }
 
   function normalizeCompany(value) { return norm(companyName(value)).replace(/[^a-z0-9]+/g, ' ').trim(); }

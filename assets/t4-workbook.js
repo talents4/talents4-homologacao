@@ -110,18 +110,21 @@
       const rowNumber = Number(attribute(rowAttrs, 'r')) || rows.length + 1;
       while (rows.length < rowNumber) rows.push([]);
       const row = rows[rowNumber - 1];
-      for (const cellMatch of rowXml.matchAll(new RegExp(`<${tagPrefix('c')}\\b([^>]*)>([\\s\\S]*?)</${tagPrefix('c')}>`, 'gi'))) {
-        const attrs = cellMatch[1], body = cellMatch[2], reference = attribute(attrs, 'r') || `${columnName(row.length + 1)}${rowNumber}`;
+      // O OOXML omite o conteúdo de uma célula vazia e a serializa como
+      // <c r="F3"/>. Um segundo regex que procurava apenas células com
+      // fechamento </c> acabava consumindo a célula vazia junto com a
+      // seguinte e deslocava todos os valores para a esquerda. Isso
+      // transformava idades, códigos e observações em nomes de empresas.
+      // Um único tokenizador trata as duas formas e sempre usa a referência
+      // explícita da célula como posição da coluna.
+      const cellPattern = new RegExp(`<${tagPrefix('c')}\\b([^>]*?)(?:\\/>|>([\\s\\S]*?)</${tagPrefix('c')}>)`, 'gi');
+      for (const cellMatch of rowXml.matchAll(cellPattern)) {
+        const attrs = cellMatch[1], body = cellMatch[2] || '', reference = attribute(attrs, 'r') || `${columnName(row.length + 1)}${rowNumber}`;
         const index = Math.max(0, columnNumber(reference) - 1);
         const type = attribute(attrs, 't');
         row[index] = asValue(body, type, sharedStrings);
         const formula = textValue(firstBlock(body, 'f'));
         if (formula) formulas.push({ reference, formula });
-      }
-      for (const cellMatch of rowXml.matchAll(new RegExp(`<${tagPrefix('c')}\\b([^>]*)\\/>`, 'gi'))) {
-        const attrs = cellMatch[1], reference = attribute(attrs, 'r') || `${columnName(row.length + 1)}${rowNumber}`;
-        const index = Math.max(0, columnNumber(reference) - 1);
-        if (!(index in row)) row[index] = '';
       }
     }
     while (rows.length && !rows.at(-1).some((value) => value !== undefined && value !== '')) rows.pop();

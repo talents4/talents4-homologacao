@@ -33,3 +33,16 @@ test('mantém abas desconhecidas na prévia sem gravá-las silenciosamente', () 
   assert.ok(result.warnings.some((warning) => warning.includes('Aba não reconhecida')));
   assert.equal(result.stats.candidates, 0);
 });
+
+test('reconstrói fórmulas de parceiro a partir da aba oficial de Talentos', () => {
+  const candidateHeaders = ['Lista Nectanet', 'Nome', 'Visto', 'Profissional Qualificado', 'Novo CV', 'CV', 'Idade', 'Área principal', 'Cluster', 'Anos de experiência', 'Alemão', 'Inglês', 'Outros idiomas', 'Empresa principal', 'Empresa alternativa 1', 'Empresa alternativa 2', 'Resumo do candidato', 'Observação'];
+  const partnerHeaders = ['nectanet source', 'Unternehmen', 'Geschäftsführer', 'Kontakt-E-Mail', 'Personaler', 'Kontakt-E-Mail 2', 'Kontaktstatus', 'Anzahl Kandidaten', 'Passende Kandidaten', 'Arbeitsbereich', 'Deutschniveau', 'Englischniveau', 'PS'];
+  const result = importer.parseBooks([{ name: 'modelo.xlsm', sheets: [
+    { name: 'Nectanet Partner', rows: [partnerHeaders, ['NectaNet MATCH', 'Empresa Azul', '', '', '', '', 'Aber', 1, 'IFERROR(__xludf.DUMMYFUNCTION("FILTER(...)"),"")', 'IFERROR(__xludf.DUMMYFUNCTION("FILTER(...)"),"")', 'IFERROR(__xludf.DUMMYFUNCTION("FILTER(...)"),"")', 'IFERROR(__xludf.DUMMYFUNCTION("FILTER(...)"),"")', ''] ] },
+    { name: 'Candidatos priorizados', rows: [candidateHeaders, ['Sim', 'Jean', '', '', '', '', 30, 'Redes', '', '8', 'B1', 'B2', '', 'Empresa Azul', '', '', '', ''] ] }
+  ] }]);
+  assert.equal(result.nectanet.partners[0].talent_names, 'Jean');
+  assert.equal(result.nectanet.partners[0].areas, 'Redes');
+  assert.equal(result.nectanet.partners[0].german, 'B1');
+  assert.equal(result.nectanet.partners[0].english, 'B2');
+});
