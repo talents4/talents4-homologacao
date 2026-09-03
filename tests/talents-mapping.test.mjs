@@ -42,7 +42,7 @@ test('barra de filtros expõe o essencial e agrupa critérios avançados',async(
   h.app.route('presentation');
   assert.match(text(h),/Filtros/);
   assert.match(text(h),/Mais filtros/);
-  assert.match(text(h),/Dentro de cada filtro, escolha uma opção ou mais/);
+  assert.doesNotMatch(text(h),/Dentro de cada filtro, escolha uma opção ou mais/);
   assert.doesNotMatch(text(h),/Você pode combinar vários filtros/);
   assert.doesNotMatch(text(h),/t4-window-controls/);
   assert.equal(h.fixture.writes.length,0);

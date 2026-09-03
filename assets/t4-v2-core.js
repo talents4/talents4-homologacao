@@ -377,7 +377,7 @@
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
               <div class="t4-nav-label">${esc(config.moduleLabel)}</div>
               ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
-              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
+              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary aria-label="Mais espaços" data-tooltip="Mais espaços"><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
               <div class="t4-nav-label">Áreas do sistema</div>
@@ -404,7 +404,7 @@
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
-          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação isolada'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Explore o fluxo com dados de exemplo; alterações não são persistidas.' : 'Ambiente separado para validar o CRM antes da operação principal.'}</span></div>
+          <div class="t4-environment" title="${attr(window.T4_DEMO ? 'Dados fictícios; alterações não são persistidas.' : 'Ambiente de homologação')}">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração' : 'Homologação'}</span></div>
           <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;

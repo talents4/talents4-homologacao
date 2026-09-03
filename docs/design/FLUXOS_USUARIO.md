@@ -10,6 +10,10 @@ Dois níveis, sem hierarquia mais profunda: **módulo** (Talentos / Organizacion
 
 **Menu lateral recolhível (novo).** Botão "Recolher menu" no rodapé da lateral (`t4-v2-core.js`, `data-sidebar-collapse`) reduz a lateral a uma coluna de ícones (76px) em telas ≥1001px, liberando espaço horizontal para tabelas densas em notebooks de 1280–1366px — a faixa de resolução mais apertada citada no pedido original. Cada ícone mantém `aria-label` e `data-tooltip` com o rótulo completo, então recolher não remove nada da leitura por teclado/leitor de tela. A preferência visual fica na sessão da aba, sem cachear dados de negócio: sobrevive à troca de módulo e ao recarregamento na mesma aba e é descartada quando a aba é fechada. Em telas ≤1000px, o botão desktop é ocultado porque o menu usa a gaveta móvel.
 
+**Mais espaços recolhido (novo).** A entrada não desaparece quando a lateral está compacta: permanece como ícone e abre um flyout com os espaços secundários. A navegação continua no mesmo espaço ao trocar entre Talentos e Organizacional, porque a preferência da lateral é compartilhada pelo shell e não é reconfigurada pela rota.
+
+**Empregadores como entrada operacional (novo).** Organizacional abre em Empregadores com `Parceiras diretas` e `Cartões` selecionados. A classificação é explícita: parceria direta exige confirmação manual; “Apresentada pela NectaNet” descreve origem; “Empresa geral” não significa parceria. A lista completa mantém parceiras no topo mesmo quando o usuário troca o recorte.
+
 **Busca global e atalhos (pré-existente).** Campo de busca no topo filtra o espaço atual (`app.setSearchHandler`), atalho `/` foca a busca, `Esc` fecha modal/drawer ou o menu mobile. Paleta de comandos (`⌘K` / botão "Ações") lista navegação + ação primária do espaço atual — já cobre o "command palette" pedido nas funcionalidades inteligentes (ver `FUNCIONALIDADES_INTELIGENTES.md`).
 
 ## Fluxo de filtro e busca
@@ -18,6 +22,18 @@ Dois níveis, sem hierarquia mais profunda: **módulo** (Talentos / Organizacion
 2. Ao marcar uma ou mais opções, a lista recalcula na hora (sem chamada extra ao Supabase — os dados já estão carregados em memória por `state`, filtro é só `Array.filter` client-side).
 3. **(novo)** Uma barra "Filtros ativos" aparece logo abaixo da barra de ferramentas (`W.activeFiltersBar`, `assets/t4-v2-ui.js`) sempre que há pelo menos um filtro marcado, mesmo com o dropdown fechado — resolve o padrão Airtable descrito em `REFERENCIAS_UIUX.md`: antes, um filtro marcado e esquecido em um dropdown fechado ficava invisível, e resultados vazios pareciam bug. Cada filtro vira um chip individual com rótulo already resolvido para leitura humana (nome do empregador, não o UUID; nome do mês por extenso, não `2026-08`; nome da turma, não o ID) e um botão `×` que remove só aquele valor — os demais filtros da mesma tela continuam ativos. "Limpar tudo" ao lado reseta a barra inteira.
 4. Implementado em três telas: Organizacional (`organization-v2.js`, filtros Empregador/Período/Situação), Contatos (`contacts-v2.js`, Categoria/Situação/Responsável) e Alemão (`german-v2.js`, Turma/Situação/Nível/Risco). Talentos (`talents-v2.js`) já tinha uma barra de filtros avançada equivalente da geração V2.4 (`t4-v24.js`, "visões salvas") e não foi duplicada — ver `FUNCIONALIDADES_INTELIGENTES.md`, item "filtros/visões salvas".
+
+Seletores de vínculo com mais de doze opções usam `W.searchableSelect` (`t4-v2-ui.js`): a busca filtra visualmente as opções e o `<select>` nativo continua sendo o valor enviado ao Supabase. Isso vale, por exemplo, para escolher Empregador numa vaga, numa tarefa ou numa linha de acompanhamento e para escolher o Talento no acompanhamento individual.
+
+## Fluxo de prioridade organizacional (novo)
+
+Planejamento mensal e PO operacional deixam de misturar explicação, cadastro, execução e indicadores. Cada tela apresenta primeiro um painel de próxima prioridade, depois recortes rápidos e a fila ordenada, e só então detalhes secundários.
+
+- Planejamento: `Vencidas`, `Próximos 7 dias`, `Programadas` e `Sem prazo`; a ordem usa entrega, status e ordem original sem alterar os registros.
+- PO operacional: `Vencidas`, `Para hoje`, `Alta prioridade` e `Sem responsável`; a próxima tarefa usa prazo, prioridade e situação. Ações de concluir continuam gravando somente a tarefa original.
+- Métricas do período ficam abaixo da fila do PO e não são escondidas pelo filtro de situação das tarefas.
+
+Os recortes são estado de tela; não criam colunas, snapshots nem registros auxiliares no Supabase.
 
 ## Fluxo de seleção em massa (pré-existente, verificado nesta entrega)
 

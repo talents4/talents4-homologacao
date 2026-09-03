@@ -27,12 +27,31 @@ test('classificação dos empregadores é acionável e prioriza parceiras direta
   h.fixture.db.employers[1].company_scope = 'GENERAL';
   await h.load('organization');
   h.app.route('employers');
+  await h.action('employer-classification', 'all');
   const names = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
   assert.deepEqual(names, ['Clínica Aurora · exemplo', 'Nord Technik · exemplo']);
   assert.match(h.html(), /data-action="employer-classification" data-id="partner"/);
   await h.action('employer-classification', 'partner');
   const partnerNames = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
   assert.deepEqual(partnerNames, ['Clínica Aurora · exemplo']);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('Organizacional abre em Empregadores com parceiras e cartões em destaque', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers[0].direct_talents4_partnership = 'CONFIRMADA';
+  await h.load('organization');
+  assert.equal(h.app.view, 'employers');
+  assert.match(h.html(), /data-action="employer-classification" data-id="partner"[^>]*aria-pressed="true"/);
+  assert.match(h.html(), /data-action="employer-display" data-id="cards"[^>]*aria-pressed="true"/);
+  assert.doesNotMatch(h.html(), /Uma empresa por vez|A fila operacional mostra/);
+});
+test('seletores longos mostram busca sem mudar o valor nativo do formulário', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers.push(...Array.from({ length: 20 }, (_, i) => ({ ...h.fixture.db.employers[0], id: h.id(500 + i), nome: `Empresa ${i}` })));
+  await h.load('organization');
+  await h.action('new-opening-for', h.id(101));
+  assert.match(h.forms.at(-1).innerHTML, /data-select-search="employer_id"/);
+  assert.match(h.forms.at(-1).innerHTML, /name="employer_id"/);
   assert.equal(h.fixture.writes.length, 0);
 });
 test('busca deixa claro quando o Talento arquivado ainda tem seleção ativa', async () => {
