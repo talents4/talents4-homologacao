@@ -120,10 +120,12 @@ for (const [pattern, label] of [
   [/drive\.googleapis\.com|accounts\.google\.com\/gsi/i, 'API de Drive / OAuth Google'],
   [/\bSheetJS\b|\bMammoth\b/i, 'bibliotecas de importação legadas'],
   [/\bclient_secret\b|\bservice_role\b|BEGIN PRIVATE KEY|ghp_[A-Za-z0-9]+/i, 'segredo administrativo'],
-  [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
+  [/\blocalStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
   [/fetch\s*\(\s*['"]https?:\/\//i, 'chamada direta a serviço externo'],
   [/\.rpc\(/, 'execução de procedimento de banco pelo frontend']
 ]) check(!pattern.test(front), `ausência de ${label}`);
+const sessionStorageFiles = [...new Set(required.filter((file) => /^(assets\/|[^/]+\.html$)/.test(file) && /\bsessionStorage\b/.test(read(file))))];
+check(sessionStorageFiles.length === 0 || (sessionStorageFiles.length === 1 && sessionStorageFiles[0] === 'assets/t4-v2-core.js' && core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('readSidebarCollapsed') && core.includes('writeSidebarCollapsed')), 'armazenamento de sessão limitado à preferência visual da sidebar');
 check(!front.includes('10_additive.sql') && !front.includes('supabase/migrations'), 'interface não aplica SQL automaticamente; campos novos exigem pré-checagem separada');
 const data = read('assets/t4-v2-data.js');
 const modern = read('assets/t4-modern.js'), modernCSS = read('assets/t4-modern.css');
@@ -136,6 +138,11 @@ check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24
 check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
 const v25 = read('assets/t4-v25.js'), v25CSS = read('assets/t4-v25.css');
 check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collapsed') && v25CSS.includes('body.t4-sidebar-collapsed { --v25-sidebar: 76px; }'), 'menu lateral possui recolhimento funcional compatível com a largura visual V2.5');
+check(core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('document.body.classList.toggle(\'t4-sidebar-collapsed\', sidebarCollapsed)'), 'sidebar preserva a preferência visual entre módulos');
+check(v25CSS.includes('.t4-table td.t4-selection-cell:first-child') && v25CSS.includes('max-width: 42px'), 'coluna de seleção não ocupa a largura da primeira coluna');
+check(v25CSS.includes('.t4-multi-options input[type="checkbox"]') && v25CSS.includes('.t4-sr-only'), 'filtro mantém busca larga e oculta apenas o rótulo auxiliar');
+const organizationCode = read('assets/organization-v2.js');
+check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
 check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
 check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
 check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && !v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado, sem controles decorativos');

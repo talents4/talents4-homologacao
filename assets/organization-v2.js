@@ -106,12 +106,19 @@
   function employersView() {
     const scope = state.employerScope || 'active';
     const classification = state.employerClassification || 'all';
+    const employerPriority = (row) => {
+      if (R.employerClassificationMatches(row, 'partner')) return 0;
+      if (R.employerClassificationMatches(row, 'nectanet')) return 1;
+      if (R.employerClassificationMatches(row, 'general')) return 2;
+      if (R.employerClassificationMatches(row, 'external')) return 3;
+      return 4;
+    };
     const rows = state.employers.filter((r) => {
       const isActive = M.activeRecord(r);
       if (scope === 'active' && !isActive) return false;
       if (scope === 'archived' && isActive) return false;
       return matches(r.id, state.employer) && matches(r.status || 'Ativo', state.status) && R.employerClassificationMatches(r, classification) && matchQuery(r);
-    });
+    }).sort((left, right) => employerPriority(left) - employerPriority(right) || M.norm(left.nome).localeCompare(M.norm(right.nome), 'pt-BR'));
     const scopeCount = (id) => id === 'active' ? state.employers.filter((r) => M.activeRecord(r)).length : id === 'archived' ? state.employers.filter((r) => !M.activeRecord(r)).length : state.employers.length;
     const scopeBar = W.chips([{ id: 'active', label: 'Ativos', count: scopeCount('active'), icon: 'building' }, { id: 'all', label: 'Todos os registros', count: scopeCount('all'), icon: 'list' }, { id: 'archived', label: 'Arquivo', count: scopeCount('archived'), icon: 'archive' }], scope, 'employer-scope');
     const classificationOptions = [{ id: 'all', label: 'Todos', icon: 'list' }, { id: 'partner', label: 'Parceiras diretas', icon: 'check' }, { id: 'nectanet', label: 'Apresentadas pela NectaNet', icon: 'arrow' }, { id: 'general', label: 'Empresas gerais', icon: 'building' }, { id: 'pending', label: 'Parceria a confirmar', icon: 'warning' }];
@@ -388,6 +395,7 @@
     if (name === 'multi-filter-clear') { if (id in state) state[id] = []; render(); return; }
     if (name === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (name === 'employer-scope') { state.employerScope = ['active', 'all', 'archived'].includes(id) ? id : 'active'; state.employer = []; state.status = []; render(); return; }
+    if (name === 'employer-classification') { state.employerClassification = ['all', 'partner', 'nectanet', 'general', 'pending'].includes(id) ? id : 'all'; render(); return; }
     if (name === 'opportunity-scope') { state.opportunityScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
