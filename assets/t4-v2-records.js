@@ -17,19 +17,41 @@
   // de negócio fixa — ver docs/mapeamento/CLASSIFICACAO_EMPRESAS.md).
   // Colunas ainda ausentes no Supabase (classificação nova, não aplicada)
   // fazem o empregador cair em "Classificação pendente", nunca em silêncio.
+  const own = (row, key) => Object.prototype.hasOwnProperty.call(row || {}, key);
+  const truthy = (value) => value === true || ['true', '1', 'sim', 'yes'].includes(M.norm(value));
+  const classificationKeys = ['presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'];
+  const hasClassification = (employer) => classificationKeys.some((key) => own(employer, key));
+  const presentedByNectanet = (employer) => truthy(employer.presented_by_nectanet)
+    || M.norm(employer.source_channel) === 'nectanet'
+    || M.norm(employer.company_scope) === 'nectanet_presented';
+  function employerClassificationMatches(employer = {}, selected = 'all') {
+    const wanted = M.norm(selected);
+    if (!wanted || wanted === 'all' || wanted === 'todos') return true;
+    const tags = new Set(), direct = M.norm(employer.direct_talents4_partnership), scope = M.norm(employer.company_scope);
+    if (!hasClassification(employer)) tags.add('pending');
+    if (direct === 'confirmada') tags.add('partner');
+    if (presentedByNectanet(employer)) tags.add('nectanet');
+    if (scope === 'general') tags.add('general');
+    if (scope === 'external_bw') tags.add('external');
+    if (direct === 'rejeitada') tags.add('no-partner');
+    if (hasClassification(employer) && !['confirmada', 'rejeitada'].includes(direct)) tags.add('pending');
+    return tags.has(wanted);
+  }
   function employerClassificationBadges(employer = {}) {
     const badges = [];
-    const hasClassification = employer.source_channel != null || employer.company_scope != null || employer.direct_talents4_partnership != null;
-    if (!hasClassification) return [{ label: 'Classificação pendente', tone: '' }];
-    if (employer.direct_talents4_partnership === 'CONFIRMADA') badges.push({ label: 'Parceira Talents 4', tone: 'success' });
-    if (employer.presented_by_nectanet || employer.source_channel === 'NECTANET') badges.push({ label: 'Apresentada pela NectaNet', tone: 'info' });
-    if (employer.company_scope === 'EXTERNAL_BW') badges.push({ label: 'Externa BW', tone: '' });
-    if (employer.company_scope === 'GENERAL' && !badges.length) badges.push({ label: 'Prospect', tone: '' });
-    if (employer.direct_talents4_partnership === 'UNKNOWN' || !badges.length) badges.push({ label: 'Classificação pendente', tone: '' });
+    const known = hasClassification(employer), direct = M.norm(employer.direct_talents4_partnership), scope = M.norm(employer.company_scope);
+    if (!known) return [{ label: 'Classificação pendente', tone: '' }];
+    if (direct === 'confirmada') badges.push({ label: 'Parceira Talents 4', tone: 'success' });
+    if (presentedByNectanet(employer)) badges.push({ label: 'Apresentada pela NectaNet', tone: 'info' });
+    if (scope === 'general') badges.push({ label: 'Empresa geral', tone: '' });
+    if (scope === 'external_bw') badges.push({ label: 'Externa · BW', tone: '' });
+    if (direct === 'rejeitada') badges.push({ label: 'Sem parceria direta', tone: '' });
+    if (!['confirmada', 'rejeitada'].includes(direct)) badges.push({ label: 'Parceria direta não confirmada', tone: 'warning' });
+    if (!badges.length) badges.push({ label: 'Classificação pendente', tone: '' });
     return badges;
   }
   function employerClassificationHtml(employer) {
-    return `<div class="t4-chip-row t4-classification-badges">${employerClassificationBadges(employer).map((b) => U.badge(b.label, b.tone)).join('')}</div>`;
+    return `<div class="t4-chip-row t4-classification-badges" aria-label="Classificação do empregador">${employerClassificationBadges(employer).map((b) => U.badge(b.label, b.tone)).join('')}</div>`;
   }
   const fields = (pairs) => pairs.map(([name, label, type, options]) => ({ name, label, type: type || 'text', ...(type === 'textarea' ? { wide: true } : {}), ...(options ? { options } : {}) }));
   async function finishActivity(row, after) {
@@ -174,5 +196,5 @@
   }
   window.T4Records = Object.freeze({ LEVELS, PRIORITIES, STAGES, fields, choices, talentName, employerName, editFollowup, editActivity,
     finishActivity, activityTable, editSelection, selectionTable, selectionDrawer, selectionBoard, storedFields,
-    employerClassificationBadges, employerClassificationHtml });
+    employerClassificationBadges, employerClassificationHtml, employerClassificationMatches, classificationKeys });
 })();

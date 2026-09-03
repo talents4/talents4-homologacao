@@ -24,6 +24,13 @@ test('filtros: OU dentro da etapa, E com idioma; remover uma opção preserva as
   await h.action('filter-remove',JSON.stringify(['stage','Análise'])); assert.doesNotMatch(text(h),/Sofia Almeida/); assert.match(text(h),/Lucas Vieira/);
   assert.equal(h.fixture.writes.length,0);
 });
+test('filtro de empregador inclui alvos sem cadastro pelo nome importado', async () => {
+  const h = await boot(), s = await state(h);
+  s.mappingItems = [...s.mappingItems, { id: 'UNMAPPED-1', talent_id: 'DEMO-T3', employer_id: null, employer_name: 'Empresa sem cadastro · exemplo', archived_at: null }];
+  const rows = h.T.filterTalents({ ...s, filters: { employer: ['Empresa sem cadastro · exemplo'] }, quick: [] });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, 'DEMO-T3');
+});
 test('filtros rápidos combinam curso e atenção sem trazer todos os alunos',async()=>{
   const h=await boot(); await h.action('quick','course'); await h.action('quick','attention');
   assert.match(text(h),/Lucas Vieira/); assert.doesNotMatch(text(h),/Sofia Almeida/);

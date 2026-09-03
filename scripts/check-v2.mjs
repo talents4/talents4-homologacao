@@ -135,6 +135,8 @@ check(v24.includes('t4-table tbody tr') && v24.includes('trigger.click'), 'workb
 check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24CSS.includes('v24-command-list'), 'workbench V2.4 possui superfícies macOS e ações rápidas');
 check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
 const v25 = read('assets/t4-v25.js'), v25CSS = read('assets/t4-v25.css');
+check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collapsed') && v25CSS.includes('body.t4-sidebar-collapsed { --v25-sidebar: 76px; }'), 'menu lateral possui recolhimento funcional compatível com a largura visual V2.5');
+check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
 check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
 check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && !v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado, sem controles decorativos');
 check(v25CSS.includes('color-mix') && v25CSS.includes('prefers-reduced-motion') && v25CSS.includes('@supports not (backdrop-filter'), 'camada V2.5 possui cor de empregador, fallback e movimento reduzido');

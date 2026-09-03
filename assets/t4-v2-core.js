@@ -444,7 +444,7 @@
       root.querySelector('[data-page-title]').textContent = view?.title || view?.label || '';
       root.querySelector('[data-page-subtitle]').textContent = view?.subtitle || config.subtitle || '';
       const more = root.querySelector('.t4-nav-more');
-      if (more && secondaryViews.some((item) => item.id === currentView)) more.open = true;
+      if (more) more.open = secondaryViews.some((item) => item.id === currentView);
       if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
       document.body.classList.remove('t4-sidebar-open');
     }

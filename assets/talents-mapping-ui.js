@@ -31,9 +31,12 @@
         if (key === 'cv') push(p.novo_cv || 'Não informado');
         if (key === 'nectanet') push(p.lista_nectanet || 'Não informado');
         if (key === 'employer') {
-          const ids = [...(state.selections?.rows || []).filter((s) => M.same(s.talent_id, r.id)).map((s) => s.employer_id),
-            ...(state.mappingItems || []).filter((s) => !s.archived_at && M.same(s.talent_id, r.id)).map((s) => s.employer_id), p.employer_primary_id, p.employer_alt1_id, p.employer_alt2_id];
+          const selections = (state.selections?.rows || []).filter((s) => M.same(s.talent_id, r.id));
+          const mappingItems = (state.mappingItems || []).filter((s) => !s.archived_at && M.same(s.talent_id, r.id));
+          const ids = [...selections.map((s) => s.employer_id), ...mappingItems.map((s) => s.employer_id), p.employer_primary_id, p.employer_alt1_id, p.employer_alt2_id];
           ids.forEach((id) => push(id, state.employers.find((x) => M.same(x.id, id))?.nome || id));
+          [...selections.map((s) => s.employer_name_snapshot), ...mappingItems.map((s) => s.employer_name)].filter(M.present)
+            .forEach((name) => push(name, `${name} · empresa ainda não cadastrada`));
         }
       }
       return [...values.values()].sort((x, y) => x.label.localeCompare(y.label, 'pt-BR'));

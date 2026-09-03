@@ -86,10 +86,13 @@
     return (state.talents || []).filter((r) => {
       if (active(r) === archived) return false;
       const extra = profileFor(state, r.id), selections = (state.selections?.rows || []).filter((s) => M.same(s.talent_id, r.id));
-      const employerIds = [...selections.map((s) => s.employer_id), extra.employer_primary_id, extra.employer_alt1_id, extra.employer_alt2_id,
-        ...(state.mappingItems || []).filter((x) => !x.archived_at && M.same(x.talent_id, r.id)).map((x) => x.employer_id)].filter(M.present);
-      const employerNames = employerIds.map((id) => (state.employers || []).find((item) => M.same(item.id, id))?.nome).filter(M.present);
-      const values = { stage: [r.status_pipeline || 'Sem etapa'], german: [r.nivel_alemao, ...courseFor(state, r.id).map((en) => en.current_level)].filter(M.present), owner: [r.responsavel_interno || 'Sem responsável'], employer: employerIds, cluster: [extra.cluster || 'Sem cluster'], visa: [extra.visto || 'Não informado'], qualification: [extra.profissional_qualificado || 'Não informado'], cv: [extra.novo_cv || 'Não informado'], nectanet: [extra.lista_nectanet || 'Não informado'] };
+      const mappingItems = (state.mappingItems || []).filter((x) => !x.archived_at && M.same(x.talent_id, r.id));
+      const employerIds = [...selections.map((s) => s.employer_id), extra.employer_primary_id, extra.employer_alt1_id, extra.employer_alt2_id, ...mappingItems.map((x) => x.employer_id)].filter(M.present);
+      const employerNames = [
+        ...employerIds.map((id) => (state.employers || []).find((item) => M.same(item.id, id))?.nome),
+        ...selections.map((s) => s.employer_name_snapshot), ...mappingItems.map((x) => x.employer_name)
+      ].filter(M.present);
+      const values = { stage: [r.status_pipeline || 'Sem etapa'], german: [r.nivel_alemao, ...courseFor(state, r.id).map((en) => en.current_level)].filter(M.present), owner: [r.responsavel_interno || 'Sem responsável'], employer: [...employerIds, ...employerNames], cluster: [extra.cluster || 'Sem cluster'], visa: [extra.visto || 'Não informado'], qualification: [extra.profissional_qualificado || 'Não informado'], cv: [extra.novo_cv || 'Não informado'], nectanet: [extra.lista_nectanet || 'Não informado'] };
       if (Object.entries(values).some(([key, vals]) => key !== ignore && !matches(f[key], vals))) return false;
       if (quick.some((key) => key !== ignore && ({ mine: !mine(r, profile), attention: !attentionReasons(state, r).length, course: !courseFor(state, r.id).length, ready: !yes(r.pronto_para_employer) })[key])) return false;
       const query = M.norm(state.query);

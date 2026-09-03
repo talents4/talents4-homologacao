@@ -15,7 +15,7 @@
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
   const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'overview' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'all', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -105,27 +105,34 @@
   }
   function employersView() {
     const scope = state.employerScope || 'active';
+    const classification = state.employerClassification || 'all';
     const rows = state.employers.filter((r) => {
       const isActive = M.activeRecord(r);
       if (scope === 'active' && !isActive) return false;
       if (scope === 'archived' && isActive) return false;
-      return matches(r.id, state.employer) && matches(r.status || 'Ativo', state.status) && matchQuery(r);
+      return matches(r.id, state.employer) && matches(r.status || 'Ativo', state.status) && R.employerClassificationMatches(r, classification) && matchQuery(r);
     });
     const scopeCount = (id) => id === 'active' ? state.employers.filter((r) => M.activeRecord(r)).length : id === 'archived' ? state.employers.filter((r) => !M.activeRecord(r)).length : state.employers.length;
     const scopeBar = W.chips([{ id: 'active', label: 'Ativos', count: scopeCount('active'), icon: 'building' }, { id: 'all', label: 'Todos os registros', count: scopeCount('all'), icon: 'list' }, { id: 'archived', label: 'Arquivo', count: scopeCount('archived'), icon: 'archive' }], scope, 'employer-scope');
+    const classificationOptions = [{ id: 'all', label: 'Todos', icon: 'list' }, { id: 'partner', label: 'Parceiras diretas', icon: 'check' }, { id: 'nectanet', label: 'Apresentadas pela NectaNet', icon: 'arrow' }, { id: 'general', label: 'Empresas gerais', icon: 'building' }, { id: 'pending', label: 'Parceria a confirmar', icon: 'warning' }];
+    const classificationCount = (id) => state.employers.filter((r) => (scope === 'active' ? M.activeRecord(r) : scope === 'archived' ? !M.activeRecord(r) : true) && R.employerClassificationMatches(r, id)).length;
+    const classificationBar = `<div class="v25-classification-filter"><div><strong>Tipo de relação</strong><span>Escolha como a empresa deve ser lida na operação.</span></div>${W.chips(classificationOptions.map((item) => ({ ...item, count: item.id === 'all' ? scopeCount(scope === 'active' ? 'active' : scope === 'archived' ? 'archived' : 'all') : classificationCount(item.id) })), classification, 'employer-classification')}</div>`;
     const displayBar = W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.employerDisplay, 'employer-display');
     const helper = scope === 'active' ? 'A fila operacional mostra somente empregadores ativos. O arquivo fica disponível quando você precisar consultar histórico.' : scope === 'archived' ? 'Registros inativos ou arquivados ficam isolados aqui; não entram na fila operacional.' : 'Todos os registros, inclusive os arquivados. Use esta visão para auditoria, não para a operação diária.';
+    const classificationHelp = 'Parceira Talents 4 só aparece após confirmação direta da equipe. “Apresentada pela NectaNet” identifica a origem do contato e não significa parceria direta. “Empresa geral” é um escopo separado.';
     const list = W.table({ id: 'employers', rows, columns: [
       { key: 'nome', label: 'Empregador', required: true, render: (r) => { const color = window.T4Modern?.color(r) || '#7890a4'; return `<div class="v25-employer-cell" style="--employer-color:${a(color)}"><i></i>${W.person(r.nome, r.area_atuacao || '', '', 'employer-detail', r.id)}</div>`; } },
       { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(M.activeRecord(r) ? (r.status || 'Ativo') : 'Arquivado') },
       { key: 'classification', label: 'Classificação', sort: false, render: (r) => R.employerClassificationHtml(r) },
       { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'employer') }
     ] });
-    return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
+    return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + classificationBar + `<p class="v25-classification-help">${e(classificationHelp)}</p>` + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
   }
   function planningView() {
     const rows = filtered(state.plans).sort((x, y) => employerOf(x).localeCompare(employerOf(y), 'pt-BR') || String(x.month_ref).localeCompare(String(y.month_ref)) || (x.order_index || 0) - (y.order_index || 0));
-    return toolbar(state.plans) + W.table({ id: 'planning', rows, groupBy: employerOf, columns: [
+    const open = rows.filter((r) => M.isOpen(r.status)).length, withoutEmployer = rows.filter((r) => !r.employer_id && !r.employer_name_snapshot).length;
+    const context = `<div class="v25-context-strip"><div><span class="mx-eyebrow">ORGANIZAÇÃO DO MÊS</span><strong>Defina o que será realizado e por quem.</strong><p>Planejamento mensal organiza entregas, período, responsável e empregador. A execução diária fica em PO operacional; reuniões e decisões ficam em sua própria área.</p></div><div class="v25-context-stats"><span><b>${rows.length}</b> atividades</span><span><b>${open}</b> em aberto</span><span><b>${withoutEmployer}</b> sem empregador</span></div></div>`;
+    return context + toolbar(state.plans) + W.table({ id: 'planning', rows, groupBy: employerOf, columns: [
       { key: 'activity_label', label: 'Etapa / atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button>` },
       { key: 'month_ref', label: 'Período' }, { key: 'responsavel', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
       { key: 'obs', label: 'Observação / próxima ação', render: (r) => `<span class="t4-clamp-3">${e(r.obs || '—')}</span>` },
@@ -147,15 +154,19 @@
       body: `<div class="t4-detail-grid">${U.field('Semana', row.week_label)}${U.field('Responsável', row.owner_name)}${U.field('Situação', row.status)}${U.field('Escopo', row.meeting_scope)}</div>${[['Decisões', row.decision_summary], ['Itens resolvidos', row.resolved_items], ['Pendências', row.pending_items], ['Próxima ação', row.next_action], ['Observações', row.notes]].map(([label, value]) => W.section(label, `<p class="t4-preserve">${e(value || 'Não informado')}</p>`)).join('')}` });
   }
   function operationsView() {
-    const tasks = filtered(state.tasks), metrics = state.metrics.filter((r) => (!state.month || r.month_ref === state.month) && matchQuery(r));
-    return toolbar(state.tasks) + `<div class="t4-kpi-grid">${U.kpi('Tarefas no recorte', tasks.length, 'Histórico incluído')}${U.kpi('Em aberto', tasks.filter((r) => M.isOpen(r.status)).length, 'Ações da equipe')}${U.kpi('Vencidas', tasks.filter((r) => M.overdue(r.due_date, r.status)).length, 'Prazos a revisar', 'warn')}${U.kpi('Concluídas', tasks.filter((r) => /pronto|conclu/i.test(r.status)).length, 'Entregas registradas', 'good')}</div>` +
-      W.section('Métricas do período', W.table({ id: 'metrics', rows: metrics, columns: [
-        { key: 'metric_label', label: 'Métrica', required: true }, { key: 'month_ref', label: 'Mês' }, { key: 'target_value', label: 'Meta' }, { key: 'actual_value', label: 'Realizado' }, { key: 'owner_user_key', label: 'Responsável' }, { key: 'notes', label: 'Leitura / contexto' }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'metric') }
-      ] }), can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '') +
-      W.section('Tarefas operacionais', W.table({ id: 'tasks', rows: tasks, columns: [
-        { key: 'title', label: 'Tarefa', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title)}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || '')}</span>` },
-        { key: 'due_date', label: 'Prazo', render: (r) => e(U.formatDate(r.due_date)) }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority, /alta|crit/i.test(r.priority) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || '—') }, { key: 'context_type', label: 'Contexto', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'task') }
-      ] }));
+    const tasks = filtered(state.tasks), metrics = state.metrics.filter((r) => scoped(r) && (!state.month || r.month_ref === state.month) && matchQuery(r));
+    const open = tasks.filter((r) => M.isOpen(r.status)).length, overdue = tasks.filter((r) => M.overdue(r.due_date, r.status)).length, done = tasks.filter((r) => /pronto|conclu/i.test(r.status)).length;
+    const taskIntro = `<div class="v25-context-strip v25-operations-intro"><div><span class="mx-eyebrow">EXECUÇÃO DA EQUIPE</span><strong>Ações com responsável, prazo e resultado.</strong><p>Esta é a fila de trabalho do PO operacional. Registre uma ação por linha, acompanhe o prazo e conclua quando houver entrega. Metas e resultados ficam abaixo, em Métricas do período.</p></div><div class="v25-context-stats"><span><b>${tasks.length}</b> no recorte</span><span><b>${open}</b> em aberto</span><span class="${overdue ? 'risk' : ''}"><b>${overdue}</b> vencidas</span><span><b>${done}</b> concluídas</span></div></div>`;
+    const taskActions = (r) => `<div class="t4-chip-row">${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div>`;
+    const taskTable = W.table({ id: 'tasks', rows: tasks, columns: [
+      { key: 'title', label: 'Tarefa / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || r.notes || 'Sem descrição ou resultado registrado.')}</span>` },
+      { key: 'due_date', label: 'Prazo', render: (r) => `${e(U.formatDate(r.due_date))}${M.overdue(r.due_date, r.status) ? U.badge('Vencida', 'danger') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(r.priority) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || '—') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: taskActions }
+    ] });
+    const metricBody = `<div class="t4-kpi-grid">${U.kpi('Tarefas no recorte', tasks.length, 'Fila exibida')}${U.kpi('Em aberto', open, 'Ações da equipe')}${U.kpi('Vencidas', overdue, 'Prazos a revisar', 'warn')}${U.kpi('Concluídas', done, 'Entregas registradas', 'good')}</div>${W.table({ id: 'metrics', rows: metrics, columns: [
+      { key: 'metric_label', label: 'Métrica', required: true }, { key: 'month_ref', label: 'Mês' }, { key: 'target_value', label: 'Meta' }, { key: 'actual_value', label: 'Realizado' }, { key: 'owner_user_key', label: 'Responsável' }, { key: 'notes', label: 'Leitura / contexto' }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'metric') }
+    ] })}`;
+    return toolbar(state.tasks) + taskIntro + W.section('Tarefas operacionais', taskTable, can('tasks') ? W.button('Nova tarefa', 'new-task', '', { className: 'primary sm', icon: 'plus' }) : '', 'Ações executáveis da equipe. Ordene por prazo, prioridade ou situação para decidir o próximo passo.') +
+      W.section('Métricas do período', metricBody, can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '', 'Metas e resultados para leitura do período; não substituem as tarefas e não são filtrados pela situação da fila.');
   }
   function summaryView() {
     const manual = state.summaries.map((r) => ({ ...r, title: r.what_was_done, detail: r.result_summary, next: r.next_action, due: r.period_end, owner: r.owner_name, type: 'Resumo manual', action: 'edit-summary' }));
@@ -235,9 +246,9 @@
     const related = (r) => M.same(r.employer_id, id) || (!r.employer_id && M.norm(r.employer_name_snapshot) === M.norm(row.nome));
     U.openDrawer({ title: row.nome, subtitle: [row.area_atuacao, row.cidade, row.pais].filter(Boolean).join(' · '),
       actions: actions(row, 'employer') + W.link('Contatos vinculados', `./contatos.html?employer=${encodeURIComponent(id)}`, 'contact') + (can('openings') ? W.button('Nova vaga', 'new-opening-for', id, { className: 'primary sm', icon: 'plus' }) : ''),
-      body: `${R.employerClassificationHtml(row)}<div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
+      body: `${R.employerClassificationHtml(row)}<p class="v25-classification-help">Parceira Talents 4 exige confirmação direta. A origem “Apresentada pela NectaNet” é informativa e não altera a parceria nem a etapa de nenhuma seleção.</p><div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
         ${W.section('Contexto da parceria', `<p class="t4-preserve">${e(row.descricao_operacional || row.descricao_resumida || 'Não informado')}</p><div class="t4-detail-grid">${U.field('Áreas-foco', row.area_atuacao)}${U.field('Perfis buscados', row.perfis_buscados)}${U.field('Requisitos', row.requisitos_principais)}${U.field('Diferenciais', row.diferenciais_desejaveis)}</div>${W.external('Site / referência', row.site)}`)}
-        ${W.section('Seleções em andamento', R.selectionTable(state, select, 'dossier-selections'))}${closedSelect.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, closedSelect, 'dossier-closed-selections'), W.badge(`${closedSelect.length} preservada(s)`, 'info')) : ''}
+        ${W.section('Seleções em andamento', R.selectionTable(state, select, 'dossier-selections'))}${closedSelect.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, closedSelect, 'dossier-closed-selections'), U.badge(`${closedSelect.length} preservada(s)`, 'info')) : ''}
         ${W.section('Próximas ações e reuniões', eventTable(events().filter(related), 'dossier-events'))}
         ${W.section('Reposições', replacementTable(state.replacements.filter(related)))}
         ${W.section('Observações internas', `<p class="t4-preserve">${e(row.observacoes_internas || 'Não informadas')}</p>`)}
@@ -248,6 +259,17 @@
           'presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'
         ])}` });
   }
+  const EMPLOYER_CLASSIFICATION_EDIT_KEYS = ['company_scope', 'direct_talents4_partnership', 'partnership_status', 'classification_notes'];
+  const employerClassificationSchemaReady = (row = null) => row
+    ? EMPLOYER_CLASSIFICATION_EDIT_KEYS.every((key) => Object.prototype.hasOwnProperty.call(row, key))
+    : state.employers.some((item) => EMPLOYER_CLASSIFICATION_EDIT_KEYS.every((key) => Object.prototype.hasOwnProperty.call(item, key)));
+  const EMPLOYER_CLASSIFICATION_FIELDS = [
+    { section: 'Relacionamento e classificação' },
+    { name: 'company_scope', label: 'Tipo de relação', type: 'select', options: [{ value: 'GENERAL', label: 'Empresa geral' }, { value: 'NECTANET_PRESENTED', label: 'Apresentada pela NectaNet' }, { value: 'TALENTS4_PARTNER', label: 'Parceira Talents 4 · escopo' }, { value: 'EXTERNAL_BW', label: 'Externa · BW' }, { value: 'UNKNOWN', label: 'Não definido' }], help: 'Origem ou escopo comercial; não confirma parceria direta.' },
+    { name: 'direct_talents4_partnership', label: 'Parceria direta Talents 4', type: 'select', options: [{ value: 'UNKNOWN', label: 'Não confirmada' }, { value: 'CONFIRMADA', label: 'Confirmada manualmente' }, { value: 'REJEITADA', label: 'Não é parceira direta' }], help: 'Só “Confirmada manualmente” exibe Parceira Talents 4.' },
+    { name: 'partnership_status', label: 'Situação da parceria', type: 'select', options: [{ value: 'ACTIVE', label: 'Ativa' }, { value: 'PROSPECT', label: 'Em prospecção' }, { value: 'FORMER', label: 'Anterior' }, { value: 'PAUSED', label: 'Pausada' }, { value: 'UNKNOWN', label: 'Não definida' }] },
+    { name: 'classification_notes', label: 'Justificativa / observação da classificação', type: 'textarea', wide: true }
+  ];
   const EMPLOYER_FIELDS = [
     { name: 'nome', label: 'Nome do empregador', required: true, wide: true },
     ...R.fields([['area_atuacao', 'Áreas-foco'], ['subsetor', 'Subsetor'], ['cidade', 'Cidade'], ['pais', 'País'], ['contato_principal', 'Contato principal'], ['email_principal', 'E-mail', 'email'], ['telefone', 'Telefone'], ['site', 'Site / referência', 'url'], ['responsavel_interno', 'Responsável interno'], ['nivel_alemao_minimo', 'Alemão mínimo', 'select', R.LEVELS], ['descricao_resumida', 'Descrição da empresa', 'textarea'], ['descricao_operacional', 'Contexto operacional', 'textarea'], ['perfis_buscados', 'Perfis buscados', 'textarea'], ['requisitos_principais', 'Requisitos', 'textarea'], ['diferenciais_desejaveis', 'Diferenciais desejáveis', 'textarea'], ['observacoes_internas', 'Observações internas', 'textarea']]),
@@ -255,9 +277,13 @@
   ];
   function editEmployer(row) {
     if (!D.canEdit()) return employerDetail(row);
-    return W.recordForm({ title: row ? 'Editar empregador' : 'Novo empregador', table: D.TABLES.employers, row: row || { ativo: true },
-      fields: row ? EMPLOYER_FIELDS.filter((f) => f.name in row) : EMPLOYER_FIELDS.filter((f) => !['subsetor', 'perfis_buscados', 'requisitos_principais', 'diferenciais_desejaveis', 'observacoes_internas'].includes(f.name)),
-      prepare(v, changes) { if (!row) Object.assign(v, { nome_normalizado: M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), tipo: 'empregador', status: 'ativo' }); if ('nome' in changes) changes.nome_normalizado = M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }, after: load });
+    const classificationReady = employerClassificationSchemaReady(row);
+    const classificationFields = EMPLOYER_CLASSIFICATION_FIELDS.map((field) => field.name && !classificationReady ? { ...field, readonly: true, help: 'Campos de classificação ainda não existem no Supabase. Aplique a migração aditiva e atualize a tela para poder definir este dado.' } : field);
+    const data = row || { ativo: true, ...(classificationReady ? { company_scope: 'UNKNOWN', direct_talents4_partnership: 'UNKNOWN', partnership_status: 'UNKNOWN' } : {}) };
+    return W.recordForm({ title: row ? 'Editar empregador' : 'Novo empregador', table: D.TABLES.employers, row: data,
+      fields: [...(row ? EMPLOYER_FIELDS.filter((f) => f.name in row) : EMPLOYER_FIELDS.filter((f) => !['subsetor', 'perfis_buscados', 'requisitos_principais', 'diferenciais_desejaveis', 'observacoes_internas'].includes(f.name))), ...classificationFields],
+      notice: `${classificationReady ? 'Classifique a relação com cuidado: origem NectaNet e parceria direta são dimensões diferentes.' : 'A classificação aparece como pendente porque as colunas correspondentes ainda não foram encontradas no Supabase. Nenhuma tentativa de gravação será feita nesses campos.'} Apenas a confirmação manual pode marcar uma parceira.`,
+      prepare(v, changes) { if (!row) Object.assign(v, { nome_normalizado: M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), tipo: 'empregador', status: 'ativo', ...(classificationReady ? { source_channel: 'UNKNOWN' } : {}) }); if ('nome' in changes) changes.nome_normalizado = M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }, after: load });
   }
   function editOpening(row, employerId) {
     if (!D.canEdit()) return openingDetail(row);
@@ -270,7 +296,7 @@
   function openingDetail(row) {
     if (!row) return;
     const relationships = state.selections.rows.filter((r) => M.same(r.opening_id, row.id)), activeRelationships = relationships.filter((r) => M.selectionBucket(r) !== 'closed'), closedRelationships = relationships.filter((r) => M.selectionBucket(r) === 'closed');
-    U.openDrawer({ title: row.title, subtitle: employerOf(row), actions: actions(row, 'opening') + (state.selections.modern && D.canEdit() ? W.button('Vincular talento', 'selection-for-opening', row.id, { className: 'primary sm', icon: 'plus' }) : ''), body: `<div class="t4-detail-grid">${['quantity', 'status', 'location', 'area', 'language_requirement', 'recognition_requirement', 'source', 'verified_at'].map((key) => U.field({ quantity: 'Posições', status: 'Situação', location: 'Local', area: 'Área', language_requirement: 'Idioma requerido', recognition_requirement: 'Reconhecimento', source: 'Origem', verified_at: 'Última verificação' }[key], row[key])).join('')}</div><p class="t4-preserve">${e(row.description || 'Descrição não informada')}</p>${W.external('Abrir referência', row.external_url)}${W.section('Talentos em andamento', R.selectionTable(state, activeRelationships, 'opening-selections'))}${closedRelationships.length ? W.section('Histórico encerrado', R.selectionTable(state, closedRelationships, 'opening-closed-selections'), W.badge(`${closedRelationships.length} preservada(s)`, 'info')) : ''}` });
+    U.openDrawer({ title: row.title, subtitle: employerOf(row), actions: actions(row, 'opening') + (state.selections.modern && D.canEdit() ? W.button('Vincular talento', 'selection-for-opening', row.id, { className: 'primary sm', icon: 'plus' }) : ''), body: `<div class="t4-detail-grid">${['quantity', 'status', 'location', 'area', 'language_requirement', 'recognition_requirement', 'source', 'verified_at'].map((key) => U.field({ quantity: 'Posições', status: 'Situação', location: 'Local', area: 'Área', language_requirement: 'Idioma requerido', recognition_requirement: 'Reconhecimento', source: 'Origem', verified_at: 'Última verificação' }[key], row[key])).join('')}</div><p class="t4-preserve">${e(row.description || 'Descrição não informada')}</p>${W.external('Abrir referência', row.external_url)}${W.section('Talentos em andamento', R.selectionTable(state, activeRelationships, 'opening-selections'))}${closedRelationships.length ? W.section('Histórico encerrado', R.selectionTable(state, closedRelationships, 'opening-closed-selections'), U.badge(`${closedRelationships.length} preservada(s)`, 'info')) : ''}` });
   }
   function employerFields() { return [{ name: 'employer_id', label: 'Empregador (opcional para assuntos internos)', type: 'select', options: R.choices(state.employers, 'nome') }]; }
   function snapshotEmployer(v, changes, row) {
@@ -307,8 +333,16 @@
       if (!row) Object.assign(v, { context_type: context.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal', assigned_user_key: v.owner_user_key, completed_at: v.status === 'Pronto' ? new Date().toISOString() : null, sort_index: 0, is_recurring: false, deleted_at: null, meeting_id: context.meeting_id || null });
       if (row && 'employer_id' in c) c.context_type = row.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal';
       if ('owner_user_key' in c) c.assigned_user_key = v.owner_user_key;
-      if ('status' in c) c.completed_at = v.status === 'Pronto' ? new Date().toISOString() : null;
+      if ('status' in c && (!row || Object.prototype.hasOwnProperty.call(row, 'completed_at'))) c.completed_at = v.status === 'Pronto' ? new Date().toISOString() : null;
     }, after: load });
+  }
+  async function finishTask(row) {
+    if (!row || !D.canEdit() || !M.isOpen(row.status)) return;
+    const payload = { status: 'Pronto' };
+    if (Object.prototype.hasOwnProperty.call(row, 'completed_at')) payload.completed_at = new Date().toISOString();
+    await D.update(D.TABLES.tasks, row.id, payload, row.updated_at ? { expectedUpdatedAt: row.updated_at } : {});
+    U.toast('Tarefa concluída. A entrega continua registrada no histórico.', 'success');
+    await load();
   }
   function editMetric(row) {
     if (!D.canEdit()) return readonlyDetail(row, 'Métrica');
@@ -358,7 +392,7 @@
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.employerScope = 'active'; state.employerDisplay = 'list'; state.opportunityScope = 'open'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.employerScope = 'active'; state.employerClassification = 'all'; state.employerDisplay = 'list'; state.opportunityScope = 'open'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name.startsWith('month-')) { const date = new Date(`${state.calendar}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'month-prev' ? -1 : 1)); state.calendar = name === 'month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
     if (name === 'employer-detail') return employerDetail(W.find(state.employers, id));
     if (name === 'edit-employer') return editEmployer(W.find(state.employers, id));
@@ -373,6 +407,8 @@
     if (name === 'edit-meeting') return editMeeting(W.find(state.meetings, id));
     if (name === 'meeting-task') { const m = W.find(state.meetings, id); return editTask(null, { title: m.next_action || m.pending_items || m.title, description: m.decision_summary, meeting_id: m.id, employer_id: m.employer_id, owner_user_key: m.owner_name }); }
     if (name === 'edit-task') return editTask(W.find(state.tasks, id));
+    if (name === 'finish-task') return finishTask(W.find(state.tasks, id));
+    if (name === 'new-task') return editTask();
     if (name === 'edit-metric' || name === 'new-metric') return editMetric(W.find(state.metrics, id));
     if (name === 'edit-summary') return editSummary(W.find(state.summaries, id));
     if (name === 'edit-replacement' || name === 'new-replacement') return editReplacement(W.find(state.replacements, id));

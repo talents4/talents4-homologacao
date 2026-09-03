@@ -344,8 +344,13 @@
       if (options.activeOnly !== false) next = next.eq('ativo', true);
       return next;
     };
+    const classificationColumns = ['presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'];
     try {
-      return await all(TABLES.employers, '*', configure, { label: 'Leitura de empregadores' });
+      const rows = await all(TABLES.employers, '*', configure, { label: 'Leitura de empregadores' });
+      const hasClassificationColumns = rows.length > 0 && classificationColumns.some((key) => Object.prototype.hasOwnProperty.call(rows[0], key));
+      if (rows.length > 0 && !hasClassificationColumns) readWarnings.set('employer-classification', 'Empregadores: as colunas de classificação ainda não existem neste Supabase. As empresas aparecem como “Classificação pendente”; nenhuma parceria foi presumida.');
+      else readWarnings.delete('employer-classification');
+      return rows;
     } catch (error) {
       if (!missingColumn(error)) throw error;
       return all(TABLES.employers, '*', configure, { label: 'Leitura compatível de empregadores' });
