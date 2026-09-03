@@ -112,16 +112,23 @@ test('filtro de status das tarefas não oculta métricas mensais sem status pró
   const h = await makeHarness().load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
   assert.match(h.html(), /Entrevistas preparadas/);
 });
-test('PO operacional põe tarefas antes das métricas e permite concluí-las', async () => {
-  const h = await makeHarness().load('organization'); h.app.route('operations');
+test('PO operacional abre prontidão em cartões e lista todos por status e prioridade', async () => {
+  const h = makeHarness();
+  h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa já concluída', status: 'Pronto', priority: 'Crítica', completed_at: '2026-08-31T12:00:00Z', due_date: '2026-08-31' });
+  await h.load('organization'); h.app.route('operations');
   const html = h.html();
-  assert.ok(html.indexOf('<h2>Tarefas operacionais') < html.indexOf('<h2>Métricas do período'));
-  assert.ok(html.indexOf('Preparar pauta das entrevistas') < html.indexOf('Entrevistas preparadas'));
+  assert.ok(html.indexOf('Cartões de prontidão') < html.indexOf('Lista completa'));
+  assert.equal((html.match(/data-ready-task=/g) || []).length, 1);
+  const listStart = html.indexOf('data-table="tasks"');
+  assert.ok(listStart >= 0);
+  assert.ok(html.indexOf('Preparar pauta das entrevistas', listStart) < html.indexOf('Tarefa já concluída', listStart));
   assert.match(html, /Concluir/);
+  assert.ok(html.indexOf('<h2>Métricas do período') > html.indexOf('Lista completa'));
   await h.action('finish-task', h.id(1005));
   assert.equal(h.fixture.writes.at(-1).table, 'operational_tasks');
   assert.equal(h.fixture.writes.at(-1).payload.status, 'Pronto');
   assert.ok(h.fixture.db.operational_tasks[0].completed_at);
+  assert.equal((h.html().match(/data-ready-task=/g) || []).length, 0);
 });
 test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
   const h = makeHarness();

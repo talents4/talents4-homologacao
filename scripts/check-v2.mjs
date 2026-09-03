@@ -147,6 +147,7 @@ const organizationCode = read('assets/organization-v2.js');
 check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
 check(organizationCode.includes("defaultView: 'employers'") && organizationCode.includes("employerClassification: 'partner'") && organizationCode.includes("employerDisplay: 'cards'"), 'Organizacional abre em Empregadores, parceiras e cartões');
 check(organizationCode.includes('planning-focus') && organizationCode.includes('operations-focus') && organizationCode.includes('org-priority-panel') && organizationCode.includes("W.section('Métricas do período'"), 'Planejamento e PO organizam prioridade, fila e métricas');
+check(organizationCode.includes('org-ready-card') && organizationCode.includes('Lista completa') && organizationCode.includes('M.isOpen(r.status)') && v25CSS.includes('.org-operations-split') && v25CSS.includes('.org-ready-list'), 'PO abre cartões de prontidão ao lado da lista completa');
 check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
 check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
 check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && !v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado, sem controles decorativos');
