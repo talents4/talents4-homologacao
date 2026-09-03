@@ -17,19 +17,41 @@
   // de negócio fixa — ver docs/mapeamento/CLASSIFICACAO_EMPRESAS.md).
   // Colunas ainda ausentes no Supabase (classificação nova, não aplicada)
   // fazem o empregador cair em "Classificação pendente", nunca em silêncio.
+  const own = (row, key) => Object.prototype.hasOwnProperty.call(row || {}, key);
+  const truthy = (value) => value === true || ['true', '1', 'sim', 'yes'].includes(M.norm(value));
+  const classificationKeys = ['presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'];
+  const hasClassification = (employer) => classificationKeys.some((key) => own(employer, key));
+  const presentedByNectanet = (employer) => truthy(employer.presented_by_nectanet)
+    || M.norm(employer.source_channel) === 'nectanet'
+    || M.norm(employer.company_scope) === 'nectanet_presented';
+  function employerClassificationMatches(employer = {}, selected = 'all') {
+    const wanted = M.norm(selected);
+    if (!wanted || wanted === 'all' || wanted === 'todos') return true;
+    const tags = new Set(), direct = M.norm(employer.direct_talents4_partnership), scope = M.norm(employer.company_scope);
+    if (!hasClassification(employer)) tags.add('pending');
+    if (direct === 'confirmada') tags.add('partner');
+    if (presentedByNectanet(employer)) tags.add('nectanet');
+    if (scope === 'general') tags.add('general');
+    if (scope === 'external_bw') tags.add('external');
+    if (direct === 'rejeitada') tags.add('no-partner');
+    if (hasClassification(employer) && !['confirmada', 'rejeitada'].includes(direct)) tags.add('pending');
+    return tags.has(wanted);
+  }
   function employerClassificationBadges(employer = {}) {
     const badges = [];
-    const hasClassification = employer.source_channel != null || employer.company_scope != null || employer.direct_talents4_partnership != null;
-    if (!hasClassification) return [{ label: 'Classificação pendente', tone: '' }];
-    if (employer.direct_talents4_partnership === 'CONFIRMADA') badges.push({ label: 'Parceira Talents 4', tone: 'success' });
-    if (employer.presented_by_nectanet || employer.source_channel === 'NECTANET') badges.push({ label: 'Apresentada pela NectaNet', tone: 'info' });
-    if (employer.company_scope === 'EXTERNAL_BW') badges.push({ label: 'Externa BW', tone: '' });
-    if (employer.company_scope === 'GENERAL' && !badges.length) badges.push({ label: 'Prospect', tone: '' });
-    if (employer.direct_talents4_partnership === 'UNKNOWN' || !badges.length) badges.push({ label: 'Classificação pendente', tone: '' });
+    const known = hasClassification(employer), direct = M.norm(employer.direct_talents4_partnership), scope = M.norm(employer.company_scope);
+    if (!known) return [{ label: 'Classificação pendente', tone: '' }];
+    if (direct === 'confirmada') badges.push({ label: 'Parceira Talents 4', tone: 'success' });
+    if (presentedByNectanet(employer)) badges.push({ label: 'Apresentada pela NectaNet', tone: 'info' });
+    if (scope === 'general') badges.push({ label: 'Empresa geral', tone: '' });
+    if (scope === 'external_bw') badges.push({ label: 'Externa · BW', tone: '' });
+    if (direct === 'rejeitada') badges.push({ label: 'Sem parceria direta', tone: '' });
+    if (!['confirmada', 'rejeitada'].includes(direct)) badges.push({ label: 'Parceria direta não confirmada', tone: 'warning' });
+    if (!badges.length) badges.push({ label: 'Classificação pendente', tone: '' });
     return badges;
   }
   function employerClassificationHtml(employer) {
-    return `<div class="t4-chip-row t4-classification-badges">${employerClassificationBadges(employer).map((b) => U.badge(b.label, b.tone)).join('')}</div>`;
+    return `<div class="t4-chip-row t4-classification-badges" aria-label="Classificação do empregador">${employerClassificationBadges(employer).map((b) => U.badge(b.label, b.tone)).join('')}</div>`;
   }
   const fields = (pairs) => pairs.map(([name, label, type, options]) => ({ name, label, type: type || 'text', ...(type === 'textarea' ? { wide: true } : {}), ...(options ? { options } : {}) }));
   async function finishActivity(row, after) {
@@ -135,7 +157,7 @@
   }
   function selectionTable(state, rows, id = 'selections') {
     return W.table({ id, rows, columns: [
-      { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => W.person(talentName(state, r.talent_id), W.find(state.talents, r.talent_id)?.profissao_principal || '', '', 'selection-detail', r.key) },
+      { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => { const talent = W.find(state.talents, r.talent_id); const meta = [talent?.profissao_principal || talent?.area_profissional, talent && !M.activeRecord(talent) ? 'Arquivado' : ''].filter(Boolean).join(' · '); return W.person(talentName(state, r.talent_id), meta, '', 'selection-detail', r.key); } },
       { key: 'employer_id', label: 'Empregador / vaga', value: (r) => employerName(state, r.employer_id), render: (r) => { const employer = W.find(state.employers, r.employer_id); const name = window.T4Modern?.employer ? window.T4Modern.employer(employer || { nome: employerName(state, r.employer_id), id: r.employer_id }) : e(employerName(state, r.employer_id)); return W.stackHtml(name, r.opening_id ? W.find(state.openings, r.opening_id)?.title || 'Vaga não encontrada' : 'Vínculo geral · anterior à V2'); } },
       { key: 'stage', label: 'Etapa', render: (r) => W.status(r.stage) },
       { key: 'next_action', label: 'Próxima ação', render: (r) => W.stack(r.next_action, M.dateOnly(r.next_action_at) ? U.formatDate(r.next_action_at) : '') },
@@ -146,9 +168,10 @@
   function selectionDrawer(state, row) {
     if (!row) return;
     const opening = W.find(state.openings, row.opening_id);
-    return U.openDrawer({ title: talentName(state, row.talent_id), subtitle: `${employerName(state, row.employer_id)} · ${opening?.title || 'Vínculo geral'}`,
+    const talent = W.find(state.talents, row.talent_id), archived = talent && !M.activeRecord(talent);
+    return U.openDrawer({ title: talentName(state, row.talent_id), subtitle: `${archived ? 'Arquivado · ' : ''}${employerName(state, row.employer_id)} · ${opening?.title || 'Vínculo geral'}`,
       actions: `${D.canEdit() ? W.button('Editar seleção', 'edit-selection', row.key, { className: 'primary', icon: 'edit' }) : ''}${W.link('Ficha do talento', `./index.html?talent=${encodeURIComponent(row.talent_id)}`, 'user')}${W.link('Empregador', `./organizacional.html?employer=${encodeURIComponent(row.employer_id)}`, 'building')}`,
-      body: `${row.sourceConflict ? W.note('Há etapas diferentes nas duas fontes antigas. O registro principal do CRM é exibido; ambos os originais permanecem abaixo para conferência.', 'warning') : ''}
+      body: `${archived ? W.note('Este Talento está arquivado, mas a seleção continua em andamento. Revise o vínculo antes de avançar.', 'warning') : ''}${row.sourceConflict ? W.note('Há etapas diferentes nas duas fontes antigas. O registro principal do CRM é exibido; ambos os originais permanecem abaixo para conferência.', 'warning') : ''}
         <div class="t4-detail-grid">${U.field('Etapa', row.stage)}${U.field('Situação', row.status)}${U.field('Responsável', row.owner_username)}${U.field('Prazo', U.formatDate(row.next_action_at))}${U.field('Enviado em', U.formatDate(row.sent_at))}${U.field('Retorno em', U.formatDate(row.responded_at))}</div>
         ${W.section('Próxima ação', `<p class="t4-preserve">${e(row.next_action || 'Defina o próximo passo desta seleção.')}</p>`)}
         ${W.section('Avaliação e contexto', `<div class="t4-detail-grid">${U.field('Viabilidade', row.viability)}${U.field('Compatibilidade geral', M.finite(row.overall_score) ? `${row.overall_score}%` : 'Não avaliada')}</div><h3>Motivos</h3><p class="t4-preserve">${e(row.reasons || 'Não informado')}</p><h3>Barreiras</h3><p class="t4-preserve">${e(row.barriers || 'Não informadas')}</p><p class="t4-preserve">${e(row.notes || '')}</p>`)}
@@ -173,5 +196,5 @@
   }
   window.T4Records = Object.freeze({ LEVELS, PRIORITIES, STAGES, fields, choices, talentName, employerName, editFollowup, editActivity,
     finishActivity, activityTable, editSelection, selectionTable, selectionDrawer, selectionBoard, storedFields,
-    employerClassificationBadges, employerClassificationHtml });
+    employerClassificationBadges, employerClassificationHtml, employerClassificationMatches, classificationKeys });
 })();
