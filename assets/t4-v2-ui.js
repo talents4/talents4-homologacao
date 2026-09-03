@@ -296,10 +296,25 @@
   // dos CRMs de referência). `buckets`: [{ label, count, tone }], tone é
   // uma das chaves de --t4-* em t4-tokens.css (success/warning/critical/
   // info) ou vazio para o tom neutro padrão.
-  function distributionChart(title, subtitle, meta, buckets) {
-    const max = Math.max(1, ...buckets.map((b) => b.count));
-    return `<section class="t4-dist" aria-label="${a(title)}"><header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header><div class="t4-dist-grid">${buckets.map((b) => `<div class="t4-dist-row"><div class="t4-dist-label"><span>${e(b.label)}</span><strong>${e(b.count)}</strong></div><div class="t4-dist-track"><i class="t4-dist-bar ${a(b.tone || '')}" style="--dist-width:${Math.round(b.count / max * 100)}%"></i></div></div>`).join('')}</div></section>`;
+  // Funil de progressão: uma barra única, segmentada proporcionalmente por
+  // etapa (não uma lista de barras repetidas — a soma das etapas É o total,
+  // então a barra única mostra a proporção real de um jeito que N linhas
+  // separadas não mostram). Etapas com zero registros não ganham uma linha
+  // inteira só para mostrar "0": viram uma nota curta abaixo, para não
+  // diluir a leitura das etapas que de fato têm gente. `buckets`: [{ label,
+  // count, tone }], na ordem real do funil (a barra preserva essa ordem).
+  function funnelChart(title, subtitle, meta, buckets) {
+    const total = buckets.reduce((sum, b) => sum + b.count, 0);
+    const shown = buckets.filter((b) => b.count > 0);
+    const empty = buckets.filter((b) => b.count === 0);
+    const top = shown.reduce((best, b) => (!best || b.count > best.count ? b : best), null);
+    const header = `<header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header>`;
+    if (!shown.length) return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}<p class="t4-funnel-empty">Nenhum registro nas etapas acompanhadas.</p></section>`;
+    return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}
+      <div class="t4-funnel-bar" role="img" aria-label="${a(shown.map((b) => `${b.label}: ${b.count}`).join(', '))}">${shown.map((b) => `<span class="t4-funnel-seg ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" style="--seg-width:${Math.round(b.count / total * 1000) / 10}%" title="${a(`${b.label} · ${b.count}`)}"></span>`).join('')}</div>
+      <ul class="t4-funnel-legend">${shown.map((b) => `<li class="${a(b.tone || '')} ${b === top ? 'is-top' : ''}"><i aria-hidden="true"></i><span>${e(b.label)}</span><strong>${e(b.count)}</strong></li>`).join('')}</ul>
+      ${empty.length ? `<p class="t4-funnel-empty">Sem registros agora: ${e(empty.map((b) => b.label).join(', '))}.</p>` : ''}</section>`;
   }
   window.T4Work = Object.freeze({ button, link, external, optionsHtml, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
-    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, distributionChart });
+    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, funnelChart });
 })();

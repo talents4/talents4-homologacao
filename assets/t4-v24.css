@@ -147,8 +147,6 @@ body {
 .mx-register-row:hover { background: #f7fbff; }
 .mx-register-person .t4-row-link { color: #145caf; }
 .mx-opportunity-register .mx-register-row { grid-template-columns: minmax(245px,1.5fr) minmax(175px,1fr) minmax(135px,.8fr) minmax(120px,.7fr) auto; }
-.mx-pulse { margin: 10px 0 15px; border-radius: 17px; border-color: #d7e3ef; box-shadow: var(--v24-shadow); }
-.mx-pulse-track { height: 8px; background: #e8f0f8; }
 
 /* Filtros multi-seleção e views salvas da área Talentos. */
 [data-t4-module="talents"] .tw-filter-surface { padding: 11px 14px; }

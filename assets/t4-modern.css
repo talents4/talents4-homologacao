@@ -78,17 +78,9 @@ body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color
 .mx-empty strong { color:var(--mx-ink); }
 .mx-opportunity-register .mx-register-row { grid-template-columns:minmax(240px,1.5fr) minmax(170px,1fr) minmax(130px,.8fr) minmax(130px,.7fr) auto; }
 .mx-segment-label { padding:8px 12px; color:#52687b; font-size:.875rem; }
-.mx-pulse { background:#fff; border:1px solid var(--mx-line); border-radius:16px; padding:18px; margin:14px 0; }
-.mx-pulse > header { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
-.mx-pulse h3 { margin:5px 0 0; font-size:1rem; }
-.mx-pulse-grid { display:grid; grid-template-columns:repeat(6,minmax(90px,1fr)); gap:14px; }
-.mx-pulse-label { display:flex; justify-content:space-between; gap:8px; color:#52687b; font-size:.8125rem; }
-.mx-pulse-label strong { color:var(--mx-ink); }
-.mx-pulse-track { height:7px; margin-top:8px; background:#edf2f6; border-radius:99px; overflow:hidden; }
-.mx-pulse-track i { display:block; height:100%; min-width:4px; background:var(--employer-color,#2b6cae); border-radius:99px; }
 .mx-page { display:flex; align-items:center; justify-content:center; gap:16px; margin:20px 0; }
 :focus-visible { outline:3px solid #3879b4; outline-offset:3px; }
 @media(max-width:1150px) { .mx-row { grid-template-columns:1fr 1fr; gap:14px; } }
 @media(max-width:900px) { .mx-register-row,.mx-opportunity-register .mx-register-row { grid-template-columns:1fr 1fr; } .mx-register-actions { justify-content:flex-start; } }
-@media(max-width:680px) { .mx-row { grid-template-columns:1fr; padding:16px; } .mx-person-header { padding:18px; } .mx-scores,.mx-metric-strip,.mx-pulse-grid { grid-template-columns:1fr 1fr; } .mx-segment { width:100%; } [data-t4-module="talents"] .tw-multiselect { flex:1 1 140px; } .mx-register-group > header { align-items:flex-start; flex-direction:column; } .mx-register-row,.mx-opportunity-register .mx-register-row { grid-template-columns:1fr; padding:14px; } }
+@media(max-width:680px) { .mx-row { grid-template-columns:1fr; padding:16px; } .mx-person-header { padding:18px; } .mx-scores,.mx-metric-strip { grid-template-columns:1fr 1fr; } .mx-segment { width:100%; } [data-t4-module="talents"] .tw-multiselect { flex:1 1 140px; } .mx-register-group > header { align-items:flex-start; flex-direction:column; } .mx-register-row,.mx-opportunity-register .mx-register-row { grid-template-columns:1fr; padding:14px; } }
 @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none!important; animation:none!important; scroll-behavior:auto!important; } }

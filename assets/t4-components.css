@@ -162,32 +162,38 @@
 }
 .t4-dist h3 { margin: 0; font-size: var(--t4-text-subtitle); font-weight: 750; color: var(--t4-ink); letter-spacing: -.02em; }
 .t4-dist-meta { font-size: var(--t4-text-small); color: var(--t4-ink-soft); white-space: nowrap; }
-.t4-dist-grid { display: flex; flex-direction: column; gap: var(--t4-space-3); }
-.t4-dist-row { display: grid; grid-template-columns: minmax(120px, 30%) 1fr; align-items: center; gap: var(--t4-space-4); }
-.t4-dist-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--t4-space-2); font-size: var(--t4-text-body); color: var(--t4-ink); }
-.t4-dist-label strong { font-variant-numeric: tabular-nums; font-weight: 750; color: var(--t4-ink); }
-.t4-dist-track { position: relative; height: 9px; border-radius: var(--t4-radius-pill); background: var(--t4-surface-sunken); overflow: hidden; }
-.t4-dist-bar {
-  display: block;
-  height: 100%;
-  border-radius: var(--t4-radius-pill);
-  background: linear-gradient(90deg, var(--t4-accent) 0%, color-mix(in srgb, var(--t4-accent) 70%, var(--t4-info)) 100%);
-  width: var(--dist-width, 0%);
-  animation: t4-dist-grow var(--t4-duration-base) var(--t4-ease) both;
-  animation-delay: 60ms;
-}
-.t4-dist-bar.success { background: linear-gradient(90deg, var(--t4-success) 0%, color-mix(in srgb, var(--t4-success) 65%, #fff) 100%); }
-.t4-dist-bar.warning { background: linear-gradient(90deg, var(--t4-warning) 0%, color-mix(in srgb, var(--t4-warning) 65%, #fff) 100%); }
-.t4-dist-bar.critical { background: linear-gradient(90deg, var(--t4-critical) 0%, color-mix(in srgb, var(--t4-critical) 65%, #fff) 100%); }
-.t4-dist-bar.info { background: linear-gradient(90deg, var(--t4-info) 0%, color-mix(in srgb, var(--t4-info) 65%, #fff) 100%); }
-@keyframes t4-dist-grow {
-  from { width: 0%; }
-  to { width: var(--dist-width, 0%); }
+
+/* Funil: uma barra única, dividida por etapa em proporção real ao total —
+   troca a antiga lista de N barras repetidas (mesma leitura, mas cada
+   linha competia por atenção com as outras, inclusive as com 0 registros).
+   Cor por tom semântico (não a mesma cor pintada N vezes) e a etapa com
+   mais gente ganha um leve destaque (is-top), para responder "onde a
+   maioria está" no primeiro relance, sem precisar comparar 10 números. */
+.t4-funnel-bar { display: flex; height: 34px; border-radius: var(--t4-radius-md); overflow: hidden; background: var(--t4-surface-sunken); gap: 2px; }
+.t4-funnel-seg { display: block; height: 100%; min-width: 6px; flex: 0 0 var(--seg-width, 0%); background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken)); animation: t4-funnel-grow var(--t4-duration-base) var(--t4-ease) both; animation-delay: 60ms; }
+.t4-funnel-seg.info { background: color-mix(in srgb, var(--t4-info) 75%, transparent); }
+.t4-funnel-seg.warning { background: color-mix(in srgb, var(--t4-warning) 80%, transparent); }
+.t4-funnel-seg.success { background: color-mix(in srgb, var(--t4-success) 80%, transparent); }
+.t4-funnel-seg.critical { background: color-mix(in srgb, var(--t4-critical) 80%, transparent); }
+.t4-funnel-seg.is-top { outline: 2px solid var(--t4-ink); outline-offset: -2px; }
+@keyframes t4-funnel-grow {
+  from { flex-basis: 0%; }
+  to { flex-basis: var(--seg-width, 0%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .t4-dist-bar { animation: none; }
+  .t4-funnel-seg { animation: none; }
 }
+.t4-funnel-legend { list-style: none; margin: var(--t4-space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--t4-space-2) var(--t4-space-5); }
+.t4-funnel-legend li { display: flex; align-items: center; gap: 7px; font-size: var(--t4-text-small); color: var(--t4-ink-soft); }
+.t4-funnel-legend i { width: 9px; height: 9px; border-radius: 3px; background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken)); flex-shrink: 0; }
+.t4-funnel-legend li.info i { background: var(--t4-info); }
+.t4-funnel-legend li.warning i { background: var(--t4-warning); }
+.t4-funnel-legend li.success i { background: var(--t4-success); }
+.t4-funnel-legend li.critical i { background: var(--t4-critical); }
+.t4-funnel-legend li.is-top { color: var(--t4-ink); font-weight: 650; }
+.t4-funnel-legend strong { font-variant-numeric: tabular-nums; font-weight: 750; color: var(--t4-ink); }
+.t4-funnel-empty { margin: var(--t4-space-4) 0 0; font-size: var(--t4-text-small); color: var(--t4-ink-faint); }
 @media (max-width: 680px) {
-  .t4-dist-row { grid-template-columns: 1fr; gap: var(--t4-space-1); }
   .t4-dist { padding: var(--t4-space-5); }
+  .t4-funnel-legend { gap: var(--t4-space-2) var(--t4-space-4); }
 }

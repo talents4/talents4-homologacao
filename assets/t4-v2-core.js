@@ -97,7 +97,8 @@
       .replace(/\bCandidatos\b/g, 'Talentos')
       .replace(/\bcandidatos\b/g, 'Talentos')
       .replace(/\bCandidato\b/g, 'Talento')
-      .replace(/\bcandidato\b/g, 'Talento');
+      .replace(/\bcandidato\b/g, 'Talento')
+      .replace(/\bemployer\b/gi, 'empregador');
   }
 
   function initials(value) {

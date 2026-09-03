@@ -8,14 +8,14 @@
     { id: 'pipeline', label: 'Seleções', subtitle: 'Cada linha representa Talento + empregador + vaga + etapa.', icon: 'columns' },
     { id: 'opportunities', label: 'Oportunidades', subtitle: 'Demanda real e requisitos de cada oportunidade.', icon: 'briefcase' },
     { id: 'calendar', label: 'Agenda', subtitle: 'Planejamento, reuniões e tarefas com data definida.', icon: 'calendar' },
-    { id: 'planning', label: 'Planejamento mensal', subtitle: 'Atividades por empregador, período e responsável.', icon: 'list', primary: false },
+    { id: 'planning', label: 'Planejamento mensal', subtitle: 'Um mês por vez, o que precisa de atenção primeiro.', icon: 'list', primary: false },
     { id: 'meetings', label: 'Reuniões e decisões', subtitle: 'Pauta, decisões, pendências e próximos passos.', icon: 'people', primary: false },
     { id: 'operations', label: 'PO operacional', subtitle: 'Tarefas da equipe e métricas do mês.', icon: 'activity', primary: false },
     { id: 'summary', label: 'Resumo geral', subtitle: 'Leitura consolidada das atividades e do histórico.', icon: 'history', primary: false },
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
   const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'overview' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), planningMonth: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -123,14 +123,69 @@
     ] });
     return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
   }
-  function planningView() {
-    const rows = filtered(state.plans).sort((x, y) => employerOf(x).localeCompare(employerOf(y), 'pt-BR') || String(x.month_ref).localeCompare(String(y.month_ref)) || (x.order_index || 0) - (y.order_index || 0));
-    return toolbar(state.plans) + W.table({ id: 'planning', rows, groupBy: employerOf, columns: [
-      { key: 'activity_label', label: 'Etapa / atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button>` },
-      { key: 'month_ref', label: 'Período' }, { key: 'responsavel', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
+  // Dias corridos desde o início registrado — é isto que responde "o que
+  // está aberto há mais tempo", sem precisar de uma coluna nova no banco.
+  function planningDaysOpen(row) {
+    if (!row.start_date) return null;
+    const start = new Date(`${row.start_date}T00:00:00`);
+    if (Number.isNaN(start.getTime())) return null;
+    return Math.max(0, Math.round((Date.now() - start.getTime()) / 86400000));
+  }
+  // "Prioridade" não é um campo do banco nesta tabela — inventar um valor
+  // manual duplicaria a situação/prazo que já existem. Em vez disso, a
+  // urgência é calculada a partir do que já é real: prazo vencido, sinal
+  // explícito de bloqueio, ou já iniciado — nessa ordem de atenção.
+  const PLANNING_BUCKETS = [
+    { id: 'late', label: 'Atrasado', tone: 'danger', hint: 'O prazo final já passou e a atividade continua aberta.' },
+    { id: 'blocked', label: 'Bloqueado', tone: 'warning', hint: 'A equipe sinalizou um impedimento — precisa de decisão.' },
+    { id: 'progress', label: 'Em andamento', tone: 'info', hint: 'Já começou, dentro do prazo.' },
+    { id: 'todo', label: 'A fazer', tone: '', hint: 'Ainda não iniciada.' }
+  ];
+  function planningBucket(row) {
+    if (M.overdue(row.end_date, row.status)) return 'late';
+    if (M.norm(row.status) === M.norm('Bloqueado')) return 'blocked';
+    if (M.norm(row.status) === M.norm('Em andamento')) return 'progress';
+    return 'todo';
+  }
+  function planningAgingCell(row) {
+    if (row._days == null) return '<span class="t4-muted">Sem data de início</span>';
+    const label = row._days === 0 ? 'Iniciado hoje' : `há ${row._days} dia${row._days === 1 ? '' : 's'}`;
+    return row._days >= 21 ? U.badge(label, 'danger') : row._days >= 10 ? U.badge(label, 'warning') : e(label);
+  }
+  function planningTable(rows, bucketId) {
+    return W.table({ id: `planning-${bucketId}`, rows, groupBy: employerOf, columns: [
+      { key: 'activity_label', label: 'Atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button>` },
+      { key: 'aging', label: 'Há quanto tempo', value: (r) => r._days ?? -1, render: planningAgingCell },
+      { key: 'end_date', label: 'Prazo', render: (r) => `${e(U.formatDate(r.end_date))}${M.overdue(r.end_date, r.status) ? U.badge('Vencido', 'danger') : ''}` },
+      { key: 'responsavel', label: 'Responsável' },
       { key: 'obs', label: 'Observação / próxima ação', render: (r) => `<span class="t4-clamp-3">${e(r.obs || '—')}</span>` },
-      { key: 'start_date', label: 'Início', render: (r) => e(U.formatDate(r.start_date)) }, { key: 'end_date', label: 'Fim', render: (r) => e(U.formatDate(r.end_date)) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
+      { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
     ] });
+  }
+  // Filtro próprio do Planejamento mensal: sempre um mês por vez, nunca
+  // "todos os períodos" misturados (o pedido explícito era "sempre mostrar
+  // o mês atual"). Deliberadamente não usa o `state.month` genérico
+  // compartilhado com Reuniões/PO/Resumo — um valor só de mês não pode
+  // significar coisas diferentes em telas diferentes ao mesmo tempo.
+  function planningRows() {
+    return state.plans.filter((r) => scoped(r) && String(r.month_ref) === state.planningMonth && (values(state.status).length ? matches(r.status, state.status) : !closedStatus(r.status)) && matchQuery(r));
+  }
+  function planningMonthStepper() {
+    const isCurrent = state.planningMonth === M.today().slice(0, 7);
+    return `<div class="t4-calendar-heading"><div>${W.button('Anterior', 'planning-month-prev', '', { className: 'sm' })}<h2>${e(monthLabel(state.planningMonth))}</h2>${W.button('Próximo', 'planning-month-next', '', { className: 'sm' })}</div>${isCurrent ? '' : W.button('Mês atual', 'planning-month-today', '', { className: 'sm primary' })}</div>`;
+  }
+  function planningView() {
+    const rows = planningRows().map((r) => ({ ...r, _days: planningDaysOpen(r) }))
+      .sort((x, y) => (y._days ?? -1) - (x._days ?? -1) || employerOf(x).localeCompare(employerOf(y), 'pt-BR'));
+    const byBucket = new Map(PLANNING_BUCKETS.map((b) => [b.id, rows.filter((r) => planningBucket(r) === b.id)]));
+    const sections = PLANNING_BUCKETS.map((b) => {
+      const items = byBucket.get(b.id);
+      return items.length ? W.section(`${b.label} · ${items.length}`, planningTable(items, b.id), '', b.hint) : '';
+    }).join('');
+    return `<div class="v25-page-intro"><div><span class="mx-eyebrow">PLANEJAMENTO MENSAL</span><h2>Um mês por vez, o que precisa de atenção primeiro</h2><p>Atrasado e bloqueado aparecem antes de "a fazer" — a ordem não é mais alfabética por empregador.</p></div><span class="v25-result-count">${rows.length} atividade${rows.length === 1 ? '' : 's'}</span></div>`
+      + planningMonthStepper()
+      + toolbar(state.plans, { noMonth: true })
+      + (rows.length ? sections : U.emptyState(`Nada planejado em ${monthLabel(state.planningMonth)}`, 'Crie uma atividade mensal ou navegue para outro mês acima.'));
   }
   function meetingsView() {
     return toolbar(state.meetings) + W.table({ id: 'meetings', rows: filtered(state.meetings, 'scheduled_at').sort((x, y) => String(y.scheduled_at).localeCompare(String(x.scheduled_at))), columns: [
@@ -207,10 +262,10 @@
     }).join('');
     return metrics + `<div class="mx-register" aria-label="Registro de seleções">${blocks}</div>`;
   }
+  const STAGE_TONES = { 'Mapeado': '', 'Em análise': '', 'Apresentado': 'info', 'Entrevista': 'info', 'Proposta': 'warning', 'Contratado': 'success' };
   function stagePulse(rows) {
-    const stages = ['Mapeado', 'Em análise', 'Apresentado', 'Entrevista', 'Proposta', 'Contratado'];
-    const counts = stages.map((stage) => ({ stage, count: rows.filter((r) => M.norm(r.stage) === M.norm(stage)).length })), max = Math.max(1, ...counts.map((x) => x.count));
-    return `<section class="mx-pulse" aria-label="Distribuição das seleções por etapa"><header><div><span class="mx-eyebrow">LEITURA RÁPIDA</span><h3>Distribuição por etapa</h3></div><span class="mx-meta">${rows.length} relações ativas</span></header><div class="mx-pulse-grid">${counts.map((x) => `<div><div class="mx-pulse-label"><span>${e(x.stage)}</span><strong>${x.count}</strong></div><div class="mx-pulse-track"><i style="width:${Math.round(x.count / max * 100)}%"></i></div></div>`).join('')}</div></section>`;
+    const buckets = Object.entries(STAGE_TONES).map(([stage, tone]) => ({ label: stage, tone, count: rows.filter((r) => M.norm(r.stage) === M.norm(stage)).length }));
+    return W.funnelChart('Distribuição por etapa', 'LEITURA RÁPIDA', `${rows.length} relação${rows.length === 1 ? '' : 'ões'} ativa${rows.length === 1 ? '' : 's'}`, buckets);
   }
   function opportunityRegister(rows, scope = 'open') {
     if (!rows.length) return `<div class="mx-empty"><strong>Nenhuma oportunidade encontrada.</strong><span>Cadastre vagas no Organizacional ou limpe os filtros.</span></div>`;
@@ -283,7 +338,7 @@
   function readonlyDetail(row, title) { U.openDrawer({ title, body: R.storedFields(row || {}) }); }
   function editPlan(row) {
     if (!D.canEdit()) return readonlyDetail(row, 'Atividade mensal');
-    return W.recordForm({ title: row ? 'Editar atividade mensal' : 'Nova atividade mensal', table: D.TABLES.plans, row: row || { month_ref: firstValue(state.month) || M.today().slice(0, 7), employer_id: firstValue(state.employer), status: 'A fazer', responsavel: D.profile.nome }, fields: [
+    return W.recordForm({ title: row ? 'Editar atividade mensal' : 'Nova atividade mensal', table: D.TABLES.plans, row: row || { month_ref: state.planningMonth || M.today().slice(0, 7), employer_id: firstValue(state.employer), status: 'A fazer', responsavel: D.profile.nome }, fields: [
       ...employerFields(), { name: 'month_ref', label: 'Mês', type: 'month', required: true }, { name: 'activity_label', label: 'Atividade', required: true, wide: true }, { name: 'responsavel', label: 'Responsável' }, { name: 'status', label: 'Situação', type: 'select', options: PLAN_STATUS, required: true, placeholder: null }, { name: 'start_date', label: 'Início', type: 'date' }, { name: 'end_date', label: 'Fim', type: 'date' }, { name: 'obs', label: 'Observação / próxima ação', type: 'textarea', wide: true }
     ], prepare(v, c) {
       if (v.start_date && v.end_date && v.end_date < v.start_date) throw new Error('A data final precisa ser igual ou posterior à inicial.');
@@ -360,6 +415,7 @@
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
     if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.employerScope = 'active'; state.employerDisplay = 'list'; state.opportunityScope = 'open'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name.startsWith('month-')) { const date = new Date(`${state.calendar}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'month-prev' ? -1 : 1)); state.calendar = name === 'month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
+    if (name.startsWith('planning-month-')) { const date = new Date(`${state.planningMonth}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'planning-month-prev' ? -1 : 1)); state.planningMonth = name === 'planning-month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
     if (name === 'employer-detail') return employerDetail(W.find(state.employers, id));
     if (name === 'edit-employer') return editEmployer(W.find(state.employers, id));
     if (name === 'opening-detail') return openingDetail(W.find(state.openings, id));

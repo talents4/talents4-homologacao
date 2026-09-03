@@ -84,10 +84,10 @@
     { label: 'Pronto para employer', tone: 'success' }, { label: 'Enviado ao employer', tone: 'success' }, { label: 'Contratado', tone: 'success' }
   ];
   function pipelineDistribution(list) {
-    const buckets = PIPELINE_STAGES.map(({ label, tone }) => ({ label, tone, count: list.filter((r) => M.norm(r.status_pipeline) === M.norm(label)).length }));
+    const buckets = PIPELINE_STAGES.map(({ label, tone }) => ({ label: U.term(label), tone, count: list.filter((r) => M.norm(r.status_pipeline) === M.norm(label)).length }));
     const outros = list.length - buckets.reduce((sum, b) => sum + b.count, 0);
     if (outros > 0) buckets.push({ label: 'Outra etapa / sem etapa', count: outros });
-    return W.distributionChart('Onde cada Talento está agora', 'LEITURA RÁPIDA', `${list.length} ativo${list.length === 1 ? '' : 's'}`, buckets);
+    return W.funnelChart('Onde cada Talento está agora', 'LEITURA RÁPIDA', `${list.length} ativo${list.length === 1 ? '' : 's'}`, buckets);
   }
   function overview() {
     const list = state.talents.filter(active), day = M.today();

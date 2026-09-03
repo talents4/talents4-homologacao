@@ -247,8 +247,6 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .mx-register-row { padding: 13px 19px; background: rgba(255,255,255,.88); }
 .mx-register-row:hover { background: #f2f8ff; }
 .mx-register-person .t4-row-link { color: #145fbd; }
-.mx-pulse { border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.83); }
-.mx-pulse-track { height: 7px; border-radius: 99px; background: #e8f0f8; }
 
 /* Detalhe no painel lateral, com aparência de inspector do macOS. */
 .t4-drawer-backdrop, .t4-modal-backdrop { background: rgba(18, 35, 56, .28); backdrop-filter: blur(12px) saturate(125%); -webkit-backdrop-filter: blur(12px) saturate(125%); }
