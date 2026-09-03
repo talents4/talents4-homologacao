@@ -21,6 +21,20 @@ test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar'
   assert.match(h.html(), /2 selecionados/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('classificação dos empregadores é acionável e prioriza parceiras diretas', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers[0].direct_talents4_partnership = 'CONFIRMADA';
+  h.fixture.db.employers[1].company_scope = 'GENERAL';
+  await h.load('organization');
+  h.app.route('employers');
+  const names = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
+  assert.deepEqual(names, ['Clínica Aurora · exemplo', 'Nord Technik · exemplo']);
+  assert.match(h.html(), /data-action="employer-classification" data-id="partner"/);
+  await h.action('employer-classification', 'partner');
+  const partnerNames = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
+  assert.deepEqual(partnerNames, ['Clínica Aurora · exemplo']);
+  assert.equal(h.fixture.writes.length, 0);
+});
 test('busca deixa claro quando o Talento arquivado ainda tem seleção ativa', async () => {
   const h = makeHarness();
   h.fixture.db.candidatos[0].ativo = false;
