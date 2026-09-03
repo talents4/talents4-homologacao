@@ -14,8 +14,8 @@
     { id: 'summary', label: 'Resumo geral', subtitle: 'Leitura consolidada das atividades e do histórico.', icon: 'history', primary: false },
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
-  const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'overview' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'all', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'employers' });
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', operationsFocus: 'all', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -121,30 +121,44 @@
     }).sort((left, right) => employerPriority(left) - employerPriority(right) || M.norm(left.nome).localeCompare(M.norm(right.nome), 'pt-BR'));
     const scopeCount = (id) => id === 'active' ? state.employers.filter((r) => M.activeRecord(r)).length : id === 'archived' ? state.employers.filter((r) => !M.activeRecord(r)).length : state.employers.length;
     const scopeBar = W.chips([{ id: 'active', label: 'Ativos', count: scopeCount('active'), icon: 'building' }, { id: 'all', label: 'Todos os registros', count: scopeCount('all'), icon: 'list' }, { id: 'archived', label: 'Arquivo', count: scopeCount('archived'), icon: 'archive' }], scope, 'employer-scope');
-    const classificationOptions = [{ id: 'all', label: 'Todos', icon: 'list' }, { id: 'partner', label: 'Parceiras diretas', icon: 'check' }, { id: 'nectanet', label: 'Apresentadas pela NectaNet', icon: 'arrow' }, { id: 'general', label: 'Empresas gerais', icon: 'building' }, { id: 'pending', label: 'Parceria a confirmar', icon: 'warning' }];
+    const classificationOptions = [{ id: 'partner', label: 'Parceiras diretas', icon: 'check' }, { id: 'nectanet', label: 'Apresentadas pela NectaNet', icon: 'arrow' }, { id: 'general', label: 'Empresas gerais', icon: 'building' }, { id: 'pending', label: 'Parceria a confirmar', icon: 'warning' }, { id: 'all', label: 'Todos', icon: 'list' }];
     const classificationCount = (id) => state.employers.filter((r) => (scope === 'active' ? M.activeRecord(r) : scope === 'archived' ? !M.activeRecord(r) : true) && R.employerClassificationMatches(r, id)).length;
-    const classificationBar = `<div class="v25-classification-filter"><div><strong>Tipo de relação</strong><span>Escolha como a empresa deve ser lida na operação.</span></div>${W.chips(classificationOptions.map((item) => ({ ...item, count: item.id === 'all' ? scopeCount(scope === 'active' ? 'active' : scope === 'archived' ? 'archived' : 'all') : classificationCount(item.id) })), classification, 'employer-classification')}</div>`;
+    const classificationBar = `<div class="v25-classification-filter"><div><strong>Tipo de relação</strong><span>Parceira, origem do contato ou empresa geral.</span></div>${W.chips(classificationOptions.map((item) => ({ ...item, count: item.id === 'all' ? scopeCount(scope === 'active' ? 'active' : scope === 'archived' ? 'archived' : 'all') : classificationCount(item.id) })), classification, 'employer-classification')}</div>`;
     const displayBar = W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.employerDisplay, 'employer-display');
-    const helper = scope === 'active' ? 'A fila operacional mostra somente empregadores ativos. O arquivo fica disponível quando você precisar consultar histórico.' : scope === 'archived' ? 'Registros inativos ou arquivados ficam isolados aqui; não entram na fila operacional.' : 'Todos os registros, inclusive os arquivados. Use esta visão para auditoria, não para a operação diária.';
-    const classificationHelp = 'Parceira Talents 4 só aparece após confirmação direta da equipe. “Apresentada pela NectaNet” identifica a origem do contato e não significa parceria direta. “Empresa geral” é um escopo separado.';
+    const classificationHelp = 'Parceira direta = confirmação manual. Apresentada pela NectaNet = origem do contato. Empresa geral = sem parceria confirmada.';
     const list = W.table({ id: 'employers', rows, columns: [
       { key: 'nome', label: 'Empregador', required: true, render: (r) => { const color = window.T4Modern?.color(r) || '#7890a4'; return `<div class="v25-employer-cell" style="--employer-color:${a(color)}"><i></i>${W.person(r.nome, r.area_atuacao || '', '', 'employer-detail', r.id)}</div>`; } },
       { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(M.activeRecord(r) ? (r.status || 'Ativo') : 'Arquivado') },
       { key: 'classification', label: 'Classificação', sort: false, render: (r) => R.employerClassificationHtml(r) },
       { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'employer') }
     ] });
-    return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + classificationBar + `<p class="v25-classification-help">${e(classificationHelp)}</p>` + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
+    return workViews('employers') + scopeBar + classificationBar + `<p class="v25-classification-help">${e(classificationHelp)}</p>` + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
   }
   function planningView() {
-    const rows = filtered(state.plans).sort((x, y) => employerOf(x).localeCompare(employerOf(y), 'pt-BR') || String(x.month_ref).localeCompare(String(y.month_ref)) || (x.order_index || 0) - (y.order_index || 0));
-    const open = rows.filter((r) => M.isOpen(r.status)).length, withoutEmployer = rows.filter((r) => !r.employer_id && !r.employer_name_snapshot).length;
-    const context = `<div class="v25-context-strip"><div><span class="mx-eyebrow">ORGANIZAÇÃO DO MÊS</span><strong>Defina o que será realizado e por quem.</strong><p>Planejamento mensal organiza entregas, período, responsável e empregador. A execução diária fica em PO operacional; reuniões e decisões ficam em sua própria área.</p></div><div class="v25-context-stats"><span><b>${rows.length}</b> atividades</span><span><b>${open}</b> em aberto</span><span><b>${withoutEmployer}</b> sem empregador</span></div></div>`;
-    return context + toolbar(state.plans) + W.table({ id: 'planning', rows, groupBy: employerOf, columns: [
-      { key: 'activity_label', label: 'Etapa / atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button>` },
-      { key: 'month_ref', label: 'Período' }, { key: 'responsavel', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
-      { key: 'obs', label: 'Observação / próxima ação', render: (r) => `<span class="t4-clamp-3">${e(r.obs || '—')}</span>` },
-      { key: 'start_date', label: 'Início', render: (r) => e(U.formatDate(r.start_date)) }, { key: 'end_date', label: 'Fim', render: (r) => e(U.formatDate(r.end_date)) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
+    const baseRows = filtered(state.plans);
+    const today = M.today();
+    const dueOf = (r) => M.dateOnly(r.end_date || r.start_date);
+    const daysUntil = (date) => { if (!date) return null; const start = new Date(`${today}T12:00:00`), end = new Date(`${date}T12:00:00`); return Number.isNaN(end.getTime()) ? null : Math.round((end - start) / 86400000); };
+    const bucketOf = (r) => { const due = dueOf(r); if (M.overdue(due, r.status)) return 'overdue'; if (!due) return 'no-date'; return daysUntil(due) <= 7 ? 'next' : 'scheduled'; };
+    const bucketRank = { overdue: 0, next: 1, scheduled: 2, 'no-date': 3 };
+    const sortRows = (left, right) => (M.isOpen(right.status) ? 0 : 1) - (M.isOpen(left.status) ? 0 : 1) || bucketRank[bucketOf(left)] - bucketRank[bucketOf(right)] || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999')) || (Number(left.order_index) || 0) - (Number(right.order_index) || 0) || M.norm(left.activity_label).localeCompare(M.norm(right.activity_label), 'pt-BR');
+    const focus = ['all', 'overdue', 'next', 'scheduled', 'no-date'].includes(state.planningFocus) ? state.planningFocus : 'all';
+    const rows = baseRows.filter((r) => focus === 'all' || bucketOf(r) === focus).sort(sortRows);
+    const open = baseRows.filter((r) => M.isOpen(r.status)).length;
+    const next = baseRows.filter((r) => M.isOpen(r.status)).sort(sortRows)[0];
+    const count = (bucket) => baseRows.filter((r) => bucketOf(r) === bucket).length;
+    const label = { overdue: 'Vencida', next: 'Próximos 7 dias', scheduled: 'Programada', 'no-date': 'Sem prazo' };
+    const tone = { overdue: 'danger', next: 'warning', scheduled: 'info', 'no-date': '' };
+    const priority = (r) => U.badge(label[bucketOf(r)], tone[bucketOf(r)]);
+    const priorityPanel = `<section class="org-priority-panel org-planning-priority"><div class="org-priority-main"><span class="org-priority-eyebrow">PRÓXIMA PRIORIDADE</span><strong>${e(next?.activity_label || 'Nenhuma atividade aberta neste recorte')}</strong>${next ? `<p>${e([employerOf(next), dueOf(next) ? `até ${U.formatDate(dueOf(next))}` : 'sem prazo', next.responsavel || 'sem responsável'].join(' · '))}</p><span class="org-priority-note">${e(next.obs || 'Abra a atividade para registrar o próximo passo.')}</span>` : '<p>Crie uma atividade ou ajuste os filtros para montar a fila do mês.</p>'}</div><div class="org-priority-stats"><span><b>${open}</b><small>em aberto</small></span><span class="risk"><b>${count('overdue')}</b><small>vencidas</small></span><span><b>${count('next')}</b><small>próximos 7 dias</small></span><span><b>${count('no-date')}</b><small>sem prazo</small></span></div><div class="org-priority-action">${next ? W.button('Abrir atividade', 'edit-plan', next.id, { className: 'primary sm', icon: 'arrow' }) : ''}</div></section>`;
+    const focusBar = `<div class="org-focus-bar"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'all', label: 'Todas', count: baseRows.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: count('overdue'), icon: 'warning' }, { id: 'next', label: 'Próximos 7 dias', count: count('next'), icon: 'calendar' }, { id: 'scheduled', label: 'Programadas', count: count('scheduled'), icon: 'clock' }, { id: 'no-date', label: 'Sem prazo', count: count('no-date'), icon: 'note' }], focus, 'planning-focus')}</div>`;
+    const table = W.table({ id: 'planning', rows, columns: [
+      { key: 'priority', label: 'Prioridade', sort: false, render: priority },
+      { key: 'activity_label', label: 'Atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button><span class="t4-cell-secondary t4-clamp-2">${e(r.obs || 'Sem observação')}</span>` },
+      { key: 'end_date', label: 'Entrega', value: dueOf, render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : ''}` },
+      { key: 'employer', label: 'Empregador', value: employerOf, render: (r) => e(employerOf(r)) }, { key: 'responsavel', label: 'Responsável', render: (r) => e(r.responsavel || 'Sem responsável') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
     ] });
+    return `<div class="org-workspace org-planning-view">${priorityPanel}${focusBar}${toolbar(state.plans)}${W.section('Fila do mês', table, can('plans') ? W.button('Nova atividade', 'new-plan', '', { className: 'primary sm', icon: 'plus' }) : '', 'Ordenada pelo que precisa de atenção primeiro.')}</div>`;
   }
   function meetingsView() {
     return toolbar(state.meetings) + W.table({ id: 'meetings', rows: filtered(state.meetings, 'scheduled_at').sort((x, y) => String(y.scheduled_at).localeCompare(String(x.scheduled_at))), columns: [
@@ -161,19 +175,28 @@
       body: `<div class="t4-detail-grid">${U.field('Semana', row.week_label)}${U.field('Responsável', row.owner_name)}${U.field('Situação', row.status)}${U.field('Escopo', row.meeting_scope)}</div>${[['Decisões', row.decision_summary], ['Itens resolvidos', row.resolved_items], ['Pendências', row.pending_items], ['Próxima ação', row.next_action], ['Observações', row.notes]].map(([label, value]) => W.section(label, `<p class="t4-preserve">${e(value || 'Não informado')}</p>`)).join('')}` });
   }
   function operationsView() {
-    const tasks = filtered(state.tasks), metrics = state.metrics.filter((r) => scoped(r) && (!state.month || r.month_ref === state.month) && matchQuery(r));
-    const open = tasks.filter((r) => M.isOpen(r.status)).length, overdue = tasks.filter((r) => M.overdue(r.due_date, r.status)).length, done = tasks.filter((r) => /pronto|conclu/i.test(r.status)).length;
-    const taskIntro = `<div class="v25-context-strip v25-operations-intro"><div><span class="mx-eyebrow">EXECUÇÃO DA EQUIPE</span><strong>Ações com responsável, prazo e resultado.</strong><p>Esta é a fila de trabalho do PO operacional. Registre uma ação por linha, acompanhe o prazo e conclua quando houver entrega. Metas e resultados ficam abaixo, em Métricas do período.</p></div><div class="v25-context-stats"><span><b>${tasks.length}</b> no recorte</span><span><b>${open}</b> em aberto</span><span class="${overdue ? 'risk' : ''}"><b>${overdue}</b> vencidas</span><span><b>${done}</b> concluídas</span></div></div>`;
+    const baseTasks = filtered(state.tasks), today = M.today();
+    const metrics = state.metrics.filter((r) => scoped(r) && matches(r.month_ref, state.month) && matchQuery(r));
+    const priorityRank = { critica: 0, alta: 1, media: 2, baixa: 3 };
+    const dueOf = (r) => M.dateOnly(r.due_date);
+    const taskBucket = (r) => M.overdue(dueOf(r), r.status) ? 'overdue' : dueOf(r) === today && M.isOpen(r.status) ? 'today' : /alta|crit/i.test(M.norm(r.priority)) ? 'high' : !String(r.owner_user_key || r.assigned_user_key || '').trim() ? 'unassigned' : 'all';
+    const taskSort = (left, right) => (M.isOpen(right.status) ? 0 : 1) - (M.isOpen(left.status) ? 0 : 1) || (M.overdue(dueOf(left), left.status) ? 0 : 1) - (M.overdue(dueOf(right), right.status) ? 0 : 1) || (priorityRank[M.norm(left.priority)] ?? 9) - (priorityRank[M.norm(right.priority)] ?? 9) || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999')) || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR');
+    const focus = ['all', 'overdue', 'today', 'high', 'unassigned'].includes(state.operationsFocus) ? state.operationsFocus : 'all';
+    const tasks = baseTasks.filter((r) => focus === 'all' || taskBucket(r) === focus).sort(taskSort);
+    const open = baseTasks.filter((r) => M.isOpen(r.status)).length, overdue = baseTasks.filter((r) => taskBucket(r) === 'overdue').length, todayCount = baseTasks.filter((r) => taskBucket(r) === 'today').length, high = baseTasks.filter((r) => taskBucket(r) === 'high').length, unassigned = baseTasks.filter((r) => taskBucket(r) === 'unassigned').length;
+    const nextTask = baseTasks.filter((r) => M.isOpen(r.status)).sort(taskSort)[0];
+    const taskCount = (bucket) => baseTasks.filter((r) => taskBucket(r) === bucket).length;
+    const taskIntro = `<section class="org-priority-panel org-operations-priority"><div class="org-priority-main"><span class="org-priority-eyebrow">PRÓXIMA TAREFA</span><strong>${e(nextTask?.title || 'Nenhuma tarefa aberta neste recorte')}</strong>${nextTask ? `<p>${e([employerOf(nextTask), dueOf(nextTask) ? `até ${U.formatDate(dueOf(nextTask))}` : 'sem prazo', nextTask.owner_user_key || nextTask.assigned_user_key || 'sem responsável'].join(' · '))}</p><span class="org-priority-note">${e(nextTask.description || nextTask.notes || 'Abra a tarefa para registrar o resultado.')}</span>` : '<p>Crie uma tarefa ou ajuste os filtros para montar a fila de execução.</p>'}</div><div class="org-priority-stats"><span><b>${open}</b><small>em aberto</small></span><span class="risk"><b>${overdue}</b><small>vencidas</small></span><span><b>${todayCount}</b><small>para hoje</small></span><span><b>${high}</b><small>alta prioridade</small></span><span><b>${unassigned}</b><small>sem responsável</small></span></div><div class="org-priority-action">${nextTask ? W.button('Abrir tarefa', 'edit-task', nextTask.id, { className: 'primary sm', icon: 'arrow' }) : ''}</div></section>`;
+    const focusBar = `<div class="org-focus-bar"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'all', label: 'Todas', count: baseTasks.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: taskCount('overdue'), icon: 'warning' }, { id: 'today', label: 'Para hoje', count: taskCount('today'), icon: 'calendar' }, { id: 'high', label: 'Alta prioridade', count: taskCount('high'), icon: 'activity' }, { id: 'unassigned', label: 'Sem responsável', count: taskCount('unassigned'), icon: 'people' }], focus, 'operations-focus')}</div>`;
     const taskActions = (r) => `<div class="t4-chip-row">${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div>`;
     const taskTable = W.table({ id: 'tasks', rows: tasks, columns: [
       { key: 'title', label: 'Tarefa / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || r.notes || 'Sem descrição ou resultado registrado.')}</span>` },
-      { key: 'due_date', label: 'Prazo', render: (r) => `${e(U.formatDate(r.due_date))}${M.overdue(r.due_date, r.status) ? U.badge('Vencida', 'danger') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(r.priority) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || '—') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: taskActions }
+      { key: 'due_date', label: 'Prazo', render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : dueOf(r) === today && M.isOpen(r.status) ? U.badge('Hoje', 'warning') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(M.norm(r.priority)) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: taskActions }
     ] });
-    const metricBody = `<div class="t4-kpi-grid">${U.kpi('Tarefas no recorte', tasks.length, 'Fila exibida')}${U.kpi('Em aberto', open, 'Ações da equipe')}${U.kpi('Vencidas', overdue, 'Prazos a revisar', 'warn')}${U.kpi('Concluídas', done, 'Entregas registradas', 'good')}</div>${W.table({ id: 'metrics', rows: metrics, columns: [
+    const metricBody = W.table({ id: 'metrics', rows: metrics, columns: [
       { key: 'metric_label', label: 'Métrica', required: true }, { key: 'month_ref', label: 'Mês' }, { key: 'target_value', label: 'Meta' }, { key: 'actual_value', label: 'Realizado' }, { key: 'owner_user_key', label: 'Responsável' }, { key: 'notes', label: 'Leitura / contexto' }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'metric') }
-    ] })}`;
-    return toolbar(state.tasks) + taskIntro + W.section('Tarefas operacionais', taskTable, can('tasks') ? W.button('Nova tarefa', 'new-task', '', { className: 'primary sm', icon: 'plus' }) : '', 'Ações executáveis da equipe. Ordene por prazo, prioridade ou situação para decidir o próximo passo.') +
-      W.section('Métricas do período', metricBody, can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '', 'Metas e resultados para leitura do período; não substituem as tarefas e não são filtrados pela situação da fila.');
+    ] });
+    return `<div class="org-workspace org-operations-view">${taskIntro}${focusBar}${toolbar(state.tasks)}${W.section('Tarefas operacionais', taskTable, can('tasks') ? W.button('Nova tarefa', 'new-task', '', { className: 'primary sm', icon: 'plus' }) : '', 'Fila ordenada por prazo, prioridade e responsável.')}${W.section('Métricas do período', metricBody, can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '', 'Resultados do período, separados da execução diária.')}</div>`;
   }
   function summaryView() {
     const manual = state.summaries.map((r) => ({ ...r, title: r.what_was_done, detail: r.result_summary, next: r.next_action, due: r.period_end, owner: r.owner_name, type: 'Resumo manual', action: 'edit-summary' }));
@@ -392,6 +415,8 @@
     if (name === 'v24-view') { U.closeDrawer(); state.status = []; state.employer = []; app.route(id); return; }
     if (name === 'display') { state.employerDisplay = id; render(); return; }
     if (name === 'employer-display') { state.employerDisplay = ['cards', 'list'].includes(id) ? id : 'list'; render(); return; }
+    if (name === 'planning-focus') { state.planningFocus = ['all', 'overdue', 'next', 'scheduled', 'no-date'].includes(id) ? id : 'all'; render(); return; }
+    if (name === 'operations-focus') { state.operationsFocus = ['all', 'overdue', 'today', 'high', 'unassigned'].includes(id) ? id : 'all'; render(); return; }
     if (name === 'multi-filter-clear') { if (id in state) state[id] = []; render(); return; }
     if (name === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (name === 'employer-scope') { state.employerScope = ['active', 'all', 'archived'].includes(id) ? id : 'active'; state.employer = []; state.status = []; render(); return; }
@@ -400,7 +425,7 @@
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.employerScope = 'active'; state.employerClassification = 'all'; state.employerDisplay = 'list'; state.opportunityScope = 'open'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.operationsFocus = 'all'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name.startsWith('month-')) { const date = new Date(`${state.calendar}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'month-prev' ? -1 : 1)); state.calendar = name === 'month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
     if (name === 'employer-detail') return employerDetail(W.find(state.employers, id));
     if (name === 'edit-employer') return editEmployer(W.find(state.employers, id));
@@ -411,6 +436,7 @@
     if (name === 'selection-detail') return R.selectionDrawer(state, state.selections.rows.find((r) => r.key === id));
     if (name === 'edit-selection') return R.editSelection(state, state.selections.rows.find((r) => r.key === id), {}, load);
     if (name === 'edit-plan') return editPlan(W.find(state.plans, id));
+    if (name === 'new-plan') return editPlan();
     if (name === 'meeting-detail') return meetingDetail(W.find(state.meetings, id));
     if (name === 'edit-meeting') return editMeeting(W.find(state.meetings, id));
     if (name === 'meeting-task') { const m = W.find(state.meetings, id); return editTask(null, { title: m.next_action || m.pending_items || m.title, description: m.decision_summary, meeting_id: m.id, employer_id: m.employer_id, owner_user_key: m.owner_name }); }
