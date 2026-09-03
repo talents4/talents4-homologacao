@@ -277,6 +277,8 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .mx-register-row { padding: 13px 19px; background: rgba(255,255,255,.88); }
 .mx-register-row:hover { background: #f2f8ff; }
 .mx-register-person .t4-row-link { color: #145fbd; }
+.mx-pulse { border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.83); }
+.mx-pulse-track { height: 7px; border-radius: 99px; background: #e8f0f8; }
 
 /* Detalhe no painel lateral, com aparência de inspector do macOS. */
 .t4-drawer-backdrop, .t4-modal-backdrop { background: rgba(18, 35, 56, .28); backdrop-filter: blur(12px) saturate(125%); -webkit-backdrop-filter: blur(12px) saturate(125%); }
@@ -348,7 +350,7 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
   .t4-global-search { width: 42px; min-width: 42px; padding: 9px; }
   .t4-global-search input, .t4-global-search .t4-keycap { display: none; }
   .t4-command-trigger { width: 40px; padding: 8px; }
-  .t4-command-trigger span:not(.t4-icon), .t4-command-trigger kbd { display: none; }
+  .t4-command-trigger span, .t4-command-trigger kbd { display: none; }
   .t4-content { padding: 17px 13px 40px; }
   .t4-environment { padding: 6px 14px; }
   .t4-environment-copy { display: none; }
@@ -866,16 +868,9 @@ body {
    (aria-label) mesmo com o texto oculto, então recolher não remove nada da
    leitura por teclado/leitor de tela — só a largura fixa que competia com o
    conteúdo operacional em notebooks de 1280–1366px. O grupo secundário
-   "Mais espaços" fica oculto quando recolhido (evita um submenu flutuante
-   novo); os 5 espaços dele continuam a um clique ao expandir de novo. Não
+   "Mais espaços" permanece disponível como um flyout quando recolhido; os
+   espaços dele continuam acessíveis sem reabrir toda a lateral. Não
    se aplica a telas ≤1000px, que já usam o menu deslizante próprio. */
-/* O tooltip de cada item da lateral (t4-components.css) só faz sentido
-   quando o rótulo ao lado do ícone está escondido (menu recolhido) — com
-   o texto já visível, o tooltip é redundante e, como os itens ficam
-   próximos verticalmente, aparece sobreposto ao item vizinho ao passar o
-   mouse. Desligado por padrão; a regra dentro de @media (min-width:1001px)
-   abaixo liga de volta só no estado realmente recolhido, onde o texto some. */
-.t4-sidebar [data-tooltip]::after { content: none; }
 .t4-sidebar-collapse-toggle { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 0 12px 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #7c8ba0; font-size: 11px; font-weight: 650; cursor: pointer; }
 .t4-sidebar-collapse-toggle:hover { background: #f0f5f9; color: var(--v25-ink); }
 .t4-sidebar-collapse-toggle .t4-collapse-icon { transition: transform .15s ease; }
@@ -903,8 +898,7 @@ body {
   .t4-sidebar-collapsed .t4-brand { justify-content: center; align-items: center; padding: 20px 8px; }
   .t4-sidebar-collapsed .t4-brand-row { gap: 0; }
   .t4-sidebar-collapsed .t4-brand-name { display: none; }
-  .t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
-  .t4-sidebar-collapsed .t4-sidebar [data-tooltip]::after { content: attr(data-tooltip); }
+.t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
 }
 
 /* Correções finais dos controles compartilhados. O seletor de checkbox não
@@ -1004,11 +998,11 @@ body {
    centralizado, sem nenhum contorno — difícil de distinguir de um bug de
    carregamento. Borda tracejada é o sinal visual padrão de "espaço vazio
    de propósito, não erro" em qualquer produto de referência (Linear,
-   Notion, Airtable — ver docs/design/REFERENCIAS_UIUX.md); ilustração
-   (lista + lupa, ver EMPTY_ILLUSTRATION) em vez de um glifo solto de
-   busca, para realmente ler como "nada aqui ainda", não um erro. */
+   Notion, Airtable — ver docs/design/REFERENCIAS_UIUX.md); ícone maior
+   com fundo suave em vez do quadradinho apertado de antes. */
 .t4-empty { border: 1.5px dashed var(--t4-line-strong, #cbd5e1); border-radius: var(--t4-radius-lg, 16px); background: var(--t4-surface-sunken, #f8fafc); }
-.t4-empty-icon { width: 68px; height: 68px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
+.t4-empty-icon { width: 52px; height: 52px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
+.t4-empty-icon .t4-icon { width: 22px; height: 22px; flex-basis: 22px; }
 
 /* V2.6.1 · consistência de densidade e leitura. Mantém os alvos de toque
    acessíveis, mas remove alturas decorativas que empurravam a informação
@@ -1181,12 +1175,9 @@ body {
   body.t4-sidebar-collapsed .t4-nav-more[open] .t4-nav-item { justify-content: flex-start; gap: 10px; padding: 8px 10px; }
 }
 
-/* Expandir a lateral recolhida ao passar o mouse (ou ao focar dentro dela
-   pelo teclado), como Notion/VS Code: a largura real (--v25-sidebar), a
-   margem do conteúdo principal e a preferência de recolhimento salva não
-   mudam — só a barra sobrepõe o conteúdo como uma camada temporária mais
-   larga enquanto o ponteiro (ou o foco) está sobre ela. Ao tirar o mouse,
-   volta ao trilho estreito sozinha, sem JS. */
+/* Pré-visualização temporária da lateral recolhida: o conteúdo continua
+   usando a largura ampla, enquanto a barra se expande somente sob o mouse
+   ou foco. A preferência permanece recolhida entre módulos. */
 @media (min-width: 1001px) {
   body.t4-sidebar-collapsed .t4-sidebar { transition: width .16s var(--v25-ease), box-shadow .16s var(--v25-ease); }
   body.t4-sidebar-collapsed .t4-sidebar:hover,
@@ -1227,11 +1218,6 @@ body {
   body.t4-sidebar-collapsed .t4-sidebar:focus-within .t4-brand-row { gap: 12px; }
   body.t4-sidebar-collapsed .t4-sidebar:hover .t4-user,
   body.t4-sidebar-collapsed .t4-sidebar:focus-within .t4-user { grid-template-columns: 34px minmax(0, 1fr) 30px; justify-items: stretch; gap: 9px; padding: 7px; }
-  /* O botão de recolher/expandir tem um rótulo fixo no HTML ("Recolher
-     menu"), correto só quando a lateral está realmente expandida — o
-     estado real (recolhida) é comunicado pelo aria-label/tooltip
-     dinâmico. Mantém só o ícone durante a pré-visualização por hover,
-     para não mostrar um rótulo que descreve a ação errada. */
   body.t4-sidebar-collapsed .t4-sidebar:hover .t4-sidebar-collapse-toggle .t4-nav-text,
   body.t4-sidebar-collapsed .t4-sidebar:focus-within .t4-sidebar-collapse-toggle .t4-nav-text { display: none; }
 }
@@ -1260,16 +1246,21 @@ body {
 .org-ready-panel .t4-panel-head, .org-all-tasks-panel .t4-panel-head { align-items: flex-start; }
 .org-ready-panel .t4-panel-head h2, .org-all-tasks-panel .t4-panel-head h2 { margin-top: 0; }
 .org-ready-panel .t4-panel-body, .org-all-tasks-panel .t4-panel-body { min-width: 0; }
-.org-ready-summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
-.org-ready-summary > span { display: inline-flex; align-items: baseline; gap: 4px; padding: 6px 8px; border: 1px solid #d3e0e9; border-radius: 8px; color: #71879a; background: #f8fbfd; font-size: 9px; white-space: nowrap; }
-.org-ready-summary b { color: #123b59; font-size: 14px; }
-.org-ready-summary .risk { border-color: #ecc4cc; color: #a44258; background: #fff8fa; }
-.org-ready-summary .risk b { color: #a44258; }
 .org-ready-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; max-height: min(70vh, 720px); overflow: auto; padding: 1px 3px 2px 1px; }
 .org-ready-card { display: grid; gap: 6px; min-width: 0; padding: 10px 11px; border: 1px solid #d4e0e8; border-left: 3px solid #9db4c5; border-radius: 11px; background: #fff; box-shadow: 0 3px 9px rgba(20, 54, 80, .045); }
 .org-ready-card.is-next { border-color: #9ec7e4; border-left-color: #1677c8; background: linear-gradient(110deg, #f5fbff, #fff); box-shadow: 0 5px 14px rgba(22, 119, 200, .1); }
 .org-ready-card.is-overdue { border-left-color: #c23d55; }
 .org-ready-card-head { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.org-ready-card-deadline { display: inline-flex; align-items: center; gap: 4px; min-height: 22px; margin-left: auto; padding: 4px 7px; border: 1px solid #d3e0e9; border-radius: 8px; font-size: 9px; font-weight: 800; line-height: 1.1; white-space: nowrap; }
+.org-ready-card-deadline .t4-icon { width: 12px; height: 12px; }
+.org-ready-card-deadline.is-overdue { color: #a32d48; background: #fff2f5; border-color: #e4a5b1; }
+.org-ready-card-deadline.is-today { color: #8b5b00; background: #fff8df; border-color: #e4c76d; }
+.org-ready-card-deadline.is-scheduled { color: #165b89; background: #eef7ff; border-color: #b4d4e8; }
+.org-ready-card-deadline.is-no-date { color: #71879a; background: #f6f9fb; border-color: #d3e0e9; }
+.org-ready-card.priority-critical { border-left-color: #c23d55; }
+.org-ready-card.priority-high { border-left-color: #d28a1d; }
+.org-ready-card.priority-medium { border-left-color: #6489a2; }
+.org-ready-card.priority-low { border-left-color: #9db4c5; }
 .org-ready-card-index { display: inline-grid; place-items: center; width: 23px; height: 21px; margin-right: 1px; border-radius: 6px; color: #527087; background: #edf4f8; font-size: 9px; font-weight: 800; }
 .org-ready-card.is-next .org-ready-card-index { color: #fff; background: #1677c8; }
 .org-ready-card h3 { min-width: 0; margin: 0; }
@@ -1285,6 +1276,25 @@ body {
 .org-all-tasks-panel .t4-panel-body { padding-top: 9px; }
 .org-all-tasks-panel .t4-grid-tools { margin-bottom: 7px; }
 .org-all-tasks-panel .t4-table { min-width: 900px; }
+.org-completed-panel .t4-panel-body { padding-top: 9px; }
+.org-completed-panel .t4-table { min-width: 900px; }
+
+/* O período é um filtro temporal, não uma lista infinita de códigos. O mês
+   atual ganha uma âncora própria; o restante pode crescer por ano sem
+   transformar o popover numa rolagem opaca de YYYY-MM. */
+.t4-period-filter { min-width: 185px; }
+.t4-period-options { min-width: 292px; }
+.t4-period-current, .t4-period-year { display: grid; gap: 3px; }
+.t4-period-current { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #dbe7ef; }
+.t4-period-section-label, .t4-period-year h4 { margin: 2px 8px 1px; color: #5c7890; font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.t4-period-year + .t4-period-year { margin-top: 8px; padding-top: 8px; border-top: 1px solid #edf2f5; }
+.t4-period-option { align-items: center; min-height: 36px !important; padding: 6px 8px !important; }
+.t4-period-option.is-current { border: 1px solid #b7d9ee; background: #eef8ff; }
+.t4-period-option.is-current:hover { background: #e4f3ff !important; }
+.t4-period-option-copy { display: grid; gap: 2px; min-width: 0; }
+.t4-period-option-copy strong { overflow: hidden; color: #244861; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.t4-period-option-copy small { color: #6e8598; font-size: 9px; }
+.t4-period-option.is-current .t4-period-option-copy strong { color: #075b91; }
 
 @media (max-width: 1100px) {
   .org-ready-list { max-height: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1296,4 +1306,6 @@ body {
   .org-ready-card h3 .t4-row-link { white-space: normal; }
   .org-ready-card-footer { align-items: flex-start; flex-direction: column; }
   .org-ready-card-footer > div { justify-content: flex-start; }
+  .t4-period-options { min-width: 0; }
+  .org-ready-card-deadline { margin-left: 0; }
 }

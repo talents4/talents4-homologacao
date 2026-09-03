@@ -12,6 +12,15 @@ for (const module of ['talents', 'organization', 'contacts', 'german']) {
     assert.equal(h.fixture.writes.length, 0); assert.equal(h.network.length, 0);
   });
 }
+test('Meu dia renderiza nos dois módulos com um gráfico compartilhado disponível', async () => {
+  for (const [module, marker] of [['talents', /t4-dist|t4-funnel/], ['organization', /mx-pulse|t4-funnel/]]) {
+    const h = await makeHarness().load(module);
+    h.app.route('overview');
+    assert.match(h.html(), marker);
+    assert.doesNotMatch(h.html(), /W\.funnelChart|funnelChart is not a function/);
+    assert.equal(h.fixture.writes.length, 0);
+  }
+});
 test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar', async () => {
   const h = await makeHarness().load('organization');
   h.app.route('employers');
@@ -20,6 +29,45 @@ test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar'
   h.filter('employer', [h.id(101), h.id(102)]);
   assert.match(h.html(), /2 selecionados/);
   assert.equal(h.fixture.writes.length, 0);
+});
+test('filtro de períodos destaca o mês atual e escala por ano', async () => {
+  const h = makeHarness();
+  h.fixture.db.organizational_meetings.push({ ...h.fixture.db.organizational_meetings[0], id: h.id(1008), month_ref: '2027-01', topic: 'Reunião de janeiro de 2027' });
+  await h.load('organization'); h.app.route('meetings');
+  const html = h.html();
+  assert.match(html, /t4-period-filter/);
+  assert.match(html, /Mês atual/);
+  assert.match(html, /data-period-current="true"/);
+  assert.match(html, /Setembro de 2026/);
+  assert.match(html, /data-period-year="2027"/);
+  assert.match(html, /Janeiro de 2027/);
+  assert.ok(html.indexOf('Mês atual') < html.indexOf('Janeiro de 2027'));
+  h.filter('month', '2027-01');
+  assert.match(h.html(), /Reunião de janeiro de 2027/);
+  assert.doesNotMatch(h.html(), /Prioridades da semana/);
+  h.app.route('operations');
+  assert.match(h.html(), /MÊS DE EXECUÇÃO/);
+  assert.match(h.html(), /Setembro de 2026/);
+  await h.action('operations-month-next');
+  assert.match(h.html(), /Outubro de 2026/);
+  await h.action('operations-month-today');
+  assert.match(h.html(), /Setembro de 2026/);
+  h.app.route('planning');
+  assert.match(h.html(), /data-action="planning-month-prev"/);
+  assert.match(h.html(), /Setembro de 2026/);
+});
+test('planejamento separa o que falta fazer do histórico do mês', async () => {
+  const h = makeHarness();
+  h.fixture.db.organizational_plan_entries.push({ ...h.fixture.db.organizational_plan_entries[0], id: h.id(1009), activity_label: 'Atividade concluída no mês', status: 'Concluído', completed_at: '2026-09-02', start_date: '2026-09-01', end_date: '2026-09-02' });
+  await h.load('organization'); h.app.route('planning');
+  const html = h.html();
+  assert.match(html, /A fazer neste mês/);
+  assert.match(html, /Histórico do mês/);
+  assert.match(html, /Atividade concluída no mês/);
+  assert.ok(html.indexOf('Histórico do mês') < html.indexOf('Atividade concluída no mês'));
+  assert.ok(html.indexOf('A fazer neste mês') < html.indexOf('Histórico do mês'));
+  h.filter('status', 'Em andamento');
+  assert.match(h.html(), /Atividade concluída no mês/);
 });
 test('classificação dos empregadores é acionável e prioriza parceiras diretas', async () => {
   const h = makeHarness();
@@ -78,7 +126,7 @@ test('rótulos legados são traduzidos somente na apresentação', async () => {
 });
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
-  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas']]) {
+  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Histórico do mês']]) {
     h.app.route(view); assert.match(h.html(), new RegExp(text));
   }
   h.app.route('summary'); h.filter('status', 'Concluído'); assert.match(h.html(), /Revisão de perfis/);
@@ -108,9 +156,12 @@ test('decisão de reunião cria tarefa referenciada, sem reescrever a reunião',
   assert.equal(write.payload.meeting_id, h.id(1002)); assert.equal(write.payload.context_type, 'meeting');
   assert.equal(JSON.stringify(h.fixture.db.organizational_meetings), meeting);
 });
-test('filtro de status das tarefas não oculta métricas mensais sem status próprio', async () => {
-  const h = await makeHarness().load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
-  assert.match(h.html(), /Entrevistas preparadas/);
+test('filtro de status das tarefas não oculta o histórico concluído do mês', async () => {
+  const h = makeHarness();
+  h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa concluída no mês', status: 'Pronto', completed_at: '2026-09-01', due_date: '2026-09-01' });
+  await h.load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
+  assert.match(h.html(), /Tarefa concluída no mês/);
+  assert.doesNotMatch(h.html(), /Métricas do período/);
 });
 test('PO operacional alterna entre atividades em cartões e lista completa', async () => {
   const h = makeHarness();
@@ -120,6 +171,9 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.match(html, /data-action="operations-display" data-id="activities"[^>]*aria-pressed="true"/);
   assert.match(html, /data-action="operations-display" data-id="all"[^>]*aria-pressed="false"/);
   assert.match(html, /Cartões de prontidão/);
+  assert.match(html, /org-ready-card-deadline/);
+  assert.doesNotMatch(html, /org-ready-summary/);
+  assert.doesNotMatch(html, /Métricas do período/);
   assert.doesNotMatch(html, /Lista completa/);
   assert.equal((html.match(/data-ready-task=/g) || []).length, 1);
   assert.doesNotMatch(html, /data-table="tasks"/);
@@ -135,7 +189,7 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.ok(listStartAfterSwitch >= 0);
   assert.ok(listHtml.indexOf('Preparar pauta das entrevistas', listStartAfterSwitch) < listHtml.indexOf('Tarefa já concluída', listStartAfterSwitch));
   assert.match(listHtml, /Concluir/);
-  assert.ok(listHtml.indexOf('<h2>Métricas do período') > listHtml.indexOf('Lista completa'));
+  assert.ok(listHtml.indexOf('<h2>Histórico do mês') > listHtml.indexOf('Lista completa'));
 
   await h.action('operations-display', 'activities');
   await h.action('finish-task', h.id(1005));
