@@ -137,7 +137,16 @@
       : f.type === 'checkbox' ? `<input type="checkbox" ${common} ${value === true ? 'checked' : ''}>`
       : `<input type="${a(f.type || 'text')}" ${common} value="${a(value)}" ${f.placeholder ? `placeholder="${a(f.placeholder)}"` : ''}>`;
     const tag = isSearchable ? 'div' : 'label';
-    return `<${tag} class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${control}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</${tag}>`;
+    // Validação em tempo real (pedido explícito): campos de texto/número/
+    // data/select simples ganham um espaço para o ícone de check/alerta,
+    // preenchido por bindFieldValidation() (chamado dentro de form()) —
+    // sem isto o navegador só reclamava na hora de tentar salvar. Campos
+    // desabilitados, checkbox e select com busca (não é um <input> simples
+    // que o usuário edita direto) ficam de fora: não faz sentido validar
+    // "ao vivo" o que não se digita.
+    const validatable = !f.readonly && f.type !== 'checkbox' && !isSearchable;
+    const controlHtml = validatable ? `<span class="t4-field-control">${control}<span class="t4-field-validity" aria-hidden="true"></span></span>` : control;
+    return `<${tag} class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${controlHtml}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</${tag}>`;
   }
   function bindSearchableSelects(root) {
     root.querySelectorAll?.('[data-select-search]').forEach((search) => {
@@ -154,12 +163,37 @@
       });
     });
   }
+  // Ícone de check verde / alerta vermelho ao lado do campo, atualizado a
+  // cada tecla — mas só depois que o campo foi tocado (blur) uma vez, para
+  // não pintar tudo de vermelho antes do usuário sequer começar a
+  // preencher o formulário. Reaproveita a validação nativa do navegador
+  // (required/min/max/step/type já vêm nos atributos do <input>, ver
+  // inputField) em vez de reimplementar regra por campo.
+  function bindFieldValidation(root) {
+    root.querySelectorAll('.t4-field-control input, .t4-field-control select, .t4-field-control textarea').forEach((el) => {
+      const wrap = el.closest('.t4-field');
+      const icon = wrap?.querySelector('.t4-field-validity');
+      if (!wrap || !icon) return;
+      const paint = () => {
+        if (wrap.dataset.touched !== 'true') return;
+        const hasValue = String(el.value ?? '').trim() !== '';
+        const valid = el.checkValidity();
+        wrap.classList.toggle('is-invalid', !valid);
+        wrap.classList.toggle('is-valid', valid && hasValue);
+        icon.innerHTML = !valid ? U.icon('warning') : hasValue ? U.icon('check') : '';
+      };
+      el.addEventListener('blur', () => { wrap.dataset.touched = 'true'; paint(); });
+      el.addEventListener('input', paint);
+      el.addEventListener('change', paint);
+    });
+  }
   function form({ title, subtitle = '', fields, row = {}, submitLabel = 'Salvar alterações', onSubmit, notice = '', body = '' }) {
     const modal = U.openModal({ title, subtitle, wide: true,
       body: `${notice ? note(notice) : ''}<form data-editor><div class="t4-form-grid">${fields.map((f) => inputField(f, row)).join('')}</div>${body}<div data-form-error role="alert" hidden></div></form>`,
       footer: '<span class="t4-save-hint">Campos não alterados serão preservados.</span><button type="button" class="t4-btn" data-cancel>Cancelar</button><button type="submit" class="t4-btn primary" data-save>' + e(submitLabel) + '</button>' });
     const editor = modal.querySelector('form'), backdrop = modal.parentElement, save = modal.querySelector('[data-save]');
     bindSearchableSelects(modal);
+    bindFieldValidation(modal);
     const read = () => Object.fromEntries(fields.filter((f) => f.name && !f.readonly).map((f) => {
       const el = editor.elements.namedItem(f.name);
       const value = f.type === 'checkbox' ? el.checked : f.type === 'number' ? M.number(el.value) : String(el.value).trim() || null;

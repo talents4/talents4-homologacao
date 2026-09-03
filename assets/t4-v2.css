@@ -304,6 +304,29 @@ svg { display: block; width: 100%; height: 100%; }
 .t4-field input[type="color"] { padding: 4px; }
 .t4-field-help { color: #7b8c9d; font-size: 10px; line-height: 1.5; }
 .t4-span-2 { grid-column: span 2; }
+
+/* Validação em tempo real: ícone de check/alerta dentro do campo, some/
+   aparece com transição em vez de piscar (opacity, não display), e o
+   texto nunca fica embaixo do ícone (padding-right some só quando o
+   ícone existe). Cor de fundo bem sutil (6% da cor semântica) — o ícone
+   e a borda já carregam o significado, não precisa gritar. */
+.t4-field-control { position: relative; display: block; }
+.t4-field-validity { position: absolute; top: 50%; right: 11px; transform: translateY(-50%) scale(.7); width: 16px; height: 16px; opacity: 0; transition: opacity .15s var(--t4-ease, ease), transform .15s var(--t4-ease, ease); pointer-events: none; }
+.t4-field-validity .t4-icon { display: block; width: 16px; height: 16px; }
+.t4-field.is-valid .t4-field-validity, .t4-field.is-invalid .t4-field-validity { opacity: 1; transform: translateY(-50%) scale(1); }
+.t4-field.is-valid .t4-field-control input, .t4-field.is-valid .t4-field-control select,
+.t4-field.is-invalid .t4-field-control input, .t4-field.is-invalid .t4-field-control select { padding-right: 34px; }
+.t4-field.is-valid .t4-field-control input, .t4-field.is-valid .t4-field-control select, .t4-field.is-valid .t4-field-control textarea {
+  border-color: var(--t4-success); background: color-mix(in srgb, var(--t4-success) 6%, #fff);
+}
+.t4-field.is-valid .t4-field-validity { color: var(--t4-success); }
+.t4-field.is-invalid .t4-field-control input, .t4-field.is-invalid .t4-field-control select, .t4-field.is-invalid .t4-field-control textarea {
+  border-color: var(--t4-critical); background: color-mix(in srgb, var(--t4-critical) 6%, #fff);
+}
+.t4-field.is-invalid .t4-field-validity { color: var(--t4-critical); }
+@media (prefers-reduced-motion: reduce) {
+  .t4-field-validity { transition: none; }
+}
 [data-form-error] { margin-top: 20px; }
 .t4-toast-stack { position: fixed; bottom: 22px; right: 22px; z-index: 300; display: flex; flex-direction: column; gap: 9px; width: min(430px, calc(100vw - 44px)); }
 .t4-toast { display: flex; align-items: start; gap: 10px; padding: 15px 18px; border: 1px solid #d1dde7; border-radius: 10px; background: #fff; box-shadow: 0 8px 35px #002a4a26; font-size: 12px; }
