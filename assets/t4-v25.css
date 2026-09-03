@@ -277,8 +277,6 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .mx-register-row { padding: 13px 19px; background: rgba(255,255,255,.88); }
 .mx-register-row:hover { background: #f2f8ff; }
 .mx-register-person .t4-row-link { color: #145fbd; }
-.mx-pulse { border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.83); }
-.mx-pulse-track { height: 7px; border-radius: 99px; background: #e8f0f8; }
 
 /* Detalhe no painel lateral, com aparência de inspector do macOS. */
 .t4-drawer-backdrop, .t4-modal-backdrop { background: rgba(18, 35, 56, .28); backdrop-filter: blur(12px) saturate(125%); -webkit-backdrop-filter: blur(12px) saturate(125%); }
@@ -871,6 +869,13 @@ body {
    "Mais espaços" permanece disponível como um flyout quando recolhido; os
    espaços dele continuam acessíveis sem reabrir toda a lateral. Não
    se aplica a telas ≤1000px, que já usam o menu deslizante próprio. */
+/* O tooltip de cada item da lateral (t4-components.css) só faz sentido
+   quando o rótulo ao lado do ícone está escondido (menu recolhido) — com
+   o texto já visível, o tooltip é redundante e, como os itens ficam
+   próximos verticalmente, aparece sobreposto ao item vizinho ao passar o
+   mouse. Desligado por padrão; a regra dentro de @media (min-width:1001px)
+   abaixo liga de volta só no estado realmente recolhido, onde o texto some. */
+.t4-sidebar [data-tooltip]::after { content: none; }
 .t4-sidebar-collapse-toggle { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 0 12px 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #7c8ba0; font-size: 11px; font-weight: 650; cursor: pointer; }
 .t4-sidebar-collapse-toggle:hover { background: #f0f5f9; color: var(--v25-ink); }
 .t4-sidebar-collapse-toggle .t4-collapse-icon { transition: transform .15s ease; }
@@ -898,7 +903,13 @@ body {
   .t4-sidebar-collapsed .t4-brand { justify-content: center; align-items: center; padding: 20px 8px; }
   .t4-sidebar-collapsed .t4-brand-row { gap: 0; }
   .t4-sidebar-collapsed .t4-brand-name { display: none; }
-.t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
+  .t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
+  /* :not(:hover):not(:focus-within) na própria lateral: sem isto, o
+     tooltip volta a sobrepor o item vizinho durante a pré-visualização
+     por hover (a lateral recolhida que expande temporariamente ao passar
+     o mouse) — nesse instante o rótulo já está visível, igual ao estado
+     fixo expandido, então o tooltip é redundante ali também. */
+  .t4-sidebar-collapsed .t4-sidebar:not(:hover):not(:focus-within) [data-tooltip]::after { content: attr(data-tooltip); }
 }
 
 /* Correções finais dos controles compartilhados. O seletor de checkbox não

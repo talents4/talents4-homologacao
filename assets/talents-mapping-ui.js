@@ -87,7 +87,13 @@
       return n == null ? '<span class="tw-unrated">A avaliar</span>' : `<span class="tw-score"><strong>${e(n)}</strong><span>/100</span><i style="--score:${n}%" aria-hidden="true"></i></span>`;
     }
     function editCell(content, action, id, label, editable) {
-      return editable && D.canEdit() ? `<button type="button" class="tw-cell-edit" data-action="${a(action)}" data-id="${a(id)}" aria-label="Editar ${a(label)}">${content}${U.icon('edit')}</button>` : `<div class="tw-cell-value">${content}</div>`;
+      // Sem este span, um badge sem "white-space: nowrap" numa coluna
+      // estreita quebra sílaba por sílaba, infla a altura da linha de
+      // forma desigual e vaza por baixo do cabeçalho sticky — bug já
+      // caçado e corrigido nesta sessão (ver .tw-sheet-grid .t4-badge em
+      // talents-mapping.css); mantém truncamento de uma linha só.
+      const wrapped = `<span class="tw-cell-text">${content}</span>`;
+      return editable && D.canEdit() ? `<button type="button" class="tw-cell-edit" data-action="${a(action)}" data-id="${a(id)}" aria-label="Editar ${a(label)}">${wrapped}${U.icon('edit')}</button>` : `<div class="tw-cell-value">${wrapped}</div>`;
     }
     function grid(view, rows, columns, empty) {
       return `<div class="tw-sheet-grid" data-tw-sheet="${a(view)}">${W.table({id:`tw-${view}`, rows, columns, empty, pageSize:25})}</div>`;

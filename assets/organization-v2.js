@@ -343,10 +343,10 @@
     }).join('');
     return metrics + `<div class="mx-register" aria-label="Registro de seleções">${blocks}</div>`;
   }
+  const STAGE_TONES = { 'Mapeado': '', 'Em análise': '', 'Apresentado': 'info', 'Entrevista': 'info', 'Proposta': 'warning', 'Contratado': 'success' };
   function stagePulse(rows) {
-    const stages = ['Mapeado', 'Em análise', 'Apresentado', 'Entrevista', 'Proposta', 'Contratado'];
-    const counts = stages.map((stage) => ({ stage, count: rows.filter((r) => M.norm(r.stage) === M.norm(stage)).length })), max = Math.max(1, ...counts.map((x) => x.count));
-    return `<section class="mx-pulse" aria-label="Distribuição das seleções por etapa"><header><div><span class="mx-eyebrow">LEITURA RÁPIDA</span><h3>Distribuição por etapa</h3></div><span class="mx-meta">${rows.length} relações ativas</span></header><div class="mx-pulse-grid">${counts.map((x) => `<div><div class="mx-pulse-label"><span>${e(x.stage)}</span><strong>${x.count}</strong></div><div class="mx-pulse-track"><i style="width:${Math.round(x.count / max * 100)}%"></i></div></div>`).join('')}</div></section>`;
+    const buckets = Object.entries(STAGE_TONES).map(([stage, tone]) => ({ label: stage, tone, count: rows.filter((r) => M.norm(r.stage) === M.norm(stage)).length }));
+    return W.funnelChart('Distribuição por etapa', 'LEITURA RÁPIDA', `${rows.length} relação${rows.length === 1 ? '' : 'ões'} ativa${rows.length === 1 ? '' : 's'}`, buckets);
   }
   function opportunityRegister(rows, scope = 'open') {
     if (!rows.length) return `<div class="mx-empty"><strong>Nenhuma oportunidade encontrada.</strong><span>Cadastre vagas no Organizacional ou limpe os filtros.</span></div>`;
