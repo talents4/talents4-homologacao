@@ -12,10 +12,23 @@
   const button = (label, action, id = '', options = {}) => `<button type="button" class="t4-btn ${a(options.className || '')}" data-action="${a(action)}" data-id="${a(id)}" ${options.disabled ? 'disabled' : ''} ${options.title ? `title="${a(options.title)}"` : ''}>${options.icon ? U.icon(options.icon) : ''}${e(label)}</button>`;
   const link = (label, href, icon = '') => `<a class="t4-btn sm" href="${a(href)}">${icon ? U.icon(icon) : ''}${e(label)}</a>`;
   const external = (label, url) => M.safeUrl(url) ? `<a class="t4-text-link" href="${a(M.safeUrl(url))}" target="_blank" rel="noopener noreferrer">${e(label)}${U.icon('external')}</a>` : '<span class="t4-muted">Não informado</span>';
+  const normalizedOptions = (options) => options.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
   const optionsHtml = (options, value, placeholder = null) => {
-    const opts = options.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
+    const opts = normalizedOptions(options);
     if (M.present(value) && !opts.some((o) => String(o.value) === String(value))) opts.unshift({ value, label: U.term(value) });
     return `${placeholder === null ? '' : `<option value="">${e(placeholder)}</option>`}${opts.map((o) => `<option value="${a(o.value)}" ${String(o.value) === String(value ?? '') ? 'selected' : ''}>${e(o.label)}</option>`).join('')}`;
+  };
+  // Selects com dezenas de registros não podem depender de rolagem. O select
+  // nativo continua sendo a fonte do valor (preserva teclado, acessibilidade
+  // e o contrato de gravação); a busca apenas oculta opções que não batem.
+  const searchableSelect = (name, options, value = '', settings = {}) => {
+    const list = Array.isArray(options) ? options : [], searchable = settings.searchable === true || list.length > 12;
+    const label = settings.label || name, placeholder = settings.placeholder === undefined ? null : settings.placeholder;
+    const selectAttrs = settings.attrs || '';
+    const native = `<select ${selectAttrs}${searchable ? ` data-searchable-value="${a(name)}"` : ''}>${optionsHtml(list, value, placeholder)}</select>`;
+    if (!searchable) return native;
+    const searchPlaceholder = settings.searchPlaceholder || `Buscar ${String(label).toLocaleLowerCase('pt-BR')}…`;
+    return `<span class="t4-searchable-select" data-searchable-select="${a(name)}"><span class="t4-select-search"><span class="t4-sr-only">Buscar ${a(label)}</span><input type="search" data-select-search="${a(name)}" placeholder="${a(searchPlaceholder)}" aria-label="Buscar ${a(label)}" autocomplete="off"></span>${native}</span>`;
   };
   const filter = (name, label, values, value = '') => `<label class="t4-filter"><span>${e(label)}</span><select data-filter="${a(name)}" aria-label="${a(label)}">${optionsHtml(values, value, `Todos · ${label.toLowerCase()}`)}</select></label>`;
   const multiFilter = (name, label, values, selected = []) => {
@@ -117,17 +130,36 @@
       if (!Number.isNaN(d.getTime())) value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     } else if (f.type === 'date') value = M.dateOnly(value);
     const common = `name="${a(f.name)}" ${f.required ? 'required' : ''} ${f.readonly ? 'disabled' : ''} ${f.min != null ? `min="${a(f.min)}"` : ''} ${f.max != null ? `max="${a(f.max)}"` : ''} ${f.step != null ? `step="${a(f.step)}"` : ''}`;
+    const selectOptions = f.options || [];
+    const isSearchable = f.type === 'select' && (f.searchable === true || selectOptions.length > 12);
     const control = f.type === 'textarea' ? `<textarea ${common} rows="${f.rows || 3}">${e(value)}</textarea>`
-      : f.type === 'select' ? `<select ${common}>${optionsHtml(f.options || [], value, f.placeholder === undefined ? 'Não informado' : f.placeholder)}</select>`
+      : f.type === 'select' ? searchableSelect(f.name, selectOptions, value, { label: f.label, placeholder: f.placeholder === undefined ? 'Não informado' : f.placeholder, searchable: isSearchable, searchPlaceholder: f.searchPlaceholder, attrs: common })
       : f.type === 'checkbox' ? `<input type="checkbox" ${common} ${value === true ? 'checked' : ''}>`
       : `<input type="${a(f.type || 'text')}" ${common} value="${a(value)}" ${f.placeholder ? `placeholder="${a(f.placeholder)}"` : ''}>`;
-    return `<label class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${control}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</label>`;
+    const tag = isSearchable ? 'div' : 'label';
+    return `<${tag} class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${control}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</${tag}>`;
+  }
+  function bindSearchableSelects(root) {
+    root.querySelectorAll?.('[data-select-search]').forEach((search) => {
+      const key = search.dataset.selectSearch;
+      const select = root.querySelector(`[data-searchable-value="${CSS.escape(key)}"]`);
+      if (!select) return;
+      const options = [...select.options];
+      search.addEventListener('input', () => {
+        const query = U.normalize(search.value), selected = String(select.value || '');
+        options.forEach((option) => {
+          const keep = !query || String(option.value) === selected || U.normalize(option.textContent).includes(query);
+          option.hidden = !keep;
+        });
+      });
+    });
   }
   function form({ title, subtitle = '', fields, row = {}, submitLabel = 'Salvar alterações', onSubmit, notice = '', body = '' }) {
     const modal = U.openModal({ title, subtitle, wide: true,
       body: `${notice ? note(notice) : ''}<form data-editor><div class="t4-form-grid">${fields.map((f) => inputField(f, row)).join('')}</div>${body}<div data-form-error role="alert" hidden></div></form>`,
       footer: '<span class="t4-save-hint">Campos não alterados serão preservados.</span><button type="button" class="t4-btn" data-cancel>Cancelar</button><button type="submit" class="t4-btn primary" data-save>' + e(submitLabel) + '</button>' });
     const editor = modal.querySelector('form'), backdrop = modal.parentElement, save = modal.querySelector('[data-save]');
+    bindSearchableSelects(modal);
     const read = () => Object.fromEntries(fields.filter((f) => f.name && !f.readonly).map((f) => {
       const el = editor.elements.namedItem(f.name);
       const value = f.type === 'checkbox' ? el.checked : f.type === 'number' ? M.number(el.value) : String(el.value).trim() || null;
@@ -300,6 +332,6 @@
     const max = Math.max(1, ...buckets.map((b) => b.count));
     return `<section class="t4-dist" aria-label="${a(title)}"><header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header><div class="t4-dist-grid">${buckets.map((b) => `<div class="t4-dist-row"><div class="t4-dist-label"><span>${e(b.label)}</span><strong>${e(b.count)}</strong></div><div class="t4-dist-track"><i class="t4-dist-bar ${a(b.tone || '')}" style="--dist-width:${Math.round(b.count / max * 100)}%"></i></div></div>`).join('')}</div></section>`;
   }
-  window.T4Work = Object.freeze({ button, link, external, optionsHtml, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
+  window.T4Work = Object.freeze({ button, link, external, optionsHtml, searchableSelect, bindSearchableSelects, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
     formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, distributionChart });
 })();
