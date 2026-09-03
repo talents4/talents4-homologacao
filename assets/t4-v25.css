@@ -1046,3 +1046,132 @@ body {
   .v25-archive-search { grid-template-columns: 1fr; }
   .v25-archive-search > .t4-btn { justify-self: start; }
 }
+
+/* V2.6.2 · seleção orientada à ação. O usuário vê primeiro a próxima
+   prioridade; a fila e os indicadores ficam separados, sem um painel
+   introdutório que consome espaço sem ajudar na decisão. */
+.org-workspace { display: grid; gap: 12px; min-width: 0; }
+.org-workspace > .t4-toolbar, .org-workspace > .t4-panel { margin-bottom: 0; }
+.org-priority-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px 18px;
+  min-width: 0;
+  padding: 15px 18px;
+  border: 1px solid #b9cedd;
+  border-radius: 15px;
+  background: linear-gradient(105deg, #fafdff 0%, #eef6fc 100%);
+  box-shadow: 0 8px 22px rgba(20, 66, 100, .055);
+}
+.org-priority-main { display: grid; gap: 3px; min-width: 0; }
+.org-priority-eyebrow { color: #53728a; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.org-priority-main > strong { overflow: hidden; color: #123b59; font-size: 17px; letter-spacing: -.025em; text-overflow: ellipsis; white-space: nowrap; }
+.org-priority-main > p, .org-priority-note { overflow: hidden; margin: 0; color: #5f7890; font-size: 11px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.org-priority-note { color: #71879a; }
+.org-priority-stats { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.org-priority-stats > span { display: grid; gap: 1px; min-width: 65px; padding: 6px 8px; border: 1px solid #d3e0e9; border-radius: 8px; background: #fff; text-align: center; }
+.org-priority-stats b { color: #123b59; font-size: 16px; line-height: 1.05; }
+.org-priority-stats small { color: #71879a; font-size: 9px; white-space: nowrap; }
+.org-priority-stats .risk { border-color: #ecc4cc; background: #fff8fa; }
+.org-priority-stats .risk b, .org-priority-stats .risk small { color: #a44258; }
+.org-priority-action { display: flex; justify-content: flex-end; }
+.org-focus-bar { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 2px; }
+.org-focus-label { flex: 0 0 auto; color: #6a7f92; font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.org-focus-bar .t4-quickfilters { gap: 5px; margin: 0; }
+.org-focus-bar .t4-quickfilter { min-height: 32px; padding: 6px 10px; border-radius: 9px; font-size: 11px; }
+.org-focus-bar .t4-quickfilter > span:not(.t4-icon) { font-size: 9px; }
+.org-workspace .t4-panel-head { min-height: 54px; padding: 13px 18px; }
+.org-workspace .t4-panel-body { padding: 12px 18px; }
+.org-workspace .t4-panel-head p { margin-top: 2px; }
+.org-workspace .t4-table th { padding: 10px 11px; }
+.org-workspace .t4-table td { padding: 10px 11px; }
+.org-workspace .t4-table td:first-child { min-width: 0; }
+.org-planning-view .t4-table, .org-operations-view .t4-table { width: 100%; min-width: 920px; table-layout: fixed; }
+.org-planning-view .t4-table th:nth-child(1), .org-planning-view .t4-table td:nth-child(1) { width: 145px; }
+.org-planning-view .t4-table th:nth-child(2), .org-planning-view .t4-table td:nth-child(2) { width: 29%; }
+.org-planning-view .t4-table th:nth-child(3), .org-planning-view .t4-table td:nth-child(3) { width: 125px; }
+.org-planning-view .t4-table th:nth-child(4), .org-planning-view .t4-table td:nth-child(4) { width: 19%; }
+.org-planning-view .t4-table th:nth-child(5), .org-planning-view .t4-table td:nth-child(5) { width: 145px; }
+.org-planning-view .t4-table th:nth-child(6), .org-planning-view .t4-table td:nth-child(6) { width: 125px; }
+.org-planning-view .t4-table th:nth-child(7), .org-planning-view .t4-table td:nth-child(7) { width: 92px; }
+.org-operations-view .t4-table th:nth-child(1), .org-operations-view .t4-table td:nth-child(1) { width: 28%; }
+.org-operations-view .t4-table th:nth-child(2), .org-operations-view .t4-table td:nth-child(2) { width: 115px; }
+.org-operations-view .t4-table th:nth-child(3), .org-operations-view .t4-table td:nth-child(3) { width: 105px; }
+.org-operations-view .t4-table th:nth-child(4), .org-operations-view .t4-table td:nth-child(4) { width: 115px; }
+.org-operations-view .t4-table th:nth-child(5), .org-operations-view .t4-table td:nth-child(5) { width: 145px; }
+.org-operations-view .t4-table th:nth-child(6), .org-operations-view .t4-table td:nth-child(6) { width: 19%; }
+.org-operations-view .t4-table th:nth-child(7), .org-operations-view .t4-table td:nth-child(7) { width: 115px; }
+
+/* Selectores de vínculo: acima de uma dúzia de opções aparece uma busca
+   real, mas o select nativo continua sendo o controle que grava o valor. */
+.t4-searchable-select { display: grid; gap: 5px; min-width: 0; }
+.t4-select-search { display: block; min-width: 0; }
+.t4-select-search input { display: block; width: 100%; min-width: 0; min-height: 34px; box-sizing: border-box; padding: 7px 9px; border: 1px solid #b9cbd9; border-radius: 9px; color: #17314b; background: #f8fbfd; font: inherit; font-size: 11px; }
+.t4-select-search input::placeholder { color: #71849a; }
+.t4-select-search input:focus { outline: 3px solid rgba(22, 119, 255, .18); outline-offset: 1px; border-color: #1677ff; background: #fff; }
+.t4-searchable-select > select { width: 100%; min-width: 0; }
+.t4-searchable-select > select option[hidden] { display: none; }
+.tw-person-picker .t4-searchable-select { width: min(100%, 340px); }
+.tw-person-picker .t4-select-search input { min-height: 32px; }
+
+/* A tabela completa de Talentos tinha colunas largas demais para os valores
+   curtos. A largura agora é previsível e o restante continua acessível pelo
+   scroll horizontal da própria tabela. */
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table { width: 100%; min-width: 1180px; table-layout: fixed; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th,
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td { padding: 9px 10px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(1),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(1) { width: 42px; min-width: 42px; max-width: 42px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(2),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(2) { width: 220px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(3),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(3) { width: 150px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(4),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(4) { width: 125px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(5),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(5) { width: 115px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(6),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(6) { width: 125px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(7),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(7) { width: 155px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(8),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(8) { width: 130px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(9),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(9) { width: 145px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(10),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(10) { width: 165px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table th:nth-child(11),
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-table td:nth-child(11) { width: 150px; }
+[data-t4-module="talents"] [data-table="talents-complete"] .t4-inline-person { min-width: 0; }
+
+/* Mesmo recolhido, Mais espaços continua sendo um ponto de navegação. Ele
+   abre um flyout ao lado dos ícones, sem reexpandir toda a barra. */
+@media (min-width: 1001px) {
+  body.t4-sidebar-collapsed .t4-sidebar-scroll { overflow: visible; }
+  body.t4-sidebar-collapsed .t4-nav-more { display: block; position: relative; }
+  body.t4-sidebar-collapsed .t4-nav-more > summary { justify-content: center; gap: 0; padding: 9px; }
+  body.t4-sidebar-collapsed .t4-nav-more > summary .t4-nav-chevron { display: none; }
+  body.t4-sidebar-collapsed .t4-nav-more > div { position: absolute; z-index: 80; top: 0; left: calc(100% + 8px); width: 220px; min-width: 220px; margin: 0; padding: 8px; border: 1px solid #7893a7; border-radius: 12px; background: #fff; box-shadow: 0 16px 40px rgba(0, 42, 74, .24); }
+  body.t4-sidebar-collapsed .t4-nav-more:not([open]) > div { display: none; }
+  body.t4-sidebar-collapsed .t4-nav-more[open] > div { display: grid; gap: 2px; }
+  body.t4-sidebar-collapsed .t4-nav-more[open] .t4-nav-text { display: inline; }
+  body.t4-sidebar-collapsed .t4-nav-more[open] .t4-nav-count { display: inline-flex; }
+  body.t4-sidebar-collapsed .t4-nav-more[open] .t4-nav-item { justify-content: flex-start; gap: 10px; padding: 8px 10px; }
+}
+
+@media (max-width: 900px) {
+  .org-priority-panel { grid-template-columns: minmax(0, 1fr) auto; }
+  .org-priority-stats { grid-column: 1 / -1; justify-content: flex-start; }
+  .org-priority-action { grid-column: 2; grid-row: 1; }
+}
+@media (max-width: 680px) {
+  .org-priority-panel { grid-template-columns: 1fr; gap: 10px; padding: 13px 14px; }
+  .org-priority-main > strong, .org-priority-main > p, .org-priority-note { white-space: normal; }
+  .org-priority-stats { grid-column: auto; justify-content: flex-start; }
+  .org-priority-action { grid-column: auto; grid-row: auto; justify-content: flex-start; }
+  .org-focus-bar { align-items: flex-start; flex-direction: column; }
+  .org-focus-bar .t4-quickfilters { width: 100%; }
+  .org-focus-bar .t4-quickfilter { flex: 1 1 auto; }
+  .tw-person-picker .t4-searchable-select { width: 100%; }
+}
