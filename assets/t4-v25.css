@@ -320,7 +320,7 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
   .t4-global-search { width: 42px; min-width: 42px; padding: 9px; }
   .t4-global-search input, .t4-global-search .t4-keycap { display: none; }
   .t4-command-trigger { width: 40px; padding: 8px; }
-  .t4-command-trigger span, .t4-command-trigger kbd { display: none; }
+  .t4-command-trigger span:not(.t4-icon), .t4-command-trigger kbd { display: none; }
   .t4-content { padding: 17px 13px 40px; }
   .t4-environment { padding: 6px 14px; }
   .t4-environment-copy { display: none; }
