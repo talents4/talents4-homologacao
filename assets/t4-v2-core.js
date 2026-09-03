@@ -470,8 +470,26 @@
       // quem está navegando entre os itens do próprio grupo.
       const more = root.querySelector('.t4-nav-more');
       if (more && secondaryViews.some((item) => item.id === currentView)) more.open = true;
-      if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
+      if (options.notify !== false) {
+        routeListeners.forEach((listener) => listener(currentView, view));
+        animatePageEnter();
+      }
       document.body.classList.remove('t4-sidebar-open');
+    }
+
+    // Transição suave ao trocar de página: os módulos escrevem o HTML novo
+    // em pageRoot de forma síncrona dentro dos listeners acima (cada um com
+    // seu próprio render()), então quando chegamos aqui o conteúdo já é o
+    // novo — a entrada anima o resultado já trocado (fade + leve subida),
+    // não uma troca coreografada entre o conteúdo antigo e o novo. Reinicia
+    // a animação removendo e recolocando a classe com um reflow forçado no
+    // meio (senão o navegador não percebe que é "de novo" a mesma classe).
+    // Nunca em aba oculta (rAF nunca dispararia) nem com menos movimento.
+    function animatePageEnter() {
+      if (document.hidden || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+      pageRoot.classList.remove('t4-page-enter');
+      void pageRoot.offsetWidth;
+      pageRoot.classList.add('t4-page-enter');
     }
 
     function route(viewId, options = {}) {

@@ -226,3 +226,22 @@
   .t4-dist { padding: var(--t4-space-5); }
   .t4-funnel-legend { gap: var(--t4-space-2) var(--t4-space-4); }
 }
+
+/* ---------- Transição de página: até aqui, trocar de view (ou atualizar o
+   conteúdo da view atual após salvar algo) substituía o HTML na hora, sem
+   nenhuma transição — pedido explícito para corrigir. A troca de conteúdo
+   em si continua sendo feita por cada módulo (organization-v2.js,
+   talents-v2.js etc.) escrevendo em pageRoot.innerHTML normalmente; só a
+   ENTRADA do resultado já trocado ganha uma leve subida com fade
+   (t4-v2-core.js reinicia a classe a cada navegação real). Não é uma
+   coreografia entre conteúdo antigo e novo — mais simples, sem atraso
+   perceptível na navegação, e já cobre 100% das telas porque todas usam o
+   mesmo pageRoot. */
+#t4-page-root.t4-page-enter { animation: t4-page-in .32s var(--t4-ease, cubic-bezier(.2, .8, .2, 1)) both; }
+@keyframes t4-page-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #t4-page-root.t4-page-enter { animation: none; }
+}
