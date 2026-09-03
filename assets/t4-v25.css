@@ -1087,6 +1087,9 @@ body {
 .org-focus-bar .t4-quickfilters { gap: 5px; margin: 0; }
 .org-focus-bar .t4-quickfilter { min-height: 32px; padding: 6px 10px; border-radius: 9px; font-size: 11px; }
 .org-focus-bar .t4-quickfilter > span:not(.t4-icon) { font-size: 9px; }
+.org-operations-focus-bar { align-items: flex-start; flex-wrap: wrap; gap: 8px 18px; }
+.org-focus-group { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.org-focus-group .org-focus-label { margin-right: 1px; }
 .org-workspace .t4-panel-head { min-height: 54px; padding: 13px 18px; }
 .org-workspace .t4-panel-body { padding: 12px 18px; }
 .org-workspace .t4-panel-head p { margin-top: 2px; }
@@ -1237,12 +1240,9 @@ body {
   .tw-person-picker .t4-searchable-select { width: 100%; }
 }
 
-/* V2.6.3 · PO operacional em duas superfícies: executar à esquerda,
-   consultar o histórico à direita. O primeiro cartão é sempre a próxima
-   tarefa aberta conforme a ordenação de prioridade. */
-.org-operations-split { display: grid; grid-template-columns: minmax(340px, .82fr) minmax(0, 1.78fr); gap: 12px; align-items: start; min-width: 0; }
-.org-operations-split > .t4-panel { min-width: 0; margin: 0; }
-.org-ready-panel { min-width: 0; }
+/* V2.6.4 · PO operacional com superfícies exclusivas: Atividades mostra
+   somente cartões abertos; Todos mostra somente a lista completa. */
+.org-operations-view > .org-ready-panel, .org-operations-view > .org-all-tasks-panel { min-width: 0; margin: 0; }
 .org-panel-kicker { display: block; margin-bottom: 3px; color: #53728a; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .org-panel-count { flex: 0 0 auto; color: #3f6079; font-size: 11px; font-weight: 750; white-space: nowrap; }
 .org-ready-panel .t4-panel-head, .org-all-tasks-panel .t4-panel-head { align-items: flex-start; }
@@ -1253,7 +1253,7 @@ body {
 .org-ready-summary b { color: #123b59; font-size: 14px; }
 .org-ready-summary .risk { border-color: #ecc4cc; color: #a44258; background: #fff8fa; }
 .org-ready-summary .risk b { color: #a44258; }
-.org-ready-list { display: grid; gap: 8px; max-height: min(70vh, 720px); overflow: auto; padding: 1px 3px 2px 1px; }
+.org-ready-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; max-height: min(70vh, 720px); overflow: auto; padding: 1px 3px 2px 1px; }
 .org-ready-card { display: grid; gap: 6px; min-width: 0; padding: 10px 11px; border: 1px solid #d4e0e8; border-left: 3px solid #9db4c5; border-radius: 11px; background: #fff; box-shadow: 0 3px 9px rgba(20, 54, 80, .045); }
 .org-ready-card.is-next { border-color: #9ec7e4; border-left-color: #1677c8; background: linear-gradient(110deg, #f5fbff, #fff); box-shadow: 0 5px 14px rgba(22, 119, 200, .1); }
 .org-ready-card.is-overdue { border-left-color: #c23d55; }
@@ -1275,10 +1275,11 @@ body {
 .org-all-tasks-panel .t4-table { min-width: 900px; }
 
 @media (max-width: 1100px) {
-  .org-operations-split { grid-template-columns: 1fr; }
   .org-ready-list { max-height: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 680px) {
+  .org-operations-focus-bar { align-items: flex-start; flex-direction: column; }
+  .org-focus-group { width: 100%; }
   .org-ready-list { grid-template-columns: 1fr; }
   .org-ready-card h3 .t4-row-link { white-space: normal; }
   .org-ready-card-footer { align-items: flex-start; flex-direction: column; }

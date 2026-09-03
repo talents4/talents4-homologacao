@@ -30,7 +30,7 @@ Seletores de vínculo com mais de doze opções usam `W.searchableSelect` (`t4-v
 Planejamento mensal e PO operacional deixam de misturar explicação, cadastro, execução e indicadores. Cada tela apresenta primeiro um painel de próxima prioridade, depois recortes rápidos e a fila ordenada, e só então detalhes secundários.
 
 - Planejamento: `Vencidas`, `Próximos 7 dias`, `Programadas` e `Sem prazo`; a ordem usa entrega, status e ordem original sem alterar os registros.
-- PO operacional: abre em duas superfícies. À esquerda, **Cartões de prontidão** mostram todas as tarefas abertas (qualquer situação diferente de `Pronto`, concluída, cancelada ou encerrada), em ordem de prioridade. À direita, **Lista completa** preserva todos os registros, com tarefas abertas primeiro e, depois, por prioridade. Os recortes `Vencidas`, `Para hoje`, `Alta prioridade` e `Sem responsável` filtram as duas superfícies; ações de concluir continuam gravando somente a tarefa original.
+- PO operacional: abre em uma superfície por vez. Em **Mostrar > Atividades**, **Cartões de prontidão** exibem somente as tarefas abertas (qualquer situação diferente de `Pronto`, concluída, cancelada ou encerrada), em cartões separados e ordem de prioridade. Em **Mostrar > Todos**, **Lista completa** preserva todos os registros, com tarefas abertas primeiro e, depois, por prioridade. Os recortes `Vencidas`, `Para hoje`, `Alta prioridade` e `Sem responsável` filtram a visão escolhida; ações de concluir continuam gravando somente a tarefa original.
 - Métricas do período ficam abaixo da fila do PO e não são escondidas pelo filtro de situação das tarefas.
 
 Os recortes são estado de tela; não criam colunas, snapshots nem registros auxiliares no Supabase.
