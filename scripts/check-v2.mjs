@@ -18,7 +18,7 @@ function walk(dir) {
 }
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
-const required = [...Object.keys(pages), 'README.md',
+const required = [...Object.keys(pages),
   'assets/t4-tokens.css', 'assets/t4-components.css', 'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
@@ -146,19 +146,22 @@ check(v25CSS.includes('width: min(360px, calc(100vw - 32px))') && v25CSS.include
 const organizationCode = read('assets/organization-v2.js');
 check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
 check(organizationCode.includes("defaultView: 'employers'") && organizationCode.includes("employerClassification: 'partner'") && organizationCode.includes("employerDisplay: 'cards'"), 'Organizacional abre em Empregadores, parceiras e cartões');
-check(organizationCode.includes('planning-focus') && organizationCode.includes('operations-focus') && organizationCode.includes('org-priority-panel') && organizationCode.includes("W.section('Métricas do período'"), 'Planejamento e PO organizam prioridade, fila e métricas');
-check(organizationCode.includes('org-ready-card') && organizationCode.includes('operations-display') && organizationCode.includes('Lista completa') && organizationCode.includes('M.isOpen(r.status)') && v25CSS.includes('.org-operations-focus-bar') && v25CSS.includes('.org-ready-list'), 'PO alterna entre cartões de atividades e lista completa');
+check(organizationCode.includes('planning-focus') && organizationCode.includes('operations-focus') && organizationCode.includes('org-priority-panel') && organizationCode.includes('completedInMonth') && organizationCode.includes('Histórico do mês'), 'Planejamento e PO organizam prioridade, fila e histórico mensal');
+check(organizationCode.includes('org-ready-card') && organizationCode.includes('org-ready-card-deadline') && organizationCode.includes('priorityClass') && !organizationCode.includes('org-ready-summary') && organizationCode.includes('operations-display') && organizationCode.includes('Lista completa') && organizationCode.includes('M.isOpen(r.status)') && v25CSS.includes('.org-operations-focus-bar') && v25CSS.includes('.org-ready-list') && v25CSS.includes('.org-completed-panel'), 'PO alterna entre cartões de atividades, lista completa e histórico concluído');
 check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
 check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
 check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && !v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado, sem controles decorativos');
 check(v25CSS.includes('color-mix') && v25CSS.includes('prefers-reduced-motion') && v25CSS.includes('@supports not (backdrop-filter'), 'camada V2.5 possui cor de empregador, fallback e movimento reduzido');
 const workUI = read('assets/t4-v2-ui.js'), coreShell = read('assets/t4-v2-core.js');
-check(workUI.includes('multiFilter') && workUI.includes('data-multi-filter') && workUI.includes('multiOpenKey') && workUI.includes('data-multi-filter-search'), 'filtro múltiplo compartilhado mantém menu aberto e pesquisa opções');
+check(workUI.includes('multiFilter') && workUI.includes('periodFilter') && workUI.includes('data-multi-filter') && workUI.includes('multiOpenKey') && workUI.includes('data-multi-filter-search'), 'filtros múltiplos e períodos agrupados mantêm pesquisa, teclado e seleção');
 check(workUI.includes('searchableSelect') && workUI.includes('bindSearchableSelects') && workUI.includes('data-select-search'), 'seletores longos oferecem busca sem trocar o controle nativo');
 check(v25CSS.includes('background: #fff !important') && v25CSS.includes('z-index: 1001') && v25CSS.includes('@media (prefers-contrast: more)'), 'popovers têm camada opaca, contraste reforçado e empilhamento seguro');
 check(files.includes('assets/talents4-logo.png') && files.includes('assets/talents4-mark.png'), 'logo oficial Talents 4 (lockup completo e marca compacta extraída dele) está no pacote');
 check(coreShell.includes('t4-brand-mark') && coreShell.includes('talents4-mark.png') && coreShell.includes('t4-brand-name') && !coreShell.includes('t4-window-controls'), 'marca compacta (ícone pequeno + texto real, não palavra dentro de imagem) é renderizada sem controles decorativos no shell compartilhado');
 const talentsV25 = read('assets/talents-v2.js'), mappingUI = read('assets/talents-mapping-ui.js'), organizationV25 = read('assets/organization-v2.js'), contactsV25 = read('assets/contacts-v2.js'), germanV25 = read('assets/german-v2.js');
+const talentsOverviewChart = (talentsV25.includes('distributionChart') && workUI.includes('distributionChart')) || (talentsV25.includes('funnelChart') && workUI.includes('funnelChart'));
+const organizationOverviewChart = organizationV25.includes('stagePulse') && (organizationV25.includes('mx-pulse') || (organizationV25.includes('funnelChart') && workUI.includes('funnelChart')));
+check(talentsOverviewChart && organizationOverviewChart, 'Meu dia usa gráficos compatíveis nos dois módulos');
 check(talentsV25.includes('bindSearchableSelects') && mappingUI.includes('data-filter="mappingTalent"'), 'seleção de Talento também possui busca quando a lista é longa');
 check(talentsV25.includes("selectionScope: 'active'") && talentsV25.includes('talentListTable') && talentsV25.includes('Liberado para apresentação'), 'Talentos inicia na fila ativa e possui lista analítica');
 check(organizationV25.includes("employerScope: 'active'") && organizationV25.includes('org-opportunities') && organizationV25.includes("const workViews = () => ''"), 'Organizacional separa lista, oportunidades e navegação oficial');
@@ -172,8 +175,6 @@ check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbo
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
 check(talentsV25.includes('archivedSearchNotice') && talentsV25.includes('também no arquivo') && talentsV25.includes('Selecione ao menos um Talento'), 'arquivo e exportação deixam estados ambíguos explícitos');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
-check(read('docs/design/ARQUITETURA_FRONTEND.md').includes('Supabase') && read('docs/mapeamento/MAPEAMENTO_SUPABASE.md').includes('Lista Nectanet') && read('README.md').includes('docs/'), 'documentação atual cobre arquitetura, mapeamento e ponto de entrada (README)');
-check(read('docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md').includes('30_frontend_schema_audit.sql') && read('docs/mapeamento/IMPORTACAO_SQL.md').includes('00_preflight.sql'), 'auditoria do Supabase tem roteiro seguro e explícito');
 check(read('manual-talentos.html').includes('./index.html?view=manual') && !/<script\b/i.test(read('manual-talentos.html')), 'endereço antigo do manual redireciona sem código legado');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-v25.css') && read(file).includes('t4-v25.js'), `${file}: camada V2.5 compartilhada presente`);

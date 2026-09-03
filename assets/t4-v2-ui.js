@@ -31,11 +31,37 @@
     return `<span class="t4-searchable-select" data-searchable-select="${a(name)}"><span class="t4-select-search"><span class="t4-sr-only">Buscar ${a(label)}</span><input type="search" data-select-search="${a(name)}" placeholder="${a(searchPlaceholder)}" aria-label="Buscar ${a(label)}" autocomplete="off"></span>${native}</span>`;
   };
   const filter = (name, label, values, value = '') => `<label class="t4-filter"><span>${e(label)}</span><select data-filter="${a(name)}" aria-label="${a(label)}">${optionsHtml(values, value, `Todos · ${label.toLowerCase()}`)}</select></label>`;
+  const normalizedMultiOptions = (values) => values.map((o) => {
+    const option = typeof o === 'object' ? o : { value: o, label: U.term(o) };
+    return { ...option, value: option.value ?? '', label: option.label ?? U.term(option.value) };
+  });
   const multiFilter = (name, label, values, selected = []) => {
     const picked = Array.isArray(selected) ? selected.map(String) : M.present(selected) ? [String(selected)] : [];
-    const options = values.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
+    const options = normalizedMultiOptions(values);
     const query = multiSearch.get(String(name)) || '';
     return `<details class="t4-multi-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">Buscar em ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="Buscar opção…" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${options.map((o) => `<label data-multi-filter-option="${a(name)}"><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhuma opção disponível.</span>'}</div></details>`;
+  };
+  // Períodos precisam de uma hierarquia própria: o mês corrente fica sempre
+  // visível no topo e os demais são agrupados por ano. Os mesmos atributos do
+  // multiFilter mantêm teclado, seleção múltipla, busca e o contrato de
+  // atualização das telas existentes.
+  const periodFilter = (name, label, values, selected = []) => {
+    const picked = Array.isArray(selected) ? selected.map(String) : M.present(selected) ? [String(selected)] : [];
+    const options = normalizedMultiOptions(values);
+    const query = multiSearch.get(String(name)) || '';
+    const current = options.find((o) => o.current === true);
+    const rest = options.filter((o) => o !== current);
+    const groups = new Map();
+    rest.forEach((o) => {
+      const group = String(o.group || String(o.value).slice(0, 4) || 'Outros');
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(o);
+    });
+    const groupEntries = [...groups.entries()].sort(([left], [right]) => String(right).localeCompare(String(left), 'pt-BR', { numeric: true }));
+    const optionHtml = (o, className = '') => `<label class="t4-period-option ${a(className)}" data-multi-filter-option="${a(name)}" data-period-year="${a(o.group || String(o.value).slice(0, 4))}" ${o.current ? 'data-period-current="true"' : ''}><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span class="t4-period-option-copy"><strong>${e(o.label)}</strong>${o.secondary ? `<small>${e(o.secondary)}</small>` : ''}</span></label>`;
+    const currentHtml = current ? `<section class="t4-period-current"><span class="t4-period-section-label">Mês atual</span>${optionHtml(current, 'is-current')}</section>` : '';
+    const groupsHtml = groupEntries.map(([year, yearOptions]) => `<section class="t4-period-year"><h4>${e(year)}</h4>${yearOptions.map((o) => optionHtml(o)).join('')}</section>`).join('');
+    return `<details class="t4-multi-filter t4-period-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options t4-period-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">Buscar em ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="Buscar mês ou ano…" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${currentHtml}${groupsHtml || '<span class="t4-muted">Nenhum outro período disponível.</span>'}</div></details>`;
   };
   const chips = (items, current, action = 'quick') => `<div class="t4-quickfilters" aria-label="Visões rápidas">${items.map((x) => `<button type="button" class="t4-quickfilter ${x.id === current ? 'active' : ''}" data-action="${a(action)}" data-id="${a(x.id)}" aria-pressed="${x.id === current}">${x.icon ? U.icon(x.icon) : ''}${e(x.label)}${x.count == null ? '' : `<span>${e(x.count)}</span>`}</button>`).join('')}</div>`;
   const note = (text, tone = 'info') => `<div class="t4-alert ${a(tone)}">${U.icon(tone === 'error' || tone === 'warning' ? 'warning' : 'note')}<div>${e(text)}</div></div>`;
@@ -94,7 +120,7 @@
     const start = s.page * s.pageSize, slice = rows.slice(start, start + s.pageSize);
     let previousGroup = null;
     return `<div class="t4-grid-tools"><span><strong>${rows.length}</strong> registro${rows.length === 1 ? '' : 's'}</span><div><button type="button" class="t4-btn ghost sm" data-grid-density="${a(id)}" aria-pressed="${s.dense}">${U.icon('list')}${s.dense ? 'Confortável' : 'Compacto'}</button><details class="t4-columns-menu"><summary>${U.icon('columns')}Colunas</summary><div>${s.columns.filter((c) => c.label).map((c) => `<label><input type="checkbox" data-grid-column="${a(c.key)}" data-grid-id="${a(id)}" ${s.hidden.has(c.key) ? '' : 'checked'} ${c.required ? 'disabled' : ''}>${e(c.label)}</label>`).join('')}</div></details></div></div>
-      ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th class="${a(c.className || '')}" ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? e(c.label || '') : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
+      ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? e(c.label || '') : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
         const group = s.groupBy?.(r);
         const header = group != null && group !== previousGroup ? `<tr class="t4-group-row"><th colspan="${columns.length}">${e(group)}</th></tr>` : '';
         previousGroup = group;
@@ -325,12 +351,8 @@
   // UI/UX encontrou zero visualização de dado em telas que só mostravam
   // números soltos em cartões (ver docs/design/REFERENCIAS_UIUX.md).
   // Funil de progressão: uma barra única, segmentada proporcionalmente por
-  // etapa (não uma lista de barras repetidas — a soma das etapas É o total,
-  // então a barra única mostra a proporção real de um jeito que N linhas
-  // separadas não mostram). Etapas com zero registros não ganham uma linha
-  // inteira só para mostrar "0": viram uma nota curta abaixo, para não
-  // diluir a leitura das etapas que de fato têm gente. `buckets`: [{ label,
-  // count, tone }], na ordem real do funil (a barra preserva essa ordem).
+  // etapa. Etapas com zero registros viram uma nota curta abaixo, para não
+  // diluir a leitura das etapas que de fato têm gente.
   function funnelChart(title, subtitle, meta, buckets) {
     const total = buckets.reduce((sum, b) => sum + b.count, 0);
     const shown = buckets.filter((b) => b.count > 0);
@@ -338,11 +360,6 @@
     const top = shown.reduce((best, b) => (!best || b.count > best.count ? b : best), null);
     const header = `<header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header>`;
     if (!shown.length) return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}<p class="t4-funnel-empty">Nenhum registro nas etapas acompanhadas.</p></section>`;
-    // Tooltip flutuante e legenda clicável reaproveitam o componente
-    // [data-tooltip] já usado no resto do app (t4-components.css) — nada
-    // de biblioteca nova. data-bucket liga cada segmento ao seu item de
-    // legenda; clicar na legenda soma só o que ainda está visível e
-    // redistribui a barra (ver bindFunnelInteractivity, abaixo).
     const pct = (b) => total > 0 ? Math.round(b.count / total * 100) : 0;
     const tip = (b) => `${b.label} · ${b.count} · ${pct(b)}%`;
     return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}
@@ -350,12 +367,6 @@
       <ul class="t4-funnel-legend">${shown.map((b, i) => `<li style="--i:${i}"><button type="button" class="t4-funnel-legend-toggle ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" data-bucket="${i}" data-tooltip="${a(tip(b))}" aria-pressed="true"><i aria-hidden="true"></i><span>${e(b.label)}</span><strong>${e(b.count)}</strong></button></li>`).join('')}</ul>
       ${empty.length ? `<p class="t4-funnel-empty">Sem registros agora: ${e(empty.map((b) => b.label).join(', '))}.</p>` : ''}</section>`;
   }
-  // Interatividade do funil por delegação em document — funciona em toda
-  // instância (Talentos e Organizacional, hoje e futuras), inclusive
-  // depois de um re-render trocar o HTML inteiro, sem precisar religar
-  // nada a cada render(). Hover cruza segmento↔legenda (esmaece o resto);
-  // clique na legenda alterna a etapa fora do total e redistribui a barra
-  // — só oculta visualmente, nunca apaga o valor mostrado na legenda.
   function bindFunnelInteractivity() {
     const closestFunnel = (el) => el.closest?.('.t4-funnel') || null;
     const setHover = (funnel, bucket) => {
@@ -399,6 +410,8 @@
     });
   }
   bindFunnelInteractivity();
-  window.T4Work = Object.freeze({ button, link, external, optionsHtml, searchableSelect, bindSearchableSelects, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
-    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, funnelChart });
+  // A versão antiga chamava o mesmo componente de distributionChart.
+  const distributionChart = funnelChart;
+  window.T4Work = Object.freeze({ button, link, external, optionsHtml, searchableSelect, bindSearchableSelects, filter, multiFilter, periodFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
+    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, distributionChart, funnelChart });
 })();
