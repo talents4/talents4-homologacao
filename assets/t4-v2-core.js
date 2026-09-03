@@ -344,14 +344,17 @@
 
     document.body.dataset.t4Module = moduleId;
     document.title = `${config.moduleLabel} · Talents 4`;
-    // Padrão Notion/Linear: menu lateral recolhível. Isto é somente uma
-    // preferência visual da aba atual — não é dado de negócio e não altera
-    // nada no Supabase. A preferência precisa sobreviver à navegação entre
+    // Padrão Notion/Linear: menu lateral recolhível, largura mínima por
+    // padrão e expansão automática ao passar o mouse (ver regras de hover
+    // em t4-v25.css). Isto é somente uma preferência visual da aba atual —
+    // não é dado de negócio e não altera nada no Supabase. Só fica
+    // expandida sem precisar do mouse quando o usuário "fixa" isso
+    // clicando no botão; essa escolha precisa sobreviver à navegação entre
     // módulos, que troca o documento HTML, sem criar um cache da aplicação.
     const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed';
     const readSidebarCollapsed = () => {
-      try { return window.sessionStorage?.getItem(SIDEBAR_STATE_KEY) === '1'; }
-      catch (_) { return false; }
+      try { return window.sessionStorage?.getItem(SIDEBAR_STATE_KEY) !== '0'; }
+      catch (_) { return true; }
     };
     const writeSidebarCollapsed = (value) => {
       try {
@@ -461,9 +464,10 @@
       });
       root.querySelector('[data-page-title]').textContent = view?.title || view?.label || '';
       root.querySelector('[data-page-subtitle]').textContent = view?.subtitle || config.subtitle || '';
-      // Abre "Mais espaços" ao navegar para um item seu, mas nunca o fecha
-      // sozinho: um clique manual do usuário no <summary> deve persistir
-      // entre navegações (pedido explícito: não fechar automaticamente).
+      // Abre "Mais espaços" ao navegar para um item seu, mas a troca de
+      // rota nunca o fecha sozinha — só o mouse saindo da lateral fecha
+      // (ver listener de mouseleave mais abaixo), para não interromper
+      // quem está navegando entre os itens do próprio grupo.
       const more = root.querySelector('.t4-nav-more');
       if (more && secondaryViews.some((item) => item.id === currentView)) more.open = true;
       if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
@@ -490,6 +494,32 @@
       // se expande de novo sozinha (:focus-within), como se o hover nunca
       // tivesse terminado — o recolher pareceria não ter efeito nenhum.
       if (sidebarCollapsed) collapseToggle.blur();
+    });
+    // "Mais espaços" não fecha sozinho ao trocar de página dentro da
+    // lateral (pedido explícito), mas também não pode ficar aberto para
+    // sempre: quando o ponteiro sai de perto da lateral/flyout de verdade
+    // — sinal de que o usuário já terminou de usá-la —, ele recolhe.
+    // Isto NÃO usa mouseenter/mouseleave/focusout da lateral: clicar em um
+    // item do próprio flyout troca a rota, o que move o foco para o
+    // conteúdo principal por acessibilidade (focusMainOnRoute, em
+    // t4-v25.js) e re-renderiza esse conteúdo — navegadores reavaliam o
+    // que está sob o ponteiro PARADO e o foco após essa mudança de DOM,
+    // disparando mouseleave/focusout reais mesmo sem o usuário ter saído
+    // de verdade, o que fecharia o menu bem na hora de clicar nele. Em vez
+    // disso, cada mousemove real verifica a posição atual contra a
+    // lateral e o flyout diretamente; uma mutação de DOM sem o mouse se
+    // mover não gera mousemove, então não derruba o menu por engano.
+    const sidebarEl = root.querySelector('.t4-sidebar');
+    let moreCloseTimer = null;
+    const pointInRect = (x, y, rect) => rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    document.addEventListener('mousemove', (event) => {
+      const more = root.querySelector('.t4-nav-more');
+      if (!more || !more.open) return;
+      const flyout = more.querySelector(':scope > div');
+      const inside = pointInRect(event.clientX, event.clientY, sidebarEl.getBoundingClientRect())
+        || pointInRect(event.clientX, event.clientY, flyout?.getBoundingClientRect());
+      clearTimeout(moreCloseTimer);
+      if (!inside) moreCloseTimer = setTimeout(() => { more.open = false; }, 220);
     });
     root.querySelector('.t4-mobile-overlay').addEventListener('click', () => document.body.classList.remove('t4-sidebar-open'));
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
