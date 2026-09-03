@@ -1,0 +1,193 @@
+/* Talents 4 · Componentes novos do redesign (tooltip, breadcrumb, barra de
+   filtros ativos). Consomem só os tokens de assets/t4-tokens.css — nenhum
+   valor isolado. Carregado depois dos tokens, antes das camadas legadas,
+   para que um componente legado possa sobrescrever se precisar (cascata
+   previsível, sem !important). */
+
+/* ---------- Tooltip (lacuna real: não existia nenhum componente de tooltip
+   antes desta entrega). CSS puro — sem JavaScript, funciona com foco de
+   teclado (:focus-visible) e mouse (:hover), sem depender de JS para
+   posicionar. Curto e sem decoração, só orienta. */
+[data-tooltip] {
+  position: relative;
+}
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  background: var(--t4-ink);
+  color: #fff;
+  font-size: var(--t4-text-caption);
+  font-weight: 600;
+  padding: 5px 9px;
+  border-radius: var(--t4-radius-sm);
+  white-space: nowrap;
+  max-width: 240px;
+  white-space: normal;
+  width: max-content;
+  box-shadow: var(--t4-shadow-2);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t4-duration-fast) var(--t4-ease), transform var(--t4-duration-fast) var(--t4-ease);
+  z-index: var(--t4-z-toast);
+}
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tooltip]::after { transition: none; }
+}
+/* Tooltips não devem existir só no hover em telas de toque (sem :hover
+   confiável) — em telas pequenas, o conteúdo do atributo deve estar
+   disponível por outro meio (aria-label já é lido por leitor de tela
+   independente deste efeito visual; ver CRITERIOS_ACEITACAO.md). */
+
+/* ---------- Breadcrumb: "onde estou" sempre visível no topo da tela.
+   Complementa (não substitui) a sidebar — a sidebar diz a ÁREA, o
+   breadcrumb diz a TELA + o filtro rápido ativo, se houver. */
+.t4-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--t4-text-small);
+  color: var(--t4-ink-soft);
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+}
+.t4-breadcrumb a,
+.t4-breadcrumb span.t4-crumb-current {
+  color: var(--t4-ink-soft);
+  text-decoration: none;
+}
+.t4-breadcrumb a:hover { color: var(--t4-ink); text-decoration: underline; }
+.t4-breadcrumb span.t4-crumb-current { color: var(--t4-ink); font-weight: 600; }
+.t4-breadcrumb .t4-crumb-sep { color: var(--t4-ink-faint); }
+.t4-breadcrumb .t4-crumb-filter {
+  background: var(--t4-accent-soft);
+  color: var(--t4-accent);
+  padding: 1px 8px;
+  border-radius: var(--t4-radius-pill);
+  font-weight: 600;
+  font-size: var(--t4-text-caption);
+}
+
+/* ---------- Barra de filtros ativos: agrega em um só lugar todos os
+   filtros aplicados no momento, cada um removível individualmente (padrão
+   Airtable — ver docs/design/REFERENCIAS_UIUX.md). Só aparece quando há
+   pelo menos 1 filtro ativo; nunca ocupa espaço vazio. */
+.t4-active-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  font-size: var(--t4-text-small);
+  color: var(--t4-ink-soft);
+}
+.t4-active-filters .t4-af-label { font-weight: 600; color: var(--t4-ink); }
+.t4-active-filters .t4-af-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--t4-surface);
+  border: 1px solid var(--t4-line-strong);
+  border-radius: var(--t4-radius-pill);
+  padding: 4px 6px 4px 11px;
+  font-size: var(--t4-text-caption);
+  color: var(--t4-ink);
+}
+.t4-active-filters .t4-af-chip button {
+  border: 0;
+  background: var(--t4-line);
+  color: var(--t4-ink-soft);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+}
+.t4-active-filters .t4-af-chip button:hover { background: var(--t4-critical-soft); color: var(--t4-critical); }
+.t4-active-filters .t4-af-clear {
+  border: 0;
+  background: none;
+  color: var(--t4-accent);
+  font-weight: 600;
+  font-size: var(--t4-text-caption);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+/* ---------- Badges de classificação de empresa (ver t4-v2-records.js,
+   employerClassificationBadges) — reaproveita .t4-badge já existente,
+   só ajusta o espaçamento quando aparecem em grupo. */
+.t4-classification-badges { margin: 6px 0; }
+
+/* ---------- Gráfico de distribuição (W.distributionChart, t4-v2-ui.js).
+   Achado real ao revisar a tela com o usuário: os dashboards só tinham
+   números soltos em cartões — nenhuma visualização de dado em lugar
+   nenhum do app, o motivo concreto por trás da sensação de "planilha",
+   não só a falta de cor. Barras crescem da esquerda ao carregar (uma vez,
+   não repete — nunca decorativo/contínuo, ver CRITERIOS_ACEITACAO.md) e
+   cada categoria pode ter um tom semântico próprio em vez de uma cor só. */
+.t4-dist {
+  background: var(--t4-surface);
+  border: 1px solid var(--t4-line);
+  border-radius: var(--t4-radius-lg);
+  box-shadow: var(--t4-shadow-1);
+  padding: var(--t4-space-6) var(--t4-space-7);
+  margin-bottom: var(--t4-space-6);
+}
+.t4-dist header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--t4-space-4);
+  margin-bottom: var(--t4-space-5);
+}
+.t4-dist-eyebrow {
+  display: block;
+  font-size: var(--t4-text-eyebrow);
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--t4-ink-faint);
+  margin-bottom: 3px;
+}
+.t4-dist h3 { margin: 0; font-size: var(--t4-text-subtitle); font-weight: 750; color: var(--t4-ink); letter-spacing: -.02em; }
+.t4-dist-meta { font-size: var(--t4-text-small); color: var(--t4-ink-soft); white-space: nowrap; }
+.t4-dist-grid { display: flex; flex-direction: column; gap: var(--t4-space-3); }
+.t4-dist-row { display: grid; grid-template-columns: minmax(120px, 30%) 1fr; align-items: center; gap: var(--t4-space-4); }
+.t4-dist-label { display: flex; align-items: baseline; justify-content: space-between; gap: var(--t4-space-2); font-size: var(--t4-text-body); color: var(--t4-ink); }
+.t4-dist-label strong { font-variant-numeric: tabular-nums; font-weight: 750; color: var(--t4-ink); }
+.t4-dist-track { position: relative; height: 9px; border-radius: var(--t4-radius-pill); background: var(--t4-surface-sunken); overflow: hidden; }
+.t4-dist-bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--t4-radius-pill);
+  background: linear-gradient(90deg, var(--t4-accent) 0%, color-mix(in srgb, var(--t4-accent) 70%, var(--t4-info)) 100%);
+  width: var(--dist-width, 0%);
+  animation: t4-dist-grow var(--t4-duration-base) var(--t4-ease) both;
+  animation-delay: 60ms;
+}
+.t4-dist-bar.success { background: linear-gradient(90deg, var(--t4-success) 0%, color-mix(in srgb, var(--t4-success) 65%, #fff) 100%); }
+.t4-dist-bar.warning { background: linear-gradient(90deg, var(--t4-warning) 0%, color-mix(in srgb, var(--t4-warning) 65%, #fff) 100%); }
+.t4-dist-bar.critical { background: linear-gradient(90deg, var(--t4-critical) 0%, color-mix(in srgb, var(--t4-critical) 65%, #fff) 100%); }
+.t4-dist-bar.info { background: linear-gradient(90deg, var(--t4-info) 0%, color-mix(in srgb, var(--t4-info) 65%, #fff) 100%); }
+@keyframes t4-dist-grow {
+  from { width: 0%; }
+  to { width: var(--dist-width, 0%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t4-dist-bar { animation: none; }
+}
+@media (max-width: 680px) {
+  .t4-dist-row { grid-template-columns: 1fr; gap: var(--t4-space-1); }
+  .t4-dist { padding: var(--t4-space-5); }
+}

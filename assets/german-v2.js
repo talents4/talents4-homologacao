@@ -35,8 +35,10 @@
   function rows(attention = false) {
     return state.enrollments.filter((r) => matches(r.class_id, state.classId) && matches(r.status, state.status) && matches(r.current_level, state.level) && matches(r.risk_level, state.risk) && (!attention || M.riskReasons(r).length) && match([name(r.candidate_id), cls(r.class_id)?.name, r.owner_name, r.next_action, r.notes]));
   }
+  const filterLabels = { classId: 'Turma', status: 'Situação', level: 'Nível', risk: 'Risco' };
+  const filterValueLabel = (key, value) => key === 'classId' ? (W.find(state.classes, value)?.name || value) : value;
   function filters() {
-    return `<div class="t4-toolbar">${W.multiFilter('classId', 'Turmas', R.choices(state.classes, 'name'), state.classId)}${W.multiFilter('status', 'Situações', ['Matriculado', 'Ativo', 'Pausado', 'Concluído', 'Desistente', 'Transferido'], state.status)}${W.multiFilter('level', 'Níveis', R.LEVELS, state.level)}${W.multiFilter('risk', 'Riscos', ['Baixo', 'Médio', 'Alto'], state.risk)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+    return `<div class="t4-toolbar">${W.multiFilter('classId', 'Turmas', R.choices(state.classes, 'name'), state.classId)}${W.multiFilter('status', 'Situações', ['Matriculado', 'Ativo', 'Pausado', 'Concluído', 'Desistente', 'Transferido'], state.status)}${W.multiFilter('level', 'Níveis', R.LEVELS, state.level)}${W.multiFilter('risk', 'Riscos', ['Baixo', 'Médio', 'Alto'], state.risk)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>${W.activeFiltersBar(state, ['classId', 'status', 'level', 'risk'], filterLabels, filterValueLabel)}`;
   }
   function render() {
     if (!state.loaded) return;
@@ -46,6 +48,7 @@
     app.setPrimaryAction(createClass ? 'Nova turma' : 'Nova matrícula', D.canEdit() ? () => createClass ? editClass() : editEnrollment() : null);
     const html = ({ overview, classes: classesView, students: () => filters() + studentScopes() + enrollmentTable(rows(state.studentScope !== 'all' ? undefined : false).filter((r) => state.studentScope === 'current' ? current(r) : state.studentScope === 'closed' ? !current(r) : true)), attention: () => filters() + studentScopes() + W.note('A acompanhar = presença abaixo de 75%, risco alto, desempenho em atenção/crítico ou acompanhamento vencido. Somente matrículas em acompanhamento geram alertas.') + enrollmentTable(rows(true), 'attention'), history: historyView }[app.view] || overview)();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
+    U.animateCounters(app.pageRoot);
   }
   function overview() {
     const active = state.enrollments.filter(current), measured = active.filter((r) => M.finite(r.attendance_percent));
@@ -162,6 +165,7 @@
     if (action === 'reload') return D.session ? load() : location.reload();
     if (action === 'go') return app.route(id);
     if (action === 'clear') { state.classId = []; state.status = []; state.level = []; state.risk = []; state.query = ''; state.classScope = 'active'; state.studentScope = 'current'; app.resetSearch(); render(); return; }
+    if (action === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (action === 'display') { state.display = id; render(); return; }
     if (action === 'class-scope') { state.classScope = ['active', 'all', 'closed'].includes(id) ? id : 'active'; render(); return; }
     if (action === 'student-scope') { state.studentScope = ['current', 'all', 'closed'].includes(id) ? id : 'current'; state.status = ''; render(); return; }

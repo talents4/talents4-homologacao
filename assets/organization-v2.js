@@ -39,7 +39,13 @@
   const filtered = (rows, dateField = '') => rows.filter((r) => scoped(r) && matches(r.month_ref || String(r[dateField] || '').slice(0, 7), state.month) && (values(state.status).length ? matches(r.status, state.status) : !closedStatus(r.status)) && matchQuery(r));
   const actions = (row, kind) => D.canEdit() ? W.button('Editar', `edit-${kind}`, row.id, { className: 'sm ghost', icon: 'edit' }) : '';
   const months = () => [...new Set([M.today().slice(0, 7), ...operationalKeys.flatMap((key) => state[key].map((r) => r.month_ref || String(r.scheduled_at || '').slice(0, 7)))])].filter(Boolean).sort().reverse();
-  const toolbar = (rows = [], opts = {}) => `<div class="t4-toolbar">${W.multiFilter('employer', 'Empregadores', R.choices(state.employers, 'nome'), state.employer)}${opts.noMonth ? '' : W.multiFilter('month', 'Períodos', months(), state.month)}${opts.noStatus ? '' : W.multiFilter('status', 'Situações', W.unique(rows, 'status'), state.status)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+  const filterLabels = { employer: 'Empregador', month: 'Período', status: 'Situação' };
+  const monthLabel = (value) => { const d = new Date(`${value}-01T12:00:00`); return Number.isNaN(d.getTime()) ? value : d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }); };
+  const filterValueLabel = (key, value) => key === 'employer' ? R.employerName(state, value) : key === 'month' ? monthLabel(value) : value;
+  const toolbar = (rows = [], opts = {}) => {
+    const keys = ['employer', ...(opts.noMonth ? [] : ['month']), ...(opts.noStatus ? [] : ['status'])];
+    return `<div class="t4-toolbar">${W.multiFilter('employer', 'Empregadores', R.choices(state.employers, 'nome'), state.employer)}${opts.noMonth ? '' : W.multiFilter('month', 'Períodos', months(), state.month)}${opts.noStatus ? '' : W.multiFilter('status', 'Situações', W.unique(rows, 'status'), state.status)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>${W.activeFiltersBar(state, keys, filterLabels, filterValueLabel)}`;
+  };
   // A navegação oficial é a lateral. A antiga barra de “visões salvas” duplicava
   // os mesmos destinos, ocupava espaço e dava a impressão de abas concorrentes.
   // A API permanece compatível para links antigos, mas não renderiza uma segunda
@@ -73,6 +79,7 @@
     app.setPrimaryAction(primary?.[0], primary && can(primary[2]) ? primary[1] : null);
     const html = ({ overview, employers: employersView, opportunities: opportunitiesView, pipeline: pipelineView, planning: planningView, calendar: calendarView, meetings: meetingsView, operations: operationsView, summary: summaryView, history: historyView }[app.view] || overview)();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
+    U.animateCounters(app.pageRoot);
   }
   function overview() {
     const activeEmployers = state.employers.filter((r) => M.activeRecord(r));
@@ -81,6 +88,7 @@
     const soon = pending.filter((r) => r.due && !M.overdue(r.due, r.status));
     return workViews('overview') + `<div class="t4-work-intro"><div><span class="t4-overline">OPERAÇÃO E RELACIONAMENTO</span><h2>O próximo passo de cada parceria.</h2><p>Acompanhe decisões, avance seleções e mantenha o contexto da equipe.</p></div>${W.button('Ver calendário', 'go', 'calendar', { icon: 'calendar' })}</div>
       <section class="t4-kpi-grid">${U.kpi('Empregadores ativos', available('employers') ? activeEmployers.length : '—', 'Base de relacionamento')}${U.kpi('Vagas abertas', available('openings') ? state.openings.filter((r) => M.isOpen(r.status) && !/fechad/i.test(r.status)).reduce((n, r) => n + (Number(r.quantity) || 0), 0) : '—', 'Quantidade de posições')}${U.kpi('Ações em aberto', pending.length, 'Nas fontes carregadas')}${U.kpi('Prazos vencidos', late.length, 'Revisar com a equipe', late.length ? 'risk' : 'good')}</section>
+      ${state.selections.rows.length ? stagePulse(state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed')) : ''}
       ${W.section('Precisa de atenção', eventTable(late, 'org-late'), U.badge(late.length, late.length ? 'danger' : 'success'))}
       ${W.section('A seguir', eventTable(soon, 'org-soon'), W.button('Agenda completa', 'go', 'calendar', { className: 'ghost sm' }))}
       ${W.section('Parcerias em foco', employerCards(activeEmployers.filter(matchQuery).slice(0, 6)), W.button('Todos os empregadores', 'go', 'employers', { className: 'sm' }))}`;
@@ -92,7 +100,7 @@
       const pending = events().filter((s) => (M.same(s.employer_id, r.id) || (!s.employer_id && M.norm(s.employer_name_snapshot) === M.norm(r.nome))) && M.isOpen(s.status));
       const employerColor = window.T4Modern?.color(r) || '#002a4a';
       const active = M.activeRecord(r);
-      return `<article class="t4-company-card ${active ? '' : 'v25-negative-surface'}" style="--employer-color:${a(employerColor)}"><div class="t4-company-head"><span class="t4-company-avatar">${U.icon('building')}</span>${W.status(active ? (r.status || 'Ativo') : 'Arquivado')}</div><button class="t4-card-title" data-action="employer-detail" data-id="${a(r.id)}">${e(r.nome)}</button><p class="t4-card-location">${e([r.cidade, r.pais].filter(Boolean).join(' · ') || 'Localização não informada')}</p><p class="t4-clamp-3">${e(r.descricao_resumida || r.descricao_operacional || 'Adicione o contexto desta parceria.')}</p><div class="t4-card-stats"><span><strong>${jobs.length}</strong> oportunidades</span><span><strong>${new Set(selections.map((s) => s.talent_id)).size}</strong> talentos</span><span><strong>${pending.length}</strong> ações</span></div><footer><span>${e(r.responsavel_interno || 'Sem responsável')}</span>${W.button('Abrir dossiê', 'employer-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</footer></article>`;
+      return `<article class="t4-company-card ${active ? '' : 'v25-negative-surface'}" style="--employer-color:${a(employerColor)}"><div class="t4-company-head"><span class="t4-company-avatar">${U.icon('building')}</span>${W.status(active ? (r.status || 'Ativo') : 'Arquivado')}</div><button class="t4-card-title" data-action="employer-detail" data-id="${a(r.id)}">${e(r.nome)}</button><p class="t4-card-location">${e([r.cidade, r.pais].filter(Boolean).join(' · ') || 'Localização não informada')}</p>${R.employerClassificationHtml(r)}<p class="t4-clamp-3">${e(r.descricao_resumida || r.descricao_operacional || 'Adicione o contexto desta parceria.')}</p><div class="t4-card-stats"><span><strong>${jobs.length}</strong> oportunidades</span><span><strong>${new Set(selections.map((s) => s.talent_id)).size}</strong> talentos</span><span><strong>${pending.length}</strong> ações</span></div><footer><span>${e(r.responsavel_interno || 'Sem responsável')}</span>${W.button('Abrir dossiê', 'employer-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</footer></article>`;
     }).join('') || U.emptyState('Nenhum empregador neste filtro', 'Limpe os filtros para conferir todos os registros.')}</div>`;
   }
   function employersView() {
@@ -109,7 +117,9 @@
     const helper = scope === 'active' ? 'A fila operacional mostra somente empregadores ativos. O arquivo fica disponível quando você precisar consultar histórico.' : scope === 'archived' ? 'Registros inativos ou arquivados ficam isolados aqui; não entram na fila operacional.' : 'Todos os registros, inclusive os arquivados. Use esta visão para auditoria, não para a operação diária.';
     const list = W.table({ id: 'employers', rows, columns: [
       { key: 'nome', label: 'Empregador', required: true, render: (r) => { const color = window.T4Modern?.color(r) || '#7890a4'; return `<div class="v25-employer-cell" style="--employer-color:${a(color)}"><i></i>${W.person(r.nome, r.area_atuacao || '', '', 'employer-detail', r.id)}</div>`; } },
-      { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(M.activeRecord(r) ? (r.status || 'Ativo') : 'Arquivado') }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'employer') }
+      { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(M.activeRecord(r) ? (r.status || 'Ativo') : 'Arquivado') },
+      { key: 'classification', label: 'Classificação', sort: false, render: (r) => R.employerClassificationHtml(r) },
+      { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'employer') }
     ] });
     return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
   }
@@ -225,13 +235,18 @@
     const related = (r) => M.same(r.employer_id, id) || (!r.employer_id && M.norm(r.employer_name_snapshot) === M.norm(row.nome));
     U.openDrawer({ title: row.nome, subtitle: [row.area_atuacao, row.cidade, row.pais].filter(Boolean).join(' · '),
       actions: actions(row, 'employer') + W.link('Contatos vinculados', `./contatos.html?employer=${encodeURIComponent(id)}`, 'contact') + (can('openings') ? W.button('Nova vaga', 'new-opening-for', id, { className: 'primary sm', icon: 'plus' }) : ''),
-      body: `<div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
+      body: `${R.employerClassificationHtml(row)}<div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
         ${W.section('Contexto da parceria', `<p class="t4-preserve">${e(row.descricao_operacional || row.descricao_resumida || 'Não informado')}</p><div class="t4-detail-grid">${U.field('Áreas-foco', row.area_atuacao)}${U.field('Perfis buscados', row.perfis_buscados)}${U.field('Requisitos', row.requisitos_principais)}${U.field('Diferenciais', row.diferenciais_desejaveis)}</div>${W.external('Site / referência', row.site)}`)}
         ${W.section('Seleções em andamento', R.selectionTable(state, select, 'dossier-selections'))}${closedSelect.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, closedSelect, 'dossier-closed-selections'), W.badge(`${closedSelect.length} preservada(s)`, 'info')) : ''}
         ${W.section('Próximas ações e reuniões', eventTable(events().filter(related), 'dossier-events'))}
         ${W.section('Reposições', replacementTable(state.replacements.filter(related)))}
         ${W.section('Observações internas', `<p class="t4-preserve">${e(row.observacoes_internas || 'Não informadas')}</p>`)}
-        ${W.note('Informações que existam somente no acervo anterior podem ser consultadas sem restaurar ou sobrescrever o banco.')}${W.button('Consultar acervo anterior', 'go', 'history', { className: 'sm', icon: 'history' })}${R.storedFields(row, ['id', 'nome', 'descricao_operacional', 'descricao_resumida', 'contato_principal', 'email_principal', 'telefone', 'site', 'area_atuacao', 'perfis_buscados', 'observacoes_internas'])}` });
+        ${W.note('Informações que existam somente no acervo anterior podem ser consultadas sem restaurar ou sobrescrever o banco.')}${W.button('Consultar acervo anterior', 'go', 'history', { className: 'sm', icon: 'history' })}${R.storedFields(row, [
+          'id', 'nome', 'responsavel_interno', 'status', 'contato_principal', 'email_principal', 'telefone', 'nivel_alemao_minimo',
+          'descricao_operacional', 'descricao_resumida', 'area_atuacao', 'perfis_buscados', 'requisitos_principais', 'diferenciais_desejaveis', 'site',
+          'observacoes_internas',
+          'presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'
+        ])}` });
   }
   const EMPLOYER_FIELDS = [
     { name: 'nome', label: 'Nome do empregador', required: true, wide: true },
@@ -337,6 +352,7 @@
     if (name === 'display') { state.employerDisplay = id; render(); return; }
     if (name === 'employer-display') { state.employerDisplay = ['cards', 'list'].includes(id) ? id : 'list'; render(); return; }
     if (name === 'multi-filter-clear') { if (id in state) state[id] = []; render(); return; }
+    if (name === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (name === 'employer-scope') { state.employerScope = ['active', 'all', 'archived'].includes(id) ? id : 'active'; state.employer = []; state.status = []; render(); return; }
     if (name === 'opportunity-scope') { state.opportunityScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }

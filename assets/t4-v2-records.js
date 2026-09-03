@@ -8,6 +8,29 @@
   const choices = (rows, key) => rows.map((r) => ({ value: r.id, label: r[key] || r.id }));
   const talentName = (state, id) => W.find(state.talents, id)?.nome_completo || `Talento ${id || 'não vinculado'}`;
   const employerName = (state, id) => W.find(state.employers, id)?.nome || 'Empregador não vinculado';
+
+  // Uma empresa pode ter mais de uma classificação ao mesmo tempo (ex.:
+  // apresentada pela NectaNet E parceira direta) — nunca mutuamente
+  // exclusivas. "Parceira Talents 4" só aparece com evidência explícita no
+  // banco (direct_talents4_partnership === 'CONFIRMADA'); nunca inferida de
+  // "NectaNet MATCH", nome de aba ou qualquer outro sinal indireto (regra
+  // de negócio fixa — ver docs/mapeamento/CLASSIFICACAO_EMPRESAS.md).
+  // Colunas ainda ausentes no Supabase (classificação nova, não aplicada)
+  // fazem o empregador cair em "Classificação pendente", nunca em silêncio.
+  function employerClassificationBadges(employer = {}) {
+    const badges = [];
+    const hasClassification = employer.source_channel != null || employer.company_scope != null || employer.direct_talents4_partnership != null;
+    if (!hasClassification) return [{ label: 'Classificação pendente', tone: '' }];
+    if (employer.direct_talents4_partnership === 'CONFIRMADA') badges.push({ label: 'Parceira Talents 4', tone: 'success' });
+    if (employer.presented_by_nectanet || employer.source_channel === 'NECTANET') badges.push({ label: 'Apresentada pela NectaNet', tone: 'info' });
+    if (employer.company_scope === 'EXTERNAL_BW') badges.push({ label: 'Externa BW', tone: '' });
+    if (employer.company_scope === 'GENERAL' && !badges.length) badges.push({ label: 'Prospect', tone: '' });
+    if (employer.direct_talents4_partnership === 'UNKNOWN' || !badges.length) badges.push({ label: 'Classificação pendente', tone: '' });
+    return badges;
+  }
+  function employerClassificationHtml(employer) {
+    return `<div class="t4-chip-row t4-classification-badges">${employerClassificationBadges(employer).map((b) => U.badge(b.label, b.tone)).join('')}</div>`;
+  }
   const fields = (pairs) => pairs.map(([name, label, type, options]) => ({ name, label, type: type || 'text', ...(type === 'textarea' ? { wide: true } : {}), ...(options ? { options } : {}) }));
   async function finishActivity(row, after) {
     if (!D.canEdit()) return;
@@ -140,13 +163,15 @@
       }).join('') : '<div class="t4-column-empty">Nenhuma seleção nesta etapa.</div>'}</div></section>`;
     }).join('')}</div>`;
   }
+  const rawLabel = (key) => { const words = key.replaceAll('_', ' ').split(' '); return words.map((w, i) => i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w).join(' '); };
   function storedFields(row, excluded = []) {
     const entries = Object.entries(row).filter(([key, value]) => !excluded.includes(key) && M.present(value));
     return `<details class="t4-disclosure"><summary>Demais informações preservadas (${entries.length})</summary><div class="t4-detail-grid">${entries.map(([key, value]) => {
-      if (/foto|base64|blob/i.test(key) && String(value).length > 1000) return U.field(key.replaceAll('_', ' '), 'Arquivo preservado no cadastro original');
-      return U.field(key.replaceAll('_', ' '), typeof value === 'object' ? JSON.stringify(value, null, 2) : value);
+      if (/foto|base64|blob/i.test(key) && String(value).length > 1000) return U.field(rawLabel(key), 'Arquivo preservado no cadastro original');
+      return U.field(rawLabel(key), typeof value === 'object' ? JSON.stringify(value, null, 2) : value);
     }).join('')}</div></details>`;
   }
   window.T4Records = Object.freeze({ LEVELS, PRIORITIES, STAGES, fields, choices, talentName, employerName, editFollowup, editActivity,
-    finishActivity, activityTable, editSelection, selectionTable, selectionDrawer, selectionBoard, storedFields });
+    finishActivity, activityTable, editSelection, selectionTable, selectionDrawer, selectionBoard, storedFields,
+    employerClassificationBadges, employerClassificationHtml });
 })();

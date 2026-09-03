@@ -19,16 +19,22 @@ function walk(dir) {
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
 const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPABASE_AUDITORIA.md',
-  'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
+  'assets/t4-tokens.css', 'assets/t4-components.css', 'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
   'assets/talents-mapping-models.js','assets/talents-mapping-ui.js','assets/talents-mapping.css','tests/fixtures-talents-mapping.js','tests/talents-mapping.test.mjs',
-  'assets/t4-modern.js','assets/t4-modern.css',
+  'assets/t4-modern.js','assets/t4-modern.css','tests/modern.test.mjs','tests/employer-classification.test.mjs','tests/format-error.test.mjs',
   'assets/t4-v24.js','assets/t4-v24.css',
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
-  'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs',
+  'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs','tests/import-data.test.mjs','tests/export-roundtrip.test.mjs',
   'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
-  'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql'];
+  'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql','supabase/talents-v22/40_harden_anon_grants.sql',
+  'docs/mapeamento/CONTRATO_PLANILHAS.md','docs/mapeamento/CLASSIFICACAO_EMPRESAS.md','docs/mapeamento/MAPEAMENTO_SUPABASE.md','docs/mapeamento/IMPORTACAO_SQL.md','docs/mapeamento/EXPORTACAO.md',
+  'supabase/talents-v22/import-planilhas/00_preflight.sql','supabase/talents-v22/import-planilhas/01_schema_additive.sql','supabase/talents-v22/import-planilhas/02_create_staging.sql',
+  'supabase/talents-v22/import-planilhas/03_load_staging.sql','supabase/talents-v22/import-planilhas/04_apply_import.sql','supabase/talents-v22/import-planilhas/05_verify_import.sql','supabase/talents-v22/import-planilhas/06_rollback_batch.sql',
+  'supabase/talents-v22/import-planilhas/07_auditoria_tabelas_desconhecidas.sql','supabase/talents-v22/import-planilhas/08_investigacao_origem_sistemas_paralelos.sql',
+  'docs/design/REFERENCIAS_UIUX.md','docs/design/DESIGN_SYSTEM.md','docs/design/ARQUITETURA_FRONTEND.md','docs/design/FLUXOS_USUARIO.md','docs/design/FUNCIONALIDADES_INTELIGENTES.md','docs/design/CRITERIOS_ACEITACAO.md',
+  'docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md','docs/auditoria/PLANO_MIGRACAO_IMPORTACAO_LOTE.md'];
 for (const file of required) check(files.includes(file), `${file} existe`);
 for (const file of [
   'TALENTOS_V2_2.md', 'PASSO_A_PASSO_TALENTOS_V2_2.md', 'PREVIA_TALENTOS_V2_2.md',
@@ -130,8 +136,8 @@ check(v25CSS.includes('color-mix') && v25CSS.includes('prefers-reduced-motion') 
 const workUI = read('assets/t4-v2-ui.js'), coreShell = read('assets/t4-v2-core.js');
 check(workUI.includes('multiFilter') && workUI.includes('data-multi-filter') && workUI.includes('multiOpenKey') && workUI.includes('data-multi-filter-search'), 'filtro múltiplo compartilhado mantém menu aberto e pesquisa opções');
 check(v25CSS.includes('background: #fff !important') && v25CSS.includes('z-index: 1001') && v25CSS.includes('@media (prefers-contrast: more)'), 'popovers têm camada opaca, contraste reforçado e empilhamento seguro');
-check(files.includes('assets/talents4-logo.png'), 'logo oficial Talents 4 está no pacote');
-check(coreShell.includes('t4-brand-logo') && coreShell.includes('talents4-logo.png') && !coreShell.includes('t4-window-controls'), 'marca oficial é renderizada sem controles decorativos no shell compartilhado');
+check(files.includes('assets/talents4-logo.png') && files.includes('assets/talents4-mark.png'), 'logo oficial Talents 4 (lockup completo e marca compacta extraída dele) está no pacote');
+check(coreShell.includes('t4-brand-mark') && coreShell.includes('talents4-mark.png') && coreShell.includes('t4-brand-name') && !coreShell.includes('t4-window-controls'), 'marca compacta (ícone pequeno + texto real, não palavra dentro de imagem) é renderizada sem controles decorativos no shell compartilhado');
 const talentsV25 = read('assets/talents-v2.js'), organizationV25 = read('assets/organization-v2.js'), contactsV25 = read('assets/contacts-v2.js'), germanV25 = read('assets/german-v2.js');
 check(talentsV25.includes("selectionScope: 'active'") && talentsV25.includes('talentListTable') && talentsV25.includes('Liberado para apresentação'), 'Talentos inicia na fila ativa e possui lista analítica');
 check(organizationV25.includes("employerScope: 'active'") && organizationV25.includes('org-opportunities') && organizationV25.includes("const workViews = () => ''"), 'Organizacional separa lista, oportunidades e navegação oficial');
@@ -139,7 +145,7 @@ check(contactsV25.includes("followupScope: 'open'") && contactsV25.includes("W.m
 check(germanV25.includes("classScope: 'active'") && germanV25.includes("studentScope: 'current'") && germanV25.includes("W.multiFilter('status'"), 'Alemão inicia no acompanhamento atual e usa filtros múltiplos');
 check(!organizationV25.includes('T4V24.savedViews') && !talentsV25.includes('T4V24.savedViews'), 'navegação lateral não duplica a antiga barra de visões');
 const importExport = read('assets/t4-import-export.js'), workbook = read('assets/t4-workbook.js');
-check(importExport.includes('parseBooks') && importExport.includes('Confirmar importação') && importExport.includes('buildNectaWorkbook') && importExport.includes('buildMappingWorkbook'), 'Centro de dados possui prévia, confirmação e os dois modelos de exportação');
+check(importExport.includes('buildNectaWorkbook') && importExport.includes('buildMappingWorkbook') && importExport.includes('exportFiles') && !importExport.includes('Confirmar importação') && !importExport.includes('data-data-import'), 'tela de exportação gera os dois modelos oficiais e não expõe fluxo de importação de planilha');
 check(talentsV25.includes('A seleção não altera etapas') && importExport.includes('source.mapping.radar'), 'importação respeita seleção manual e preserva o radar');
 check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbook.includes('pageBreaks'), 'leitor e escritor local preservam abas, congelamento e quebra de página');
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');

@@ -1,6 +1,16 @@
 (function () {
   'use strict';
 
+  // O caminho do logo precisa ser relativo à pasta real de assets, não à
+  // página atual: em /demo/*.html não existe /demo/assets/, o pacote de
+  // assets vive uma pasta acima. Descobrir o prefixo pelo próprio <script>
+  // deste arquivo evita hardcodar "./" e quebrar em qualquer subpasta futura.
+  const ASSET_BASE = (() => {
+    const src = document.currentScript?.src || '';
+    const match = src.match(/^(.*\/)assets\/t4-v2-core\.js(?:\?.*)?$/);
+    return match ? match[1] : './';
+  })();
+
   const ICONS = {
     dashboard: '<path d="M3 13h8V3H3v10Zm0 8h8v-6H3v6Zm10 0h8V11h-8v10Zm0-18v6h8V3h-8Z"/>',
     users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
@@ -154,7 +164,41 @@
   }
 
   function kpi(label, value, note = '', tone = '') {
-    return `<article class="t4-kpi ${attr(tone)}"><div class="t4-kpi-label">${esc(label)}</div><div class="t4-kpi-value">${esc(value)}</div><div class="t4-kpi-note">${esc(note)}</div></article>`;
+    const numeric = typeof value === 'number' && Number.isFinite(value);
+    return `<article class="t4-kpi ${attr(tone)}"><div class="t4-kpi-label">${esc(label)}</div><div class="t4-kpi-value"${numeric ? ' data-count-up' : ''}>${esc(value)}</div><div class="t4-kpi-note">${esc(note)}</div></article>`;
+  }
+  // Números "contam" de 0 até o valor real ao entrar na tela — o texto já
+  // nasce correto (${esc(value)} acima), então mesmo que isto nunca seja
+  // chamado o KPI mostra o número certo, só sem a animação: progressive
+  // enhancement, nunca risco de mostrar "0" parado por engano. Não anima
+  // se o usuário pediu menos movimento. Contagem por número fixo de
+  // quadros, não por relógio — o harness de teste roda vm.createContext()
+  // com Date congelado e requestAnimationFrame síncrono (chama a função na
+  // hora, sem esperar), então uma versão baseada em Date.now() nunca veria
+  // o tempo passar e recursaria para sempre; contar quadros sempre termina.
+  function animateCounters(root) {
+    // Página começando escondida (aba em segundo plano) nunca dispara
+    // requestAnimationFrame em navegador nenhum — sem esta guarda o número
+    // ficaria travado em "0" até o usuário voltar para a aba, violando a
+    // própria regra de nunca mostrar um valor errado. Pulando a animação
+    // neste caso específico, o texto correto (já escrito antes desta
+    // função rodar) simplesmente permanece.
+    if (!root?.querySelectorAll || document?.hidden || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)) return;
+    const totalFrames = 24;
+    root.querySelectorAll('[data-count-up]').forEach((el) => {
+      const target = Number(el.textContent);
+      if (!Number.isFinite(target) || target === 0) return;
+      el.textContent = '0';
+      let frame = 0;
+      const step = () => {
+        frame++;
+        if (frame >= totalFrames) { el.textContent = String(target); return; }
+        const eased = 1 - Math.pow(1 - frame / totalFrames, 3);
+        el.textContent = String(Math.round(target * eased));
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    });
   }
 
   function field(label, value) {
@@ -293,6 +337,13 @@
 
     document.body.dataset.t4Module = moduleId;
     document.title = `${config.moduleLabel} · Talents 4`;
+    // Padrão Notion/Linear: menu lateral recolhível. Fica só em memória —
+    // este arquivo é auditado para nunca cachear estado em disco do
+    // navegador fora do Supabase (ver "ausência de cache persistente de
+    // dados de negócio" em scripts/check-v2.mjs). Resultado: a preferência
+    // sobrevive à troca de tela dentro do mesmo módulo (navegação é
+    // client-side) e reinicia ao trocar de módulo ou recarregar a página.
+    let sidebarCollapsed = false;
 
     const primaryViews = views.filter((view) => view.primary !== false);
     const secondaryViews = views.filter((view) => view.primary === false);
@@ -301,21 +352,25 @@
         <aside class="t4-sidebar" aria-label="Navegação principal">
           <a class="t4-brand" href="./index.html" aria-label="Talents 4">
             <span class="t4-brand-lockup">
-              <img class="t4-brand-logo" src="./assets/talents4-logo.png" alt="Talents 4">
-              <span class="t4-brand-sub">RECRUTAMENTO INTERNACIONAL</span>
+              <span class="t4-brand-row">
+                <img class="t4-brand-mark" src="${attr(ASSET_BASE)}assets/talents4-mark.png" alt="" aria-hidden="true">
+                <span class="t4-brand-name">Talents<span class="t4-brand-accent">4</span></span>
+              </span>
+              <span class="t4-brand-sub">Recrutamento internacional</span>
             </span>
           </a>
           <div class="t4-sidebar-scroll">
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
               <div class="t4-nav-label">${esc(config.moduleLabel)}</div>
-              ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
-              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
+              ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
+              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
               <div class="t4-nav-label">Áreas do sistema</div>
-              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
+              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}" aria-label="${attr(item.label)}" data-tooltip="${attr(item.label)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
             </nav>
           </div>
+          <button type="button" class="t4-sidebar-collapse-toggle" data-sidebar-collapse aria-pressed="false" aria-label="Recolher menu" data-tooltip="Recolher menu">${icon('chevron', 't4-icon t4-collapse-icon')}<span class="t4-nav-text">Recolher menu</span></button>
           <div class="t4-sidebar-footer">
             <div class="t4-user">
               <span class="t4-avatar" data-user-initials>?</span>
@@ -398,6 +453,14 @@
 
     root.querySelectorAll('[data-route]').forEach((item) => item.addEventListener('click', () => route(item.dataset.route)));
     root.querySelector('[data-menu]').addEventListener('click', () => document.body.classList.toggle('t4-sidebar-open'));
+    root.querySelector('[data-sidebar-collapse]').addEventListener('click', (event) => {
+      sidebarCollapsed = !sidebarCollapsed;
+      document.body.classList.toggle('t4-sidebar-collapsed', sidebarCollapsed);
+      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
+      event.currentTarget.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
+      event.currentTarget.setAttribute('aria-label', label);
+      event.currentTarget.dataset.tooltip = label;
+    });
     root.querySelector('.t4-mobile-overlay').addEventListener('click', () => document.body.classList.remove('t4-sidebar-open'));
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
     primary.addEventListener('click', async () => {
@@ -488,6 +551,7 @@
     emptyState,
     pageHead,
     kpi,
+    animateCounters,
     field,
     openDrawer,
     closeDrawer,

@@ -95,7 +95,7 @@ test('leitor vê os acompanhamentos, mas não recebe formulários de alteração
 });
 test('fontes novas ausentes geram aviso; seleções antigas continuam consultáveis',async()=>{
   const h=await boot();delete h.fixture.db.talent_mapping_items;delete h.fixture.db.talent_mapping_profiles;delete h.fixture.db.talent_mapping_partners;
-  await h.action('reload');h.app.route('mapping');assert.match(text(h),/fonte não disponível/);assert.match(text(h),/Viabilidade atual/);
+  await h.action('reload');h.app.route('mapping');assert.match(text(h),/ainda não foi importado/);assert.match(text(h),/Viabilidade atual/);
   await assert.rejects(h.action('mapping-new','DEMO-T1'),/não estão disponíveis/);assert.equal(h.fixture.writes.length,0);
 });
 test('abrir acompanhamento por ficha remove filtros incompatíveis e preserva arquivados',async()=>{

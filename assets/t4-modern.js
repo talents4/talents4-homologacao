@@ -15,7 +15,7 @@
     const M = window.T4Models, same = (x) => M.same(x,id);
     return [
       ...(state.activities || []).filter(r => same(r.talent_id) && M.isOpen(r.status)).map(r => ({text:r.title, due:r.due_at, owner:r.owner_username, source:'Agenda'})),
-      ...(state.selections?.rows || []).filter(r => same(r.talent_id) && !['closed','hired'].includes(M.selectionBucket(r)) && r.next_action).map(r => ({text:r.next_action,due:r.next_action_due,owner:r.owner_username,source:'Seleção'})),
+      ...(state.selections?.rows || []).filter(r => same(r.talent_id) && !['closed','hired'].includes(M.selectionBucket(r)) && r.next_action).map(r => ({text:r.next_action,due:r.next_action_at,owner:r.owner_username,source:'Seleção'})),
       ...(state.enrollments || []).filter(r => same(r.candidate_id) && ['Ativo','Matriculado','Pausado'].includes(r.status) && r.next_action).map(r => ({text:r.next_action,due:r.next_action_due,owner:r.owner_name,source:'Alemão'}))
     ].sort((x,y) => String(x.due || '9999').localeCompare(String(y.due || '9999')));
   }

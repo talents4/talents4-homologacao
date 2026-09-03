@@ -34,9 +34,10 @@
   function directoryRows() {
     return state.unified.filter((r) => matches(r.roles, state.category) && matches(r.status, state.status) && matches(r.owner, state.owner) && (app.view !== 'people' || r.entityType === 'Pessoa') && (app.view !== 'organizations' || r.entityType === 'Organização') && (state.quick !== 'active' || !closedContact(r)) && (state.quick !== 'archived' || closedContact(r)) && (state.quick !== 'followups' || nextFollowup(r)) && match([r.displayName, r.email, r.phone, r.jobTitle, r.organization, r.city, r.roles.join(' '), r.link?.secondary_email, r.link?.whatsapp]));
   }
+  const filterLabels = { category: 'Categoria', status: 'Situação', owner: 'Responsável' };
   function filters() {
     const roles = [...new Set(state.unified.flatMap((r) => r.roles))].sort();
-    return `<div class="t4-toolbar">${W.multiFilter('category', 'Categorias', roles, state.category)}${W.multiFilter('status', 'Situações', ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], state.status)}${W.multiFilter('owner', 'Responsáveis', W.unique(state.unified, 'owner'), state.owner)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>`;
+    return `<div class="t4-toolbar">${W.multiFilter('category', 'Categorias', roles, state.category)}${W.multiFilter('status', 'Situações', ['Ativo', 'A acompanhar', 'Inativo', 'Arquivado'], state.status)}${W.multiFilter('owner', 'Responsáveis', W.unique(state.unified, 'owner'), state.owner)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>${W.activeFiltersBar(state, ['category', 'status', 'owner'], filterLabels)}`;
   }
   function render() {
     if (!state.loaded) return;
@@ -49,6 +50,7 @@
     else if (app.view === 'categories') html = categoriesView();
     else html = duplicatesView();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
+    U.animateCounters(app.pageRoot);
   }
   function directoryView() {
     const missing = state.unified.filter((r) => r.unresolved);
@@ -239,6 +241,7 @@
   W.bind(app, { change(key, value) { state[key] = value; render(); }, async action(action, id) {
     if (action === 'reload') return D.session ? load() : location.reload();
     if (action === 'clear') { state.category = []; state.status = []; state.owner = []; state.query = ''; state.quick = 'active'; state.followupScope = 'open'; app.resetSearch(); render(); return; }
+    if (action === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (action === 'quick') { state.quick = id; render(); return; }
     if (action === 'followup-scope') { state.followupScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (action === 'contact-detail') return contactDetail(byKey(id));

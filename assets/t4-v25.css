@@ -356,9 +356,11 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 }
 
 .t4-brand-logo {
-  width: 47px;
-  height: 48px;
-  flex: 0 0 47px;
+  /* Tamanho final: bloco "V2.6 · acabamento de produto", mais abaixo neste
+     arquivo, que é deliberadamente a última declaração de largura. As
+     propriedades de largura fixadas aqui (47px) e no bloco V2.5.1 logo
+     abaixo (100%/178px) nunca chegavam a valer e foram removidas para não
+     sugerir um tamanho que não é o real. */
   display: block;
   color: #002a4a;
   filter: drop-shadow(0 5px 8px rgba(0, 42, 74, .12));
@@ -517,8 +519,6 @@ body {
 .t4-brand-lockup { display: grid; min-width: 0; gap: 9px; }
 .t4-brand-logo {
   display: block;
-  width: 100%;
-  max-width: 178px;
   height: auto;
   aspect-ratio: 577 / 405;
   object-fit: contain;
@@ -698,7 +698,6 @@ body {
 }
 @media (max-width: 680px) {
   .t4-brand { min-height: 126px; padding: 10px 12px; }
-  .t4-brand-logo { max-width: 148px; }
   .t4-brand-sub { font-size: 7px; }
   [data-t4-module="talents"] .tw-multiselect, [data-t4-module="talents"] .tw-more-filters { min-width: calc(50% - 4px); flex-basis: calc(50% - 4px); }
   [data-t4-module="talents"] .tw-more-filter-grid { position: fixed; inset-inline: 12px; top: auto; bottom: 12px; width: auto; max-height: 65vh; overflow: auto; }
@@ -725,8 +724,8 @@ body {
    design system final governe as versões anteriores sem outra cascata. */
 .t4-sidebar { min-height: 0; }
 .t4-sidebar-scroll { min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-color: #b7c9d7 transparent; }
-.t4-brand { min-height: 124px; padding: 11px 15px 10px; }
-.t4-brand-logo { width: 142px; max-width: 142px; border-radius: 12px; box-shadow: 0 6px 14px rgba(0, 42, 74, .16); }
+.t4-brand { min-height: 96px; padding: 11px 15px 10px; }
+.t4-brand-logo { width: 104px; max-width: 104px; border-radius: 12px; box-shadow: 0 6px 14px rgba(0, 42, 74, .16); }
 .t4-brand:hover .t4-brand-logo, .t4-brand:focus-visible .t4-brand-logo { box-shadow: 0 8px 18px rgba(0, 42, 74, .21); }
 .t4-brand-lockup { gap: 6px; }
 .t4-brand-sub { font-size: 7px; line-height: 1.15; }
@@ -745,9 +744,22 @@ body {
 .t4-bulk-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 7px; }
 .t4-selection-cell { width: 42px; min-width: 42px; padding-right: 4px !important; padding-left: 4px !important; text-align: center; }
 [data-talent-select] { width: 16px; height: 16px; margin: 0; accent-color: #0b63ce; cursor: pointer; }
-.t4-card-select { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #5b7286; font-size: 10px; font-weight: 700; cursor: pointer; }
+/* Precisa ser flex (não inline-flex): o rótulo fica antes de .mx-eyebrow no
+   mesmo bloco, sem essa quebra de linha os dois texto colidem lado a lado. */
+.t4-card-select { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; color: #5b7286; font-size: 10px; font-weight: 700; cursor: pointer; }
 .t4-card-select span { letter-spacing: .02em; }
 .mx-card.is-selected { border-color: #3e83b5; box-shadow: 0 0 0 3px rgba(11, 99, 206, .1), var(--v25-shadow); }
+/* .mx-card (t4-modern.css) nascia sem sombra e sem estado de hover — um
+   cartão sem nenhuma resposta ao passar o mouse lê como estático/morto,
+   achado real ao revisar a visão em cartões com o usuário. Mesmo padrão
+   de elevação já usado em .t4-kpi:hover, para ficar consistente. */
+.mx-card { box-shadow: var(--v25-shadow); transition: transform var(--t4-duration-base, .18s) var(--t4-ease, ease), box-shadow var(--t4-duration-base, .18s) var(--t4-ease, ease); }
+.mx-card:hover { transform: translateY(-2px); box-shadow: var(--v25-shadow-hover); border-color: #c3d4e2; }
+.mx-card.is-selected:hover { box-shadow: 0 0 0 3px rgba(11, 99, 206, .12), var(--v25-shadow-hover); }
+@media (prefers-reduced-motion: reduce) {
+  .mx-card { transition: none; }
+  .mx-card:hover { transform: none; }
+}
 
 .t4-source-status { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 14px; padding: 10px 13px; border: 1px solid #bfd3e1; border-radius: 12px; color: #36566c; background: #f5f9fb; }
 .t4-source-status-icon { display: grid; place-items: center; flex: 0 0 auto; width: 22px; height: 22px; color: #0b63ce; }
@@ -802,8 +814,8 @@ body {
   .t4-bulk-actions { width: 100%; justify-content: flex-start; }
 }
 @media (max-width: 680px) {
-  .t4-brand { min-height: 106px; padding: 8px 12px; }
-  .t4-brand-logo { width: 120px; max-width: 120px; }
+  .t4-brand { min-height: 80px; padding: 8px 12px; }
+  .t4-brand-logo { width: 88px; max-width: 88px; }
   .t4-brand-sub { display: none; }
   .v25-scope-strip { align-items: flex-start; flex-direction: column; }
   .v25-scope-actions { width: 100%; justify-content: flex-start; }
@@ -812,3 +824,88 @@ body {
   .t4-data-actions { align-items: stretch; flex-direction: column-reverse; }
   .t4-data-actions .t4-btn { width: 100%; justify-content: center; }
 }
+
+/* Menu lateral recolhível (desktop) — padrão Notion/Linear registrado em
+   docs/design/REFERENCIAS_UIUX.md. O botão preserva rótulo acessível
+   (aria-label) mesmo com o texto oculto, então recolher não remove nada da
+   leitura por teclado/leitor de tela — só a largura fixa que competia com o
+   conteúdo operacional em notebooks de 1280–1366px. O grupo secundário
+   "Mais espaços" fica oculto quando recolhido (evita um submenu flutuante
+   novo); os 5 espaços dele continuam a um clique ao expandir de novo. Não
+   se aplica a telas ≤1000px, que já usam o menu deslizante próprio. */
+.t4-sidebar-collapse-toggle { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 0 12px 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #7c8ba0; font-size: 11px; font-weight: 650; cursor: pointer; }
+.t4-sidebar-collapse-toggle:hover { background: #f0f5f9; color: var(--v25-ink); }
+.t4-sidebar-collapse-toggle .t4-collapse-icon { transition: transform .15s ease; }
+.t4-sidebar-collapsed .t4-sidebar-collapse-toggle .t4-collapse-icon { transform: rotate(180deg); }
+@media (max-width: 1000px) {
+  /* Sem efeito visual abaixo de 1000px (o menu já é a gaveta deslizante
+     própria do mobile) — some daqui para não sobrar um botão sem função. */
+  .t4-sidebar-collapse-toggle { display: none; }
+}
+@media (min-width: 1001px) {
+  body.t4-sidebar-collapsed { --t4-sidebar: 76px; }
+  .t4-sidebar-collapsed .t4-sidebar-collapse-toggle { justify-content: center; margin: 0 8px 10px; width: calc(100% - 16px); }
+  .t4-sidebar-collapsed .t4-nav-text,
+  .t4-sidebar-collapsed .t4-nav-label,
+  .t4-sidebar-collapsed .t4-nav-count,
+  .t4-sidebar-collapsed .t4-switch-chevron,
+  .t4-sidebar-collapsed .t4-nav-more,
+  .t4-sidebar-collapsed .t4-brand-sub,
+  .t4-sidebar-collapsed .t4-user-name,
+  .t4-sidebar-collapsed .t4-user-role { display: none; }
+  .t4-sidebar-collapsed .t4-nav-item,
+  .t4-sidebar-collapsed .t4-switch-item { justify-content: center; gap: 0; padding: 9px; }
+  .t4-sidebar-collapsed .t4-switch-item::before { display: none; }
+  .t4-sidebar-collapsed .t4-brand { justify-content: center; align-items: center; padding: 20px 8px; }
+  .t4-sidebar-collapsed .t4-brand-row { gap: 0; }
+  .t4-sidebar-collapsed .t4-brand-name { display: none; }
+  .t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
+}
+
+/* Marca compacta: ícone pequeno + texto real (nunca palavra dentro de
+   imagem — assim continua nítido em qualquer zoom e herda a cor do tema)
+   no lugar do bloco quadrado grande de antes, que competia visualmente com
+   o resto da navegação (achado ao revisar a tela com o usuário — "logo
+   exagerada" já tinha sido corrigida uma vez em 2026-09-02, mas o problema
+   real não era só o tamanho do <img>, era o layout: ícone + texto grudados
+   numa única imagem rígida). O ícone vem do mesmo arquivo oficial
+   (assets/talents4-logo.png), só isolado e recolorido para navy sobre
+   fundo transparente — ver assets/talents4-mark.png — não é uma marca
+   nova, é a mesma marca extraída do quadrado cheio de fundo.
+   Repetido caso já esteja em t4-sidebar-collapsed acima, mas fora dele
+   também precisa das regras base do layout expandido. */
+.t4-brand { display: flex; flex-direction: column; gap: 4px; min-height: 0; padding: 18px 20px 16px; border-bottom: 1px solid var(--t4-line); }
+.t4-brand-lockup { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.t4-brand-row { display: flex; align-items: center; gap: 9px; transition: gap .15s ease; }
+.t4-brand-mark { width: 24px; height: 24px; flex: 0 0 24px; object-fit: contain; }
+.t4-brand-name { font-size: 16px; font-weight: 750; letter-spacing: -.03em; color: var(--t4-navy); line-height: 1; }
+.t4-brand-accent { color: var(--t4-color-coral, #e63121); }
+.t4-brand-sub { display: block; margin: 0; padding-left: 33px; color: #8c9bae; font-size: 9px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; }
+@media (max-width: 680px) {
+  .t4-brand { padding: 14px 16px; }
+  .t4-brand-sub { display: none; }
+}
+
+/* Toast (.t4-toast, t4-v2-core.js "toast()") nascia sem nenhuma animação
+   de entrada — aparecia de golpe no canto da tela, o tipo de detalhe que
+   faz a interface parecer estática. Entra deslizando e esmaecendo uma
+   única vez (nunca contínuo); some abruptamente ainda, mas a entrada é o
+   momento que o usuário realmente percebe. */
+.t4-toast { animation: t4-toast-in var(--t4-duration-base, .18s) var(--t4-ease, cubic-bezier(.2, .8, .2, 1)) both; }
+@keyframes t4-toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t4-toast { animation: none; }
+}
+
+/* Estado vazio (.t4-empty, t4-v2-core.js "emptyState()") tinha só texto
+   centralizado, sem nenhum contorno — difícil de distinguir de um bug de
+   carregamento. Borda tracejada é o sinal visual padrão de "espaço vazio
+   de propósito, não erro" em qualquer produto de referência (Linear,
+   Notion, Airtable — ver docs/design/REFERENCIAS_UIUX.md); ícone maior
+   com fundo suave em vez do quadradinho apertado de antes. */
+.t4-empty { border: 1.5px dashed var(--t4-line-strong, #cbd5e1); border-radius: var(--t4-radius-lg, 16px); background: var(--t4-surface-sunken, #f8fafc); }
+.t4-empty-icon { width: 52px; height: 52px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
+.t4-empty-icon .t4-icon { width: 22px; height: 22px; flex-basis: 22px; }

@@ -35,11 +35,31 @@
   const status = (value) => U.badge(value, U.toneForStatus(value));
   const unique = (rows, field) => [...new Set(rows.map((r) => r[field]).filter(M.present))].sort((x, y) => String(x).localeCompare(String(y), 'pt-BR'));
   const find = (rows, id) => rows?.find((r) => M.same(r.id, id));
+  // Fonte única para detectar falha de conectividade: usada tanto para
+  // escolher a mensagem amigável quanto para decidir se o resultado da
+  // gravação ficou incerto (ver saveRecord). Antes disso o segundo uso lia
+  // o texto já traduzido por formatError, o que quebrou quando a tradução
+  // deixou de repetir a palavra técnica original — checar o erro bruto.
+  const isConnectivityError = (error) => error?.message === 'Failed to fetch'
+    || (error?.name === 'TypeError' && /fetch|network/i.test(error?.message || ''))
+    || /timeout|excedeu/i.test(error?.message || '');
   function formatError(error) {
     if (error?.code === 'PGRST116') return 'O registro mudou, foi removido ou você não tem permissão. Atualize a ficha antes de salvar novamente.';
     if (error?.code === '23505') return 'Já existe um registro com essa identificação. Confira os dados; nenhuma duplicidade foi criada.';
     if (error?.code === '23503') return 'O vínculo informado não existe mais. Atualize os dados e selecione um registro válido.';
     if (error?.code === '42501') return 'Seu perfil não tem permissão para esta operação. Solicite revisão ao administrador.';
+    if (isConnectivityError(error)) {
+      console.error('[Talents4]', error);
+      return 'Falha de conexão com o servidor. Verifique sua internet e tente novamente; nada foi salvo.';
+    }
+    // error.code sem estar na lista acima só acontece com o formato de erro
+    // do Postgres/Supabase (PGRST*, 23xxx, 42xxx…) — a mensagem original é
+    // SQL técnico, então não deve ir para a tela; fica só no console do
+    // navegador, que é o log técnico disponível nesta pilha sem backend.
+    if (error?.code) {
+      console.error('[Talents4]', error);
+      return 'Não foi possível concluir esta ação no banco agora. Nenhuma alteração parcial foi salva; tente novamente em instantes.';
+    }
     return error?.message || String(error);
   }
   function table({ id, rows, columns, empty = 'Nenhum registro neste recorte.', pageSize = 40, groupBy = null }) {
@@ -131,7 +151,7 @@
       } catch (error) {
         errorBox.hidden = false; errorBox.innerHTML = note(formatError(error), 'error');
         backdrop.dataset.saving = 'false';
-        const uncertain = error.partial || /excedeu|timeout|failed to fetch|network/i.test(formatError(error));
+        const uncertain = error.partial || isConnectivityError(error);
         save.disabled = uncertain; save.textContent = uncertain ? 'Atualize e confira a gravação' : submitLabel;
         if (uncertain) errorBox.insertAdjacentHTML('beforeend', note('A resposta não confirmou o resultado. Feche e atualize a lista antes de repetir, para evitar duplicidade.', 'warning'));
       }
@@ -166,7 +186,7 @@
     if (!unavailable.length) return visibleWarnings + errors;
     const labels = unavailable.map((key) => state.sources[key]?.label || key);
     const stale = names.some((key) => state.sources?.[key]?.stale);
-    const details = unavailable.map((key) => `<li>${e(state.sources[key]?.label || key)}: fonte não disponível neste banco; a fila principal continua disponível.</li>`).join('');
+    const details = unavailable.map((key) => `<li>${e(state.sources[key]?.label || key)}: ainda não foi importado; a fila principal continua disponível.</li>`).join('');
     return `${visibleWarnings}${errors}<div class="t4-source-status" role="status"><span class="t4-source-status-icon">${U.icon('info')}</span><div><strong>Dados complementares aguardando importação</strong><p>${e(labels.length === 1 ? 'Há um conjunto complementar que ainda não foi carregado.' : `${labels.length} conjuntos complementares ainda não foram carregados.`)} Use <b>Centro de dados</b> para importar os dois modelos oficiais quando quiser enriquecer o mapeamento.${stale ? ' Os dados anteriores foram mantidos onde possível.' : ''}</p><details><summary>Ver detalhes</summary><ul>${details}</ul></details></div></div>`;
   }
   function loader(app, state, sources, render) {
@@ -259,6 +279,27 @@
       if (document.querySelector('[data-t4-modal-backdrop][data-dirty="true"]')) { event.preventDefault(); event.returnValue = ''; }
     });
   }
+  // Barra agregada de filtros ativos (padrão Airtable — sempre indicar
+  // filtro ativo mesmo quando o dropdown que o define está fechado; ver
+  // docs/design/REFERENCIAS_UIUX.md). `state` e `keys` vêm da tela que
+  // chama; cada chip remove só aquele valor (o filtro continua com os
+  // outros valores da mesma categoria, se houver).
+  function activeFiltersBar(state, keys, labels, valueLabel = (key, value) => value) {
+    const entries = keys.flatMap((key) => (Array.isArray(state[key]) ? state[key] : []).map((value) => ({ key, value })));
+    if (!entries.length) return '';
+    return `<div class="t4-active-filters" role="status"><span class="t4-af-label">Filtros ativos</span>${entries.map(({ key, value }) => `<span class="t4-af-chip">${e(labels[key] || key)}: ${e(valueLabel(key, value))}<button type="button" data-action="active-filter-remove" data-id="${a(JSON.stringify([key, value]))}" aria-label="Remover filtro ${a(labels[key] || key)}: ${a(valueLabel(key, value))}">×</button></span>`).join('')}<button type="button" class="t4-af-clear" data-action="clear">Limpar tudo</button></div>`;
+  }
+  // Gráfico de distribuição (barras horizontais), pensado para os
+  // dashboards "Meu dia" — a auditoria de UI/UX encontrou zero visualização
+  // de dado em telas que só mostravam números soltos em cartões (ver
+  // docs/design/REFERENCIAS_UIUX.md, padrão de densidade/hierarquia visual
+  // dos CRMs de referência). `buckets`: [{ label, count, tone }], tone é
+  // uma das chaves de --t4-* em t4-tokens.css (success/warning/critical/
+  // info) ou vazio para o tom neutro padrão.
+  function distributionChart(title, subtitle, meta, buckets) {
+    const max = Math.max(1, ...buckets.map((b) => b.count));
+    return `<section class="t4-dist" aria-label="${a(title)}"><header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header><div class="t4-dist-grid">${buckets.map((b) => `<div class="t4-dist-row"><div class="t4-dist-label"><span>${e(b.label)}</span><strong>${e(b.count)}</strong></div><div class="t4-dist-track"><i class="t4-dist-bar ${a(b.tone || '')}" style="--dist-width:${Math.round(b.count / max * 100)}%"></i></div></div>`).join('')}</div></section>`;
+  }
   window.T4Work = Object.freeze({ button, link, external, optionsHtml, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
-    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start });
+    formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, distributionChart });
 })();

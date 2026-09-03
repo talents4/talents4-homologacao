@@ -21,7 +21,7 @@ test('reconhece os dois modelos, os contextos e as abas auxiliares', () => {
     { name: 'Radar NectaNet', rows: [['Radar'], [], ['Empresa', 'Talento(s)', 'Status', 'Aderência', 'Viab. atual', 'Viab. B1 (3 meses)', 'Vaga / alvo', 'Barreira / observação', 'Local', 'Link', 'Verificado em'], ['Empresa Azul', 'Jean', 'ABERTA', 94, 65, 80, 'Network Engineer', 'Validar automação', 'Offenburg', 'https://azul.test/vaga', '31/08/2026']] }
   ] };
   const result = importer.parseBooks([first, second]);
-  assert.deepEqual(result.stats, { files: 2, candidates: 1, partners: 1, companies: 1, tracking: 1, profiles: 1, summary: 1, radar: 1 });
+  assert.deepEqual(result.stats, { files: 2, candidates: 1, partners: 1, companies: 1, companySignals: 0, matrizCompanies: 0, tracking: 1, profiles: 1, summary: 1, radar: 1, companiesClassified: 1, companiesNeedingPartnershipReview: 1 });
   assert.equal(result.talentNames[0], 'Jean');
   assert.equal(result.mapping.contexts[0].regra_revisao, 'Revisar antes de apresentar');
   assert.equal(result.mapping.summaries[0].prioridade_mapeamento, 'ALTA');
@@ -45,4 +45,71 @@ test('reconstrói fórmulas de parceiro a partir da aba oficial de Talentos', ()
   assert.equal(result.nectanet.partners[0].areas, 'Redes');
   assert.equal(result.nectanet.partners[0].german, 'B1');
   assert.equal(result.nectanet.partners[0].english, 'B2');
+});
+
+// Reproduz a estrutura real encontrada em "Nectanet Partner 01092026" na
+// planilha oficial (aba nova, não coberta antes desta entrega). O nome da
+// aba muda a cada atualização (a data no sufixo), por isso o teste usa uma
+// data diferente da "de hoje" para provar que o reconhecimento é por padrão.
+test('reconhece aba "Nectanet Partner <data>" por padrão e ignora a linha espúria "Empresa"', () => {
+  const signalHeaders = ['Empresa', 'Geschäftsführung', 'E-mail', 'HR / Personal', 'E-mail HR', 'Status', 'Qtd.', 'Talentos aderentes'];
+  const result = importer.parseBooks([{ name: 'modelo.xlsm', sheets: [
+    { name: 'Nectanet Partner 01102026', rows: [
+      ['NectaNet Partner | Matching de Empresas & Talentos'],
+      signalHeaders,
+      ['acrobat GmbH', 'Sylvia Selinger', 'sselinger@acrobat-personal.de', 'Benjamin Blum', 'bblum@acrobat-personal.de', 'Offen', 10, '• Jaime Siewerdt — Mecânica [DE B1]'],
+      ['Empresa', '', '', '', '', '', '', ''],
+      ['Nova Empresa GmbH', '', '', '', '', 'Offen', 2, '']
+    ] }
+  ] }]);
+  const book = result.books[0];
+  assert.equal(book.kind, 'nectanet');
+  assert.equal(book.companySignals.length, 2, 'a linha cujo nome de empresa é literalmente "Empresa" deve ser ignorada');
+  assert.equal(book.companySignals[0].empresa, 'acrobat GmbH');
+  assert.equal(book.companySignals[1].empresa, 'Nova Empresa GmbH');
+  assert.deepEqual(book.unknownSheets, []);
+});
+
+test('reconhece "Matriz NectaNet" (colunas dinâmicas por Talento) em vez de descartar como aba desconhecida', () => {
+  const result = importer.parseBooks([{ name: 'modelo.xlsx', sheets: [
+    { name: 'Matriz NectaNet', rows: [
+      ['MATRIZ DE ADERÊNCIA'],
+      ['nota'],
+      [],
+      ['Empresa NectaNet', 'Jean', 'Carla', 'Melhores encaixes', 'Observação'],
+      ['BCT Technology AG', 'ALTA', '—', 'Jean', 'Employer fit identificado.'],
+      ['Actimage GmbH', 'MÉDIA', 'MONITORAR', 'Jean', 'Verificar vaga.']
+    ] }
+  ] }]);
+  const book = result.books[0];
+  assert.deepEqual(book.unknownSheets, []);
+  assert.equal(book.matrizNectanet.length, 2);
+  assert.deepEqual(book.matrizNectanet[0].adherence, { Jean: 'ALTA' }, 'traço (—) não deve virar um sinal de aderência');
+  assert.deepEqual(book.matrizNectanet[1].adherence, { Jean: 'MÉDIA', Carla: 'MONITORAR' });
+});
+
+test('classificação de empresas: nunca infere parceria direta; confiança sobe com múltiplas fontes NectaNet independentes', () => {
+  const signalHeaders = ['Empresa', 'Geschäftsführung', 'E-mail', 'HR / Personal', 'E-mail HR', 'Status', 'Qtd.', 'Talentos aderentes'];
+  const result = importer.parseBooks([
+    { name: 'nectanet.xlsm', sheets: [
+      { name: 'Empresas detalhadas', rows: [companyHeaders, ['Empresa Alfa', 'TI', '2', 'desc', 'x@x.test']] },
+      { name: 'Nectanet Partner 01092026', rows: [['t'], signalHeaders, ['Empresa Alfa', '', '', '', '', 'Offen', 1, '']] },
+      { name: 'Nectanet Partner', rows: [partnerHeaders, ['NectaNet', 'Empresa Alfa', '', '', '', '', 'Offen', 0, '', '', '', '', '']] }
+    ] },
+    { name: 'mapping.xlsx', sheets: [
+      { name: 'Matriz NectaNet', rows: [['t'], ['n'], [], ['Empresa NectaNet', 'Jean', 'Melhores encaixes', 'Obs'], ['Empresa Beta', 'ALTA', 'Jean', '']] }
+    ] }
+  ]);
+  const alfa = result.companyClassification.get('empresa alfa');
+  assert.ok(alfa, 'Empresa Alfa deve estar classificada (aparece em 3 fontes)');
+  assert.equal(alfa.presented_by_nectanet, true);
+  assert.equal(alfa.source_channel, 'NECTANET');
+  assert.equal(alfa.direct_talents4_partnership, 'UNKNOWN', 'parceria direta nunca é inferida da planilha');
+  assert.equal(alfa.classification_confidence, 'HIGH', 'aparece em nectanet_partner_novo E nectanet_partner (2+ fontes NectaNet)');
+
+  const beta = result.companyClassification.get('empresa beta');
+  assert.ok(beta, 'Empresa Beta (só na Matriz NectaNet) deve estar classificada');
+  assert.equal(beta.presented_by_nectanet, true);
+  assert.equal(beta.classification_confidence, 'MEDIUM', 'aparece em só 1 fonte NectaNet e não está em Empresas detalhadas');
+  assert.equal(beta.company_scope, 'NECTANET_PRESENTED');
 });

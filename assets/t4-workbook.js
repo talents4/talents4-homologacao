@@ -85,15 +85,70 @@
     return result;
   }
 
-  function asValue(raw, type, sharedStrings) {
+  // Excel guarda datas como número de série de dias a partir de 30/12/1899
+  // (a âncora absorve o dia 29/02/1900 fictício do formato, então não é
+  // preciso corrigir separadamente o bug de ano bissexto do Excel para
+  // qualquer data real depois de 01/03/1900). Sem essa conversão, uma
+  // célula formatada como data mas armazenada como número (o caso comum
+  // quando a planilha não digita a data como texto) chegava ao CRM como um
+  // número solto (ex.: 45923) e `dateOnly()` descartava o valor inteiro.
+  const MS_PER_DAY = 86400000;
+  const EXCEL_EPOCH_UTC = Date.UTC(1899, 11, 30);
+  function excelSerialToISO(serial) {
+    if (!Number.isFinite(serial)) return null;
+    const wholeDays = Math.floor(serial);
+    const fraction = serial - wholeDays;
+    const date = new Date(EXCEL_EPOCH_UTC + wholeDays * MS_PER_DAY + Math.round(fraction * MS_PER_DAY));
+    if (Number.isNaN(date.getTime()) || date.getUTCFullYear() < 1900 || date.getUTCFullYear() > 9999) return null;
+    const pad = (n) => String(n).padStart(2, '0');
+    const datePart = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+    return fraction < 1e-6 ? datePart : `${datePart}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(date.getUTCSeconds())}`;
+  }
+
+  function looksLikeDateFormat(code) {
+    if (!code || /^general$/i.test(code.trim())) return false;
+    const stripped = code.replace(/"[^"]*"/g, '').replace(/\[[^\]]*\]/g, '');
+    return /[dDmMyYhHsS]/.test(stripped);
+  }
+
+  // Índices de numFmtId embutidos no OOXML que representam data/hora sem
+  // precisar de uma definição própria em <numFmts> (ECMA-376 §18.8.30).
+  const BUILTIN_DATE_NUMFMT_IDS = new Set(['14', '15', '16', '17', '18', '19', '20', '21', '22', '45', '46', '47']);
+
+  function parseStyles(xml) {
+    const customFormats = new Map();
+    for (const { attrs } of openingTags(xml, 'numFmt')) {
+      const id = attribute(attrs, 'numFmtId');
+      if (id) customFormats.set(id, attribute(attrs, 'formatCode'));
+    }
+    const dateStyleIndexes = new Set();
+    openingTags(firstBlock(xml, 'cellXfs'), 'xf').forEach(({ attrs }, index) => {
+      const numFmtId = attribute(attrs, 'numFmtId');
+      if (!numFmtId) return;
+      if (BUILTIN_DATE_NUMFMT_IDS.has(numFmtId) || looksLikeDateFormat(customFormats.get(numFmtId))) dateStyleIndexes.add(String(index));
+    });
+    return dateStyleIndexes;
+  }
+
+  function asValue(raw, type, sharedStrings, isDateStyle) {
     if (type === 'inlineStr') return textValue(firstBlock(raw, 'is') || raw);
-    const value = type === 'str' ? textValue(raw) : xmlDecode(firstBlock(raw, 'v'));
+    // Uma célula de fórmula (`t="str"`) guarda seu texto-fonte em <f> e o
+    // valor calculado em <v>, como sempre. Extrair o valor só de <v> (nunca
+    // do corpo inteiro da célula) evita concatenar o texto da fórmula com o
+    // resultado — algo que passava despercebido nos testes anteriores por
+    // coincidência, mas corrompia qualquer célula de fórmula com resultado
+    // texto (confirmado contra as duas planilhas oficiais reais: a aba
+    // "Nectanet Partner" do modelo .xlsm tem ~340 células assim).
+    const value = xmlDecode(firstBlock(raw, 'v'));
     if (!value) return '';
     if (type === 's') return sharedStrings[Number(value)] ?? '';
     if (type === 'b') return value === '1' || /^true$/i.test(value);
     if (type === 'n' || !type) {
       const number = Number(value);
-      if (Number.isFinite(number) && /^[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?$/i.test(value)) return number;
+      if (Number.isFinite(number) && /^[-+]?\d+(?:\.\d+)?(?:e[-+]?\d+)?$/i.test(value)) {
+        if (isDateStyle) { const iso = excelSerialToISO(number); if (iso) return iso; }
+        return number;
+      }
     }
     return value;
   }
@@ -102,7 +157,7 @@
     return blocks(xml, 'si').map((item) => textValue(item));
   }
 
-  function parseSheet(xml, sharedStrings) {
+  function parseSheet(xml, sharedStrings, dateStyles) {
     const rows = [];
     const formulas = [];
     for (const rowMatch of String(xml || '').matchAll(new RegExp(`<${tagPrefix('row')}\\b([^>]*)>([\\s\\S]*?)</${tagPrefix('row')}>`, 'gi'))) {
@@ -122,7 +177,8 @@
         const attrs = cellMatch[1], body = cellMatch[2] || '', reference = attribute(attrs, 'r') || `${columnName(row.length + 1)}${rowNumber}`;
         const index = Math.max(0, columnNumber(reference) - 1);
         const type = attribute(attrs, 't');
-        row[index] = asValue(body, type, sharedStrings);
+        const styleIndex = attribute(attrs, 's') || '0';
+        row[index] = asValue(body, type, sharedStrings, dateStyles?.has(styleIndex));
         const formula = textValue(firstBlock(body, 'f'));
         if (formula) formulas.push({ reference, formula });
       }
@@ -146,13 +202,14 @@
     const relXml = await zipText(zip, 'xl/_rels/workbook.xml.rels');
     const relationships = new Map(openingTags(relXml, 'Relationship').map(({ attrs }) => [attribute(attrs, 'Id'), relationshipTarget(attribute(attrs, 'Target'))]));
     const sharedStrings = parseSharedStrings(await zipText(zip, 'xl/sharedStrings.xml'));
+    const dateStyles = parseStyles(await zipText(zip, 'xl/styles.xml'));
     const sheets = [];
     for (const { attrs } of openingTags(firstBlock(workbookXml, 'sheets'), 'sheet')) {
       const name = attribute(attrs, 'name'), relId = attribute(attrs, 'id') || attribute(attrs, 'r:id');
       const path = relationships.get(relId) || `xl/worksheets/sheet${sheets.length + 1}.xml`;
       const xml = await zipText(zip, path);
       if (!xml) continue;
-      const parsed = parseSheet(xml, sharedStrings);
+      const parsed = parseSheet(xml, sharedStrings, dateStyles);
       sheets.push({ name, path, ...parsed });
     }
     if (!sheets.length) throw new Error('O arquivo não contém abas legíveis.');

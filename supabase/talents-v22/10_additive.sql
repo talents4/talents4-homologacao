@@ -6,12 +6,18 @@ begin;
 set local lock_timeout = '5s';
 set local statement_timeout = '60s';
 
+-- ultima_atualizacao aceita text/character varying além dos tipos de data:
+-- a auditoria de 2026-09-03 (docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md)
+-- confirmou que a coluna real é `text`, não timestamp. Nada neste script usa
+-- o tipo dessa coluna para calcular algo — a checagem original só existia
+-- para constatar que a coluna existe com um tipo administrável; recusá-la
+-- por ser text bloquearia a migração inteira sem motivo real.
 do $preconditions$
 declare r record; actual_type text; target text;
 begin
   for r in select * from (values
     ('candidatos','id',array['text']),('candidatos','nome_completo',array['text','character varying']),
-    ('candidatos','ultima_atualizacao',array['timestamp with time zone','timestamp without time zone']),
+    ('candidatos','ultima_atualizacao',array['timestamp with time zone','timestamp without time zone','text','character varying']),
     ('employers','id',array['uuid']),('employer_openings','id',array['uuid']),
     ('employer_openings','employer_id',array['text','uuid']),
     ('usuarios','username',array['text','character varying']),('usuarios','ativo',array['text','character varying']),
@@ -182,7 +188,7 @@ $fn$;
 create function public.t4_talents_v22_check_profile()
 returns trigger language plpgsql security invoker set search_path=pg_catalog
 as $fn$
-declare target uuid; best uuid; expected text; entry record;
+declare target uuid; best uuid; previous_best uuid; expected text; entry record;
 begin
   foreach target in array array[new.employer_primary_id,new.employer_alt1_id,new.employer_alt2_id] loop
     if target is not null and not exists(select 1 from public.employers e where e.id=target) then
@@ -193,7 +199,8 @@ begin
     best=case when expected='Sim' then new.best_nectanet_item_id else new.best_external_item_id end;
     if best is null then continue; end if;
     if tg_op='UPDATE' then
-      if best is not distinct from case when expected='Sim' then old.best_nectanet_item_id else old.best_external_item_id end then continue; end if;
+      previous_best=case when expected='Sim' then old.best_nectanet_item_id else old.best_external_item_id end;
+      if best is not distinct from previous_best then continue; end if;
     end if;
     select i.talent_id,i.archived_at,coalesce(i.nectanet,p.is_nectanet) as nectanet into entry
       from public.talent_mapping_items i left join public.talent_mapping_partners p on p.id=i.employer_id where i.id=best;

@@ -83,6 +83,21 @@ test('ficha completa é lida sob demanda, inclusive campos fora da listagem', as
   await h.action('talent-detail', 'DEMO-T1'); await h.action('detail-tab', 'all');
   assert.match(h.drawer.options.body, /Informação anterior preservada/);
 });
+// "Todos os dados" existe para preservar o que não tem apresentação
+// dedicada — não para repetir com o nome bruto da coluna o que a aba
+// Perfil/Alemão/Documentos/Histórico já mostra formatado. Sem a lista de
+// exclusão passada a R.storedFields(), a ficha inteira do Talento parecia
+// uma planilha crua nessa aba (achado ao revisar a tela com o usuário).
+test('aba "Todos os dados" não repete campo com apresentação dedicada em outra aba', async () => {
+  const h = await makeHarness().load('talents');
+  await h.action('talent-detail', 'DEMO-T1');
+  assert.match(h.drawer.options.body, /talento1@example\.invalid/, 'e-mail aparece formatado na aba Perfil');
+  await h.action('detail-tab', 'all');
+  assert.doesNotMatch(h.drawer.options.body, /t4-detail-label">Email</, 'e-mail não deve ser repetido cru no bloco de sobras');
+  assert.doesNotMatch(h.drawer.options.body, /t4-detail-label">Nome completo</, 'nome não deve ser repetido cru no bloco de sobras');
+  assert.doesNotMatch(h.drawer.options.body, /t4-detail-label">Resumo profissional</, 'texto longo já mostrado em Perfil não deve duplicar');
+  assert.match(h.drawer.options.body, /Data entrada etapa atual/, 'campo genuinamente sem apresentação dedicada continua preservado');
+});
 test('turma mantém instituição, horários, links e professor vinculado', async () => {
   const h = await makeHarness().load('german'); await h.action('class-detail', h.id(901));
   assert.match(h.drawer.options.body, /Instituto de demonstração/); assert.match(h.drawer.options.body, /19h BRT/);
