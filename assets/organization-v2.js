@@ -15,7 +15,7 @@
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
   const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'employers' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', meetingsMonth: M.today().slice(0, 7), selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -188,6 +188,10 @@
     const current = periodKey(M.today()), selected = state.operationsMonth || current;
     return `<div class="t4-calendar-heading org-operations-month-stepper"><div><span class="org-panel-kicker">MÊS DE EXECUÇÃO</span>${W.button('Anterior', 'operations-month-prev', '', { className: 'sm' })}<h2>${e(monthLabel(selected))}</h2>${W.button('Próximo', 'operations-month-next', '', { className: 'sm' })}</div>${selected === current ? '' : W.button('Mês atual', 'operations-month-today', '', { className: 'sm primary' })}</div>`;
   }
+  function meetingsMonthStepper() {
+    const current = periodKey(M.today()), selected = state.meetingsMonth || current;
+    return `<div class="t4-calendar-heading org-operations-month-stepper"><div><span class="org-panel-kicker">MÊS DE REFERÊNCIA</span>${W.button('Anterior', 'meetings-month-prev', '', { className: 'sm' })}<h2>${e(monthLabel(selected))}</h2>${W.button('Próximo', 'meetings-month-next', '', { className: 'sm' })}</div>${selected === current ? '' : W.button('Mês atual', 'meetings-month-today', '', { className: 'sm primary' })}</div>`;
+  }
   function planningView() {
     const monthRows = state.plans.filter((r) => scoped(r) && String(r.month_ref) === state.planningMonth && matchQuery(r));
     // A fila de trabalho e o histórico são superfícies independentes. Mesmo
@@ -231,12 +235,29 @@
     return `<div class="org-workspace org-planning-view">${planningMonthStepper()}${priorityPanel}${focusBar}${toolbar(state.plans, { noMonth: true })}${W.section('A fazer neste mês', table, can('plans') ? W.button('Nova atividade', 'new-plan', '', { className: 'primary sm', icon: 'plus' }) : '', 'Somente atividades abertas, ordenadas pelo que precisa de atenção primeiro.')}${W.section('Histórico do mês', historyTable, '', `Atividades concluídas ou encerradas em ${monthLabel(state.planningMonth)}. O histórico fica separado da fila para deixar claro o que já foi feito.`)}</div>`;
   }
   function meetingsView() {
-    return toolbar(state.meetings) + W.table({ id: 'meetings', rows: filtered(state.meetings, 'scheduled_at').sort((x, y) => String(y.scheduled_at).localeCompare(String(x.scheduled_at))), columns: [
+    // Mesmo padrão de período do PO operacional (pedido explícito): um mês
+    // de referência por vez, com stepper próprio — não o filtro genérico de
+    // "Períodos" (que por padrão mostra tudo misturado). Duas superfícies
+    // abaixo do stepper: o mês de referência com QUALQUER situação (não só
+    // as abertas — reuniões concluídas continuam fazendo parte do que
+    // aconteceu naquele mês), e o histórico completo de sempre, paginado,
+    // com o que está em andamento primeiro e, dentro disso, do mais
+    // recente para o mais antigo.
+    const currentMonth = periodKey(M.today()), selectedMonth = state.meetingsMonth || currentMonth;
+    const inMonth = (r) => { const explicit = periodKey(r.month_ref); return explicit ? explicit === selectedMonth : rowPeriodKeys(r).includes(selectedMonth); };
+    const statusFilter = (r) => values(state.status).length ? matches(r.status, state.status) : true;
+    const base = state.meetings.filter((r) => scoped(r) && matchQuery(r) && statusFilter(r));
+    const monthRows = base.filter(inMonth).sort((x, y) => String(y.scheduled_at || '').localeCompare(String(x.scheduled_at || '')));
+    const allRows = base.slice().sort((x, y) => (M.isOpen(x.status) ? 0 : 1) - (M.isOpen(y.status) ? 0 : 1) || String(y.scheduled_at || '').localeCompare(String(x.scheduled_at || '')));
+    const columns = [
       { key: 'topic', label: 'Reunião / pauta', required: true, render: (r) => `<button class="t4-row-link" data-action="meeting-detail" data-id="${a(r.id)}">${e(r.topic || r.title)}</button><span class="t4-cell-secondary">${e(employerOf(r))}</span>` },
       { key: 'scheduled_at', label: 'Data', render: (r) => e(U.formatDate(r.scheduled_at, true)) }, { key: 'week_label', label: 'Semana' },
       { key: 'decision_summary', label: 'O que foi decidido', render: (r) => `<span class="t4-clamp-3">${e(r.decision_summary || '—')}</span>` },
       { key: 'pending_items', label: 'Pendências', render: (r) => `<span class="t4-clamp-3">${e(r.pending_items || '—')}</span>` }, { key: 'next_action', label: 'Próxima ação' }, { key: 'owner_name', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }
-    ] });
+    ];
+    const monthTable = W.table({ id: 'meetings-month', rows: monthRows, columns, empty: `Nenhuma reunião registrada em ${monthLabel(selectedMonth)}.` });
+    const allTable = W.table({ id: 'meetings-all', rows: allRows, columns, empty: 'Nenhuma reunião registrada ainda.' });
+    return `<div class="org-workspace">${meetingsMonthStepper()}${toolbar(state.meetings, { noMonth: true })}${W.section('Histórico do mês', monthTable, can('meetings') ? W.button('Nova reunião', 'new-meeting', '', { className: 'primary sm', icon: 'plus' }) : '', `Todas as reuniões de ${monthLabel(selectedMonth)}, em qualquer situação.`)}${W.section('Histórico completo', allTable, '', 'Todos os registros de sempre: em andamento primeiro e, depois, do mais recente para o mais antigo.')}</div>`;
   }
   function meetingDetail(row) {
     if (!row) return;
@@ -444,7 +465,7 @@
   }
   function editMeeting(row) {
     if (!D.canEdit()) return meetingDetail(row);
-    return W.recordForm({ title: row ? 'Editar reunião' : 'Nova reunião', table: D.TABLES.meetings, row: row || { employer_id: firstValue(state.employer), month_ref: firstValue(state.month) || M.today().slice(0, 7), status: 'A fazer', owner_name: D.profile.nome }, fields: [
+    return W.recordForm({ title: row ? 'Editar reunião' : 'Nova reunião', table: D.TABLES.meetings, row: row || { employer_id: firstValue(state.employer), month_ref: state.meetingsMonth || M.today().slice(0, 7), status: 'A fazer', owner_name: D.profile.nome }, fields: [
       { name: 'title', label: 'Título da reunião', required: true, wide: true }, ...employerFields(), { name: 'scheduled_at', label: 'Data e hora', type: 'datetime-local' }, { name: 'month_ref', label: 'Mês de referência', type: 'month' }, { name: 'week_label', label: 'Semana' }, { name: 'owner_name', label: 'Responsável' }, { name: 'status', label: 'Situação', type: 'select', options: PLAN_STATUS, required: true, placeholder: null },
       ...R.fields([['topic', 'Pauta', 'textarea'], ['decision_summary', 'O que foi decidido', 'textarea'], ['resolved_items', 'Itens resolvidos', 'textarea'], ['pending_items', 'Pendências', 'textarea'], ['next_action', 'Próxima ação', 'textarea'], ['notes', 'Observações', 'textarea']])
     ], prepare(v, c) { snapshotEmployer(v, c, row); if (!row || 'employer_id' in c) { v.meeting_scope = v.employer_id ? 'employer' : 'internal'; v.group_name = v.employer_id ? null : 'Talents 4'; if (row) Object.assign(c, { meeting_scope: v.meeting_scope, group_name: v.group_name }); } if (!row) v.deleted_at = null; }, after: load });
@@ -521,9 +542,9 @@
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
-    if (name === 'planning-month-prev' || name === 'planning-month-next' || name === 'planning-month-today' || name === 'operations-month-prev' || name === 'operations-month-next' || name === 'operations-month-today') {
-      const planning = name.startsWith('planning-'), key = planning ? 'planningMonth' : 'operationsMonth', current = M.today().slice(0, 7);
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.meetingsMonth = M.today().slice(0, 7); state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'planning-month-prev' || name === 'planning-month-next' || name === 'planning-month-today' || name === 'operations-month-prev' || name === 'operations-month-next' || name === 'operations-month-today' || name === 'meetings-month-prev' || name === 'meetings-month-next' || name === 'meetings-month-today') {
+      const key = name.startsWith('planning-') ? 'planningMonth' : name.startsWith('operations-') ? 'operationsMonth' : 'meetingsMonth', current = M.today().slice(0, 7);
       state[key] = name.endsWith('-today') ? current : shiftMonth(state[key] || current, name.endsWith('-prev') ? -1 : 1);
       render(); return;
     }
@@ -540,6 +561,7 @@
     if (name === 'new-plan') return editPlan();
     if (name === 'meeting-detail') return meetingDetail(W.find(state.meetings, id));
     if (name === 'edit-meeting') return editMeeting(W.find(state.meetings, id));
+    if (name === 'new-meeting') return editMeeting();
     if (name === 'meeting-task') { const m = W.find(state.meetings, id); return editTask(null, { title: m.next_action || m.pending_items || m.title, description: m.decision_summary, meeting_id: m.id, employer_id: m.employer_id, owner_user_key: m.owner_name }); }
     if (name === 'edit-task') return editTask(W.find(state.tasks, id));
     if (name === 'finish-task') return finishTask(W.find(state.tasks, id));

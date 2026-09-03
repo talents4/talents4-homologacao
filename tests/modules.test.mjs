@@ -33,7 +33,7 @@ test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar'
 test('filtro de períodos destaca o mês atual e escala por ano', async () => {
   const h = makeHarness();
   h.fixture.db.organizational_meetings.push({ ...h.fixture.db.organizational_meetings[0], id: h.id(1008), month_ref: '2027-01', topic: 'Reunião de janeiro de 2027' });
-  await h.load('organization'); h.app.route('meetings');
+  await h.load('organization'); h.app.route('summary');
   const html = h.html();
   assert.match(html, /t4-period-filter/);
   assert.match(html, /Mês atual/);
@@ -42,9 +42,6 @@ test('filtro de períodos destaca o mês atual e escala por ano', async () => {
   assert.match(html, /data-period-year="2027"/);
   assert.match(html, /Janeiro de 2027/);
   assert.ok(html.indexOf('Mês atual') < html.indexOf('Janeiro de 2027'));
-  h.filter('month', '2027-01');
-  assert.match(h.html(), /Reunião de janeiro de 2027/);
-  assert.doesNotMatch(h.html(), /Prioridades da semana/);
   h.app.route('operations');
   assert.match(h.html(), /MÊS DE EXECUÇÃO/);
   assert.match(h.html(), /Setembro de 2026/);
@@ -55,6 +52,38 @@ test('filtro de períodos destaca o mês atual e escala por ano', async () => {
   h.app.route('planning');
   assert.match(h.html(), /data-action="planning-month-prev"/);
   assert.match(h.html(), /Setembro de 2026/);
+});
+test('reuniões e decisões usa o mesmo padrão de mês do PO, com histórico do mês e histórico completo', async () => {
+  const h = makeHarness();
+  h.fixture.db.organizational_meetings.push({ ...h.fixture.db.organizational_meetings[0], id: h.id(1008), month_ref: '2027-01', topic: 'Reunião de janeiro de 2027', status: 'Concluído' });
+  await h.load('organization'); h.app.route('meetings');
+  const html = h.html();
+  // Mesmo padrão do PO: stepper de mês dedicado, não o filtro genérico de "Períodos".
+  assert.doesNotMatch(html, /t4-period-filter/);
+  assert.match(html, /MÊS DE REFERÊNCIA/);
+  assert.match(html, /data-action="meetings-month-prev"/);
+  assert.match(html, /Setembro de 2026/);
+  assert.match(html, /Histórico do mês/);
+  assert.match(html, /Histórico completo/);
+  // Setembro (mês atual): só a reunião de setembro aparece no histórico do mês;
+  // a de janeiro de 2027 só aparece no histórico completo (todos os meses).
+  assert.ok(html.indexOf('Histórico do mês') < html.indexOf('Histórico completo'));
+  const monthSection = html.slice(html.indexOf('Histórico do mês'), html.indexOf('Histórico completo'));
+  assert.match(monthSection, /Prioridades da semana/);
+  assert.doesNotMatch(monthSection, /Reunião de janeiro de 2027/);
+  const allSection = html.slice(html.indexOf('Histórico completo'));
+  assert.match(allSection, /Reunião de janeiro de 2027/);
+  assert.match(allSection, /Prioridades da semana/);
+  // Avançar 4 meses (out/nov/dez/jan) leva o histórico do mês para janeiro de 2027.
+  for (let i = 0; i < 4; i++) await h.action('meetings-month-next');
+  const jan = h.html();
+  assert.match(jan, /Janeiro de 2027/);
+  const janMonthSection = jan.slice(jan.indexOf('Histórico do mês'), jan.indexOf('Histórico completo'));
+  assert.match(janMonthSection, /Reunião de janeiro de 2027/);
+  assert.doesNotMatch(janMonthSection, /Prioridades da semana/);
+  await h.action('meetings-month-today');
+  assert.match(h.html(), /Setembro de 2026/);
+  assert.equal(h.fixture.writes.length, 0);
 });
 test('planejamento separa o que falta fazer do histórico do mês', async () => {
   const h = makeHarness();
