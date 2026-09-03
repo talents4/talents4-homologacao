@@ -141,6 +141,7 @@ check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collap
 check(core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('document.body.classList.toggle(\'t4-sidebar-collapsed\', sidebarCollapsed)'), 'sidebar preserva a preferência visual entre módulos');
 check(v25CSS.includes('.t4-table td.t4-selection-cell:first-child') && v25CSS.includes('max-width: 42px'), 'coluna de seleção não ocupa a largura da primeira coluna');
 check(v25CSS.includes('.t4-multi-options input[type="checkbox"]') && v25CSS.includes('.t4-sr-only'), 'filtro mantém busca larga e oculta apenas o rótulo auxiliar');
+check(v25CSS.includes('width: min(360px, calc(100vw - 32px))') && v25CSS.includes('text-overflow: ellipsis'), 'popover de filtro limita a largura e preserva nomes longos');
 const organizationCode = read('assets/organization-v2.js');
 check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
 check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
