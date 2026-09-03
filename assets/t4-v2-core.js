@@ -81,6 +81,14 @@
     const body = ICONS[name] || ICONS.note;
     return `<span class="${attr(className)}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg></span>`;
   }
+  // Ilustração da tela vazia: uma lista com linhas tracejadas (o conteúdo
+  // que ainda não apareceu) sob uma lupa (o filtro/busca não encontrou
+  // nada) — desenho próprio, no mesmo traço fino dos ícones acima (sem
+  // preenchimento, stroke 1.8), não um recorte de biblioteca de
+  // ilustração externa. Fica maior que um ícone comum de propósito, para
+  // realmente ler como uma ilustração, não um glifo perdido no meio da
+  // tela.
+  const EMPTY_ILLUSTRATION = '<svg viewBox="0 0 64 64" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="12" y="9" width="28" height="36" rx="4"/><path d="M19 20h14M19 27h14M19 34h8" stroke-dasharray="2 4"/><circle cx="43" cy="41" r="9"/><path d="m50 48 6 6"/></svg>';
 
   function normalize(value) {
     return String(value ?? '')
@@ -163,7 +171,7 @@
     const actionHtml = actionLabel
       ? `<button type="button" class="t4-btn primary" data-action="${attr(action)}">${icon('plus')}${esc(actionLabel)}</button>`
       : '';
-    return `<div class="t4-empty"><div><span class="t4-empty-icon">${icon('search')}</span><strong>${esc(title)}</strong><p>${esc(copy)}</p>${actionHtml}</div></div>`;
+    return `<div class="t4-empty"><div><span class="t4-empty-icon">${EMPTY_ILLUSTRATION}</span><strong>${esc(title)}</strong><p>${esc(copy)}</p>${actionHtml}</div></div>`;
   }
 
   function pageHead(title, copy, actions = '') {

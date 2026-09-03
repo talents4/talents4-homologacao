@@ -1004,11 +1004,11 @@ body {
    centralizado, sem nenhum contorno — difícil de distinguir de um bug de
    carregamento. Borda tracejada é o sinal visual padrão de "espaço vazio
    de propósito, não erro" em qualquer produto de referência (Linear,
-   Notion, Airtable — ver docs/design/REFERENCIAS_UIUX.md); ícone maior
-   com fundo suave em vez do quadradinho apertado de antes. */
+   Notion, Airtable — ver docs/design/REFERENCIAS_UIUX.md); ilustração
+   (lista + lupa, ver EMPTY_ILLUSTRATION) em vez de um glifo solto de
+   busca, para realmente ler como "nada aqui ainda", não um erro. */
 .t4-empty { border: 1.5px dashed var(--t4-line-strong, #cbd5e1); border-radius: var(--t4-radius-lg, 16px); background: var(--t4-surface-sunken, #f8fafc); }
-.t4-empty-icon { width: 52px; height: 52px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
-.t4-empty-icon .t4-icon { width: 22px; height: 22px; flex-basis: 22px; }
+.t4-empty-icon { width: 68px; height: 68px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
 
 /* V2.6.1 · consistência de densidade e leitura. Mantém os alvos de toque
    acessíveis, mas remove alturas decorativas que empurravam a informação
