@@ -10,7 +10,7 @@
     { id: 'calendar', label: 'Agenda', subtitle: 'Planejamento, reuniões e tarefas com data definida.', icon: 'calendar' },
     { id: 'planning', label: 'Planejamento mensal', subtitle: 'Um mês por vez, o que precisa de atenção primeiro.', icon: 'list', primary: false },
     { id: 'meetings', label: 'Reuniões e decisões', subtitle: 'Pauta, decisões, pendências e próximos passos.', icon: 'people', primary: false },
-    { id: 'operations', label: 'PO operacional', subtitle: 'Fila de trabalho e histórico do mês.', icon: 'activity', primary: false },
+    { id: 'operations', label: 'PO operacional', subtitle: 'Atividades abertas e histórico completo.', icon: 'activity', primary: false },
     { id: 'summary', label: 'Resumo geral', subtitle: 'Leitura consolidada das atividades e do histórico.', icon: 'history', primary: false },
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
@@ -268,15 +268,15 @@
   function operationsView() {
     const today = M.today(), currentMonth = periodKey(today), selectedMonth = state.operationsMonth || currentMonth;
     const inMonth = (r, month) => { const explicit = periodKey(r.month_ref); return explicit ? explicit === month : rowPeriodKeys(r).includes(month); };
-    const allTasks = state.tasks.filter((r) => scoped(r) && inMonth(r, selectedMonth) && (values(state.status).length ? matches(r.status, state.status) : true) && matchQuery(r));
+    const scopedTasks = state.tasks.filter((r) => scoped(r) && matchQuery(r));
+    const monthTasks = scopedTasks.filter((r) => inMonth(r, selectedMonth));
+    const allTasks = monthTasks.filter((r) => values(state.status).length ? matches(r.status, state.status) : true);
     const priorityRank = { critica: 0, alta: 1, media: 2, normal: 2, baixa: 3 };
     const dueOf = (r) => M.dateOnly(r.due_date);
     const isHigh = (r) => /alta|crit/i.test(M.norm(r.priority));
     const isUnassigned = (r) => !String(r.owner_user_key || r.assigned_user_key || '').trim();
     const isOverdue = (r) => M.overdue(dueOf(r), r.status);
     const isToday = (r) => M.isOpen(r.status) && dueOf(r) === today;
-    const isDone = (r) => /^(pronto|conclu)/.test(M.norm(r.status));
-    const completedDateOf = (r) => M.dateOnly(r.completed_at) || dueOf(r);
     const priorityClass = (r) => { const priority = M.norm(r.priority); return /crit/.test(priority) ? 'priority-critical' : /alta/.test(priority) ? 'priority-high' : /baixa/.test(priority) ? 'priority-low' : 'priority-medium'; };
     const deadlineClass = (r) => isOverdue(r) ? 'is-overdue' : isToday(r) ? 'is-today' : dueOf(r) ? 'is-scheduled' : 'is-no-date';
     const deadlineLabel = (r) => isOverdue(r) ? `Vencida · ${U.formatDate(dueOf(r))}` : isToday(r) ? `Hoje · ${U.formatDate(dueOf(r))}` : dueOf(r) ? `Prazo · ${U.formatDate(dueOf(r))}` : 'Sem prazo definido';
@@ -285,33 +285,37 @@
     const matchesFocus = (r) => focus === 'all' || (M.isOpen(r.status) && ({ overdue: isOverdue(r), today: isToday(r), high: isHigh(r), unassigned: isUnassigned(r) }[focus] || false));
     const tasks = allTasks.filter(matchesFocus).sort(taskSort);
     const readyTasks = tasks.filter((r) => M.isOpen(r.status));
-    const completedInMonth = state.tasks.filter((r) => scoped(r) && inMonth(r, selectedMonth) && isDone(r) && matchQuery(r)).sort((left, right) => String(completedDateOf(right) || '0000').localeCompare(String(completedDateOf(left) || '0000')) || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR'));
+    const historyMomentOf = (r) => String(r.completed_at || r.updated_at || r.created_at || r.due_date || r.month_ref || '');
+    const historyDateOf = (r) => M.dateOnly(r.completed_at) || M.dateOnly(r.updated_at) || M.dateOnly(r.created_at) || M.dateOnly(r.due_date) || M.dateOnly(r.month_ref);
+    const historySort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true }) || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR');
+    const historyRows = [...scopedTasks].sort(historySort);
     const open = allTasks.filter((r) => M.isOpen(r.status)).length, overdue = allTasks.filter(isOverdue).length, todayCount = allTasks.filter(isToday).length, high = allTasks.filter((r) => M.isOpen(r.status) && isHigh(r)).length, unassigned = allTasks.filter((r) => M.isOpen(r.status) && isUnassigned(r)).length;
     const taskCount = (bucket) => ({ overdue, today: todayCount, high, unassigned }[bucket] ?? 0);
     const display = ['activities', 'all'].includes(state.operationsDisplay) ? state.operationsDisplay : 'activities';
     const focusBar = `<div class="org-focus-bar org-operations-focus-bar"><div class="org-focus-group"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'activities', label: 'Atividades', count: open, icon: 'activity' }, { id: 'all', label: 'Todos', count: allTasks.length, icon: 'list' }], display, 'operations-display')}</div><div class="org-focus-group"><span class="org-focus-label">Filtrar</span>${W.chips([{ id: 'all', label: 'Todas', count: allTasks.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: taskCount('overdue'), icon: 'warning' }, { id: 'today', label: 'Para hoje', count: taskCount('today'), icon: 'calendar' }, { id: 'high', label: 'Alta prioridade', count: taskCount('high'), icon: 'activity' }, { id: 'unassigned', label: 'Sem responsável', count: taskCount('unassigned'), icon: 'people' }], focus, 'operations-focus')}</div></div>`;
     const readyCards = readyTasks.map((r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${isOverdue(r) ? 'is-overdue' : ''} ${priorityClass(r)}" data-ready-task="${a(r.id)}" data-priority="${a(M.norm(r.priority || 'normal'))}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : M.norm(r.priority) === 'media' ? 'warning' : '')}<span class="org-ready-card-deadline ${deadlineClass(r)}">${U.icon('calendar')}${e(deadlineLabel(r))}</span></div><h3><button type="button" class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), r.owner_user_key || r.assigned_user_key || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.description || r.notes || 'Sem descrição registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div></footer></article>`).join('');
-    const readyBody = readyCards || U.emptyState('Nenhuma tarefa em aberto', focus === 'all' ? 'As tarefas concluídas continuam disponíveis na lista completa.' : 'Remova o recorte para conferir as demais tarefas abertas.');
+    const readyBody = readyCards || U.emptyState('Nenhuma tarefa em aberto', focus === 'all' ? 'O histórico completo fica abaixo.' : 'Remova o recorte para conferir as demais tarefas abertas.');
     const taskActions = (r) => `<div class="t4-chip-row">${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div>`;
     const taskTable = W.table({ id: 'tasks', rows: tasks, columns: [
       { key: 'title', label: 'Tarefa / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || r.notes || 'Sem descrição ou resultado registrado.')}</span>` },
       { key: 'due_date', label: 'Prazo', render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : dueOf(r) === today && M.isOpen(r.status) ? U.badge('Hoje', 'warning') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(M.norm(r.priority)) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: taskActions }
     ] });
-    const completedTable = W.table({ id: 'completed-tasks', rows: completedInMonth, empty: 'Nenhuma tarefa concluída neste mês.', columns: [
-      { key: 'title', label: 'Tarefa concluída', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-2">${e(r.description || r.notes || 'Sem descrição registrada.')}</span>` },
-      { key: 'completed_at', label: 'Concluída em', value: completedDateOf, render: (r) => e(completedDateOf(r) ? U.formatDate(completedDateOf(r)) : 'Data não registrada') },
+    const historyTable = W.table({ id: 'operations-history', rows: historyRows, pageSize: 20, empty: 'Nenhuma atividade registrada neste histórico.', columns: [
+      { key: 'title', label: 'Atividade / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-2">${e(r.description || r.notes || 'Sem descrição registrada.')}</span>` },
+      { key: 'history_date', label: 'Mais recente em', value: historyDateOf, render: (r) => e(historyDateOf(r) ? U.formatDate(historyDateOf(r)) : 'Data não registrada') },
       { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : M.norm(r.priority) === 'media' ? 'warning' : '') },
+      { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
       { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') },
       { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) },
-      { key: 'notes', label: 'Resultado / observação', render: (r) => `<span class="t4-clamp-3">${e(r.notes || '—')}</span>` },
+      { key: 'notes', label: 'Resultado / observação', render: (r) => `<span class="t4-clamp-3">${e(r.notes || r.description || '—')}</span>` },
       { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'task') }
     ] });
-    const readyPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">ATIVIDADES EM ABERTO</span><h2>Cartões de prontidão</h2><p>Comece pelas prioridades mais altas e pelos prazos mais próximos.</p></div><strong class="org-panel-count">${readyTasks.length} abertas</strong></div><div class="t4-panel-body"><div class="org-ready-list">${readyBody}</div></div></section>`;
+    const readyPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">ATIVIDADES EM ABERTO</span><h2>Atividades do mês</h2><p>Pendências abertas de ${e(monthLabel(selectedMonth))}, ordenadas por prioridade e prazo.</p></div><strong class="org-panel-count">${readyTasks.length} abertas</strong></div><div class="t4-panel-body"><div class="org-ready-list">${readyBody}</div></div></section>`;
     const listTitle = focus === 'all' ? 'Lista completa' : 'Lista filtrada';
-    const listSubtitle = focus === 'all' ? 'Todos os registros deste recorte; tarefas abertas primeiro e, depois, por prioridade.' : 'Registros do filtro atual, ordenados por status aberto e prioridade.';
+    const listSubtitle = focus === 'all' ? 'Todos os registros de ${monthLabel(selectedMonth)}; tarefas abertas primeiro e, depois, por prioridade.' : 'Registros do filtro atual, ordenados por status aberto e prioridade.';
     const listPanel = `<section class="t4-panel org-all-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONSULTAR HISTÓRICO</span><h2>${listTitle}</h2><p>${e(listSubtitle)}</p></div><strong class="org-panel-count">${tasks.length} registros</strong></div><div class="t4-panel-body">${taskTable}</div></section>`;
     const surface = display === 'activities' ? readyPanel : listPanel;
-    const historyPanel = `<section class="t4-panel org-completed-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">HISTÓRICO DO MÊS</span><h2>Histórico do mês</h2><p>O que já foi concluído em ${e(monthLabel(selectedMonth))}. Este histórico fica separado da fila de execução.</p></div><strong class="org-panel-count">${completedInMonth.length} registro${completedInMonth.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body">${completedTable}</div></section>`;
+    const historyPanel = `<section class="t4-panel org-history-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">HISTÓRICO COMPLETO</span><h2>Histórico completo</h2><p>Todas as atividades deste recorte, sem limitar ao período acima: abertas primeiro; depois, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${historyRows.length} registro${historyRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body">${historyTable}</div></section>`;
     return `<div class="org-workspace org-operations-view">${operationsMonthStepper()}${focusBar}${toolbar(allTasks, { noMonth: true })}${surface}${historyPanel}</div>`;
   }
   function summaryView() {

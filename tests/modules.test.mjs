@@ -155,7 +155,7 @@ test('rótulos legados são traduzidos somente na apresentação', async () => {
 });
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
-  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Histórico do mês']]) {
+  for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Histórico completo']]) {
     h.app.route(view); assert.match(h.html(), new RegExp(text));
   }
   h.app.route('summary'); h.filter('status', 'Concluído'); assert.match(h.html(), /Revisão de perfis/);
@@ -190,7 +190,29 @@ test('filtro de status das tarefas não oculta o histórico concluído do mês',
   h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa concluída no mês', status: 'Pronto', completed_at: '2026-09-01', due_date: '2026-09-01' });
   await h.load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
   assert.match(h.html(), /Tarefa concluída no mês/);
+  assert.match(h.html(), /Histórico completo/);
   assert.doesNotMatch(h.html(), /Métricas do período/);
+});
+test('PO separa atividades do mês do histórico completo paginado', async () => {
+  const h = makeHarness();
+  const base = h.fixture.db.operational_tasks[0];
+  h.fixture.db.operational_tasks.push({ ...base, id: h.id(1007), title: 'Tarefa aberta de outro mês', month_ref: '2026-08', updated_at: '2026-08-20T10:00:00Z', due_date: '2026-08-25' });
+  h.fixture.db.operational_tasks.push(...Array.from({ length: 21 }, (_, i) => ({ ...base, id: h.id(1100 + i), title: `Histórico concluído ${i + 1}`, status: 'Pronto', month_ref: '2026-08', completed_at: `2026-08-${String(21 - (i % 10)).padStart(2, '0')}T10:00:00Z`, updated_at: `2026-08-${String(21 - (i % 10)).padStart(2, '0')}T10:00:00Z`, due_date: `2026-08-${String(21 - (i % 10)).padStart(2, '0')}` })));
+  await h.load('organization'); h.app.route('operations');
+  const html = h.html(), historyStart = html.indexOf('Histórico completo');
+  assert.match(html, /Atividades do mês/);
+  assert.doesNotMatch(html, /Cartões de prontidão/);
+  assert.match(html, /data-table="operations-history"/);
+  assert.match(html, /Página 1 de 2/);
+  assert.ok(historyStart > html.indexOf('Atividades do mês'));
+  assert.ok(html.indexOf('Tarefa aberta de outro mês', historyStart) >= 0);
+  assert.ok(html.indexOf('Tarefa aberta de outro mês', historyStart) < html.indexOf('Histórico concluído 1', historyStart));
+
+  await h.action('operations-month-prev');
+  const augustHtml = h.html(), augustHistoryStart = augustHtml.indexOf('Histórico completo');
+  assert.match(augustHtml, /Agosto de 2026/);
+  assert.ok(augustHtml.indexOf('Tarefa aberta de outro mês') < augustHistoryStart);
+  assert.match(augustHtml, /data-table="operations-history"/);
 });
 test('PO operacional alterna entre atividades em cartões e lista completa', async () => {
   const h = makeHarness();
@@ -199,7 +221,7 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   const html = h.html();
   assert.match(html, /data-action="operations-display" data-id="activities"[^>]*aria-pressed="true"/);
   assert.match(html, /data-action="operations-display" data-id="all"[^>]*aria-pressed="false"/);
-  assert.match(html, /Cartões de prontidão/);
+  assert.match(html, /Atividades do mês/);
   assert.match(html, /org-ready-card-deadline/);
   assert.doesNotMatch(html, /org-ready-summary/);
   assert.doesNotMatch(html, /Métricas do período/);
@@ -218,7 +240,7 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.ok(listStartAfterSwitch >= 0);
   assert.ok(listHtml.indexOf('Preparar pauta das entrevistas', listStartAfterSwitch) < listHtml.indexOf('Tarefa já concluída', listStartAfterSwitch));
   assert.match(listHtml, /Concluir/);
-  assert.ok(listHtml.indexOf('<h2>Histórico do mês') > listHtml.indexOf('Lista completa'));
+  assert.ok(listHtml.indexOf('<h2>Histórico completo') > listHtml.indexOf('Lista completa'));
 
   await h.action('operations-display', 'activities');
   await h.action('finish-task', h.id(1005));

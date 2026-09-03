@@ -1287,8 +1287,8 @@ body {
 .org-all-tasks-panel .t4-panel-body { padding-top: 9px; }
 .org-all-tasks-panel .t4-grid-tools { margin-bottom: 7px; }
 .org-all-tasks-panel .t4-table { min-width: 900px; }
-.org-completed-panel .t4-panel-body { padding-top: 9px; }
-.org-completed-panel .t4-table { min-width: 900px; }
+.org-history-panel .t4-panel-body { padding-top: 9px; }
+.org-history-panel .t4-table { min-width: 900px; }
 
 /* O período é um filtro temporal, não uma lista infinita de códigos. O mês
    atual ganha uma âncora própria; o restante pode crescer por ano sem
