@@ -18,7 +18,7 @@ function walk(dir) {
 }
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
-const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPABASE_AUDITORIA.md',
+const required = [...Object.keys(pages), 'README.md',
   'assets/t4-tokens.css', 'assets/t4-components.css', 'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
@@ -27,7 +27,6 @@ const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPAB
   'assets/t4-v24.js','assets/t4-v24.css',
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
   'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs','tests/import-data.test.mjs','tests/export-roundtrip.test.mjs',
-  'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
   'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql','supabase/talents-v22/40_harden_anon_grants.sql',
   'docs/mapeamento/CONTRATO_PLANILHAS.md','docs/mapeamento/CLASSIFICACAO_EMPRESAS.md','docs/mapeamento/MAPEAMENTO_SUPABASE.md','docs/mapeamento/IMPORTACAO_SQL.md','docs/mapeamento/EXPORTACAO.md',
   'supabase/talents-v22/import-planilhas/00_preflight.sql','supabase/talents-v22/import-planilhas/01_schema_additive.sql','supabase/talents-v22/import-planilhas/02_create_staging.sql',
@@ -150,8 +149,8 @@ check(talentsV25.includes('A seleção não altera etapas') && importExport.incl
 check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbook.includes('pageBreaks'), 'leitor e escritor local preservam abas, congelamento e quebra de página');
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
-check(read('TALENTOS_V2_5.md').includes('Supabase') && read('MANUAL_TALENTOS_V2_5.md').includes('Lista NectaNet') && read('PASSO_A_PASSO_TALENTOS_V2_5.md').includes('talents4/talents4-homologacao'), 'documentação V2.5 cobre produto, uso e upload');
-check(read('SUPABASE_AUDITORIA.md').includes('30_frontend_schema_audit.sql') && /não execute[\s`*]+10_additive\.sql/i.test(read('SUPABASE_AUDITORIA.md')), 'auditoria do Supabase tem roteiro seguro e explícito');
+check(read('docs/design/ARQUITETURA_FRONTEND.md').includes('Supabase') && read('docs/mapeamento/MAPEAMENTO_SUPABASE.md').includes('Lista Nectanet') && read('README.md').includes('docs/'), 'documentação atual cobre arquitetura, mapeamento e ponto de entrada (README)');
+check(read('docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md').includes('30_frontend_schema_audit.sql') && read('docs/mapeamento/IMPORTACAO_SQL.md').includes('00_preflight.sql'), 'auditoria do Supabase tem roteiro seguro e explícito');
 check(read('manual-talentos.html').includes('./index.html?view=manual') && !/<script\b/i.test(read('manual-talentos.html')), 'endereço antigo do manual redireciona sem código legado');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-v25.css') && read(file).includes('t4-v25.js'), `${file}: camada V2.5 compartilhada presente`);
