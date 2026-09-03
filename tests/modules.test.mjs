@@ -112,18 +112,32 @@ test('filtro de status das tarefas não oculta métricas mensais sem status pró
   const h = await makeHarness().load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
   assert.match(h.html(), /Entrevistas preparadas/);
 });
-test('PO operacional abre prontidão em cartões e lista todos por status e prioridade', async () => {
+test('PO operacional alterna entre atividades em cartões e lista completa', async () => {
   const h = makeHarness();
   h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa já concluída', status: 'Pronto', priority: 'Crítica', completed_at: '2026-08-31T12:00:00Z', due_date: '2026-08-31' });
   await h.load('organization'); h.app.route('operations');
   const html = h.html();
-  assert.ok(html.indexOf('Cartões de prontidão') < html.indexOf('Lista completa'));
+  assert.match(html, /data-action="operations-display" data-id="activities"[^>]*aria-pressed="true"/);
+  assert.match(html, /data-action="operations-display" data-id="all"[^>]*aria-pressed="false"/);
+  assert.match(html, /Cartões de prontidão/);
+  assert.doesNotMatch(html, /Lista completa/);
   assert.equal((html.match(/data-ready-task=/g) || []).length, 1);
+  assert.doesNotMatch(html, /data-table="tasks"/);
+
+  await h.action('operations-display', 'all');
+  const listHtml = h.html();
+  assert.match(listHtml, /data-action="operations-display" data-id="all"[^>]*aria-pressed="true"/);
+  assert.match(listHtml, /Lista completa/);
+  assert.doesNotMatch(listHtml, /data-ready-task=/);
   const listStart = html.indexOf('data-table="tasks"');
-  assert.ok(listStart >= 0);
-  assert.ok(html.indexOf('Preparar pauta das entrevistas', listStart) < html.indexOf('Tarefa já concluída', listStart));
-  assert.match(html, /Concluir/);
-  assert.ok(html.indexOf('<h2>Métricas do período') > html.indexOf('Lista completa'));
+  const listStartAfterSwitch = listHtml.indexOf('data-table="tasks"');
+  assert.equal(listStart, -1);
+  assert.ok(listStartAfterSwitch >= 0);
+  assert.ok(listHtml.indexOf('Preparar pauta das entrevistas', listStartAfterSwitch) < listHtml.indexOf('Tarefa já concluída', listStartAfterSwitch));
+  assert.match(listHtml, /Concluir/);
+  assert.ok(listHtml.indexOf('<h2>Métricas do período') > listHtml.indexOf('Lista completa'));
+
+  await h.action('operations-display', 'activities');
   await h.action('finish-task', h.id(1005));
   assert.equal(h.fixture.writes.at(-1).table, 'operational_tasks');
   assert.equal(h.fixture.writes.at(-1).payload.status, 'Pronto');
