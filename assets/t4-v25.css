@@ -833,6 +833,13 @@ body {
    "Mais espaços" fica oculto quando recolhido (evita um submenu flutuante
    novo); os 5 espaços dele continuam a um clique ao expandir de novo. Não
    se aplica a telas ≤1000px, que já usam o menu deslizante próprio. */
+/* O tooltip de cada item da lateral (t4-components.css) só faz sentido
+   quando o rótulo ao lado do ícone está escondido (menu recolhido) — com
+   o texto já visível, o tooltip é redundante e, como os itens ficam
+   próximos verticalmente, aparece sobreposto ao item vizinho ao passar o
+   mouse. Desligado por padrão; a regra dentro de @media (min-width:1001px)
+   abaixo liga de volta só no estado realmente recolhido, onde o texto some. */
+.t4-sidebar [data-tooltip]::after { content: none; }
 .t4-sidebar-collapse-toggle { display: flex; align-items: center; gap: 10px; width: calc(100% - 24px); margin: 0 12px 10px; padding: 9px 11px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #7c8ba0; font-size: 11px; font-weight: 650; cursor: pointer; }
 .t4-sidebar-collapse-toggle:hover { background: #f0f5f9; color: var(--v25-ink); }
 .t4-sidebar-collapse-toggle .t4-collapse-icon { transition: transform .15s ease; }
@@ -860,6 +867,7 @@ body {
   .t4-sidebar-collapsed .t4-brand-row { gap: 0; }
   .t4-sidebar-collapsed .t4-brand-name { display: none; }
   .t4-sidebar-collapsed .t4-user { grid-template-columns: 1fr; justify-items: center; gap: 6px; padding: 10px 4px; }
+  .t4-sidebar-collapsed .t4-sidebar [data-tooltip]::after { content: attr(data-tooltip); }
 }
 
 /* Marca compacta: ícone pequeno + texto real (nunca palavra dentro de

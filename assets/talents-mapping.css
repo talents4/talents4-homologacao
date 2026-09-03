@@ -47,24 +47,58 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
 .tw-sheet-grid .t4-data-grid { border:0; border-radius:0; }
 .tw-sheet-grid .t4-grid-tools { padding:.7rem 1rem; background:white; }
 .tw-sheet-grid .t4-table-wrap { max-height:65vh; overflow:auto; scrollbar-color:#a1b3c2 #eff4f8; scrollbar-width:auto; }
-.tw-sheet-grid .t4-table { table-layout:auto; width:max-content; min-width:100%; }
-.tw-sheet-grid .t4-table th { position:sticky; top:0; background:#edf3f8; color:#274860; z-index:3; font-size:.875rem; line-height:1.45; white-space:normal; padding:.9rem; border-bottom:1px solid #cddde8; min-width:9rem; max-width:17rem; }
+/* table-layout:fixed (não auto) é o que faz a largura das colunas (abaixo)
+   valer de verdade: em "auto", o navegador ignora max-width de uma célula
+   sempre que o conteúdo em uma só linha (nowrap) precisar de mais espaço —
+   é por isso que a truncagem de `.tw-cell-text` só passou a reduzir a
+   largura real da tabela depois desta troca, não só a declarar em CSS. */
+.tw-sheet-grid .t4-table { table-layout:fixed; width:auto; min-width:100%; }
+.tw-sheet-grid .t4-table th { position:sticky; top:0; width:11rem; background:#edf3f8; color:#274860; z-index:3; font-size:.875rem; line-height:1.45; white-space:normal; padding:.9rem; border-bottom:1px solid #cddde8; }
 .tw-sheet-grid .t4-table th button { font-size:inherit; white-space:normal; line-height:1.4; text-align:left; }
-.tw-sheet-grid .t4-table td { font-size:.875rem; line-height:1.55; padding:.65rem .85rem; vertical-align:top; min-width:9rem; max-width:24rem; border-bottom:1px solid #edf1f5; }
-.tw-sheet-grid .t4-table th:first-child,.tw-sheet-grid .t4-table td:first-child { position:sticky; left:0; min-width:15rem; max-width:19rem; z-index:2; box-shadow:1px 0 #dbe5ed; background:#fff; }
+/* Reforço: além de truncar cada tipo de conteúdo individualmente (abaixo),
+   uma altura máxima no próprio <td> é a garantia final de que nenhuma
+   célula — inclusive um tipo de conteúdo não previsto aqui — deixa a
+   linha mais alta que as vizinhas e reabre o vazamento atrás do cabeçalho. */
+.tw-sheet-grid .t4-table td { font-size:.875rem; line-height:1.55; padding:.65rem .85rem; vertical-align:middle; border-bottom:1px solid #edf1f5; overflow:hidden; max-height:2.85rem; }
+/* A coluna "Nome" usa o componente genérico W.person() (nome + subtítulo),
+   que em outras telas tem espaço de sobra para o subtítulo quebrar em duas
+   linhas — mas nesta grade densa a coluna é estreita e o mesmo motivo do
+   comentário acima (altura de linha inconsistente colidindo com o
+   cabeçalho fixo) se aplica igual. Trunca só aqui, não no componente geral. */
+.tw-sheet-grid .t4-table .t4-inline-person { min-width:0; }
+.tw-sheet-grid .t4-table .t4-inline-person-copy small { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tw-sheet-grid .t4-table .tw-link-cell { flex-wrap:nowrap; overflow:hidden; }
+/* .t4-badge (t4-v2.css) é `white-space:normal` de propósito em outras telas
+   (cartões, onde quebrar é aceitável) — mas numa coluna estreita da grade
+   densa isso quebrava "Não informado" sílaba por sílaba, empilhado na
+   vertical, e essa é a real causa da linha ficar muito mais alta que as
+   vizinhas (achado de auditoria visual, não hipótese). */
+.tw-sheet-grid .t4-table .t4-badge { white-space:nowrap; max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+.tw-sheet-grid .t4-table th:first-child,.tw-sheet-grid .t4-table td:first-child { position:sticky; left:0; width:13rem; z-index:2; box-shadow:1px 0 #dbe5ed; background:#fff; }
 .tw-sheet-grid .t4-table th:first-child { background:#edf3f8; z-index:5; }
 .tw-sheet-grid .t4-table tbody tr:hover td { background:#f7fafc; }
-.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table th:first-child,.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table td:first-child { min-width:8rem; max-width:8rem; width:8rem; }
-.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table th:nth-child(2),.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table td:nth-child(2) { position:sticky; left:8rem; min-width:16rem; max-width:18rem; background:#fff; z-index:2; box-shadow:1px 0 #dbe5ed; }
+.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table th:first-child,.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table td:first-child { width:7rem; }
+.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table th:nth-child(2),.tw-sheet-grid[data-tw-sheet="presentation"] .t4-table td:nth-child(2) { position:sticky; left:7rem; width:15rem; background:#fff; z-index:2; box-shadow:1px 0 #dbe5ed; }
 .tw-sheet-grid[data-tw-sheet="presentation"] .t4-table th:nth-child(2) { background:#edf3f8; z-index:5; }
-.tw-sheet-grid .t4-table .tw-col-fit_reasons,.tw-sheet-grid .t4-table .tw-col-barriers,.tw-sheet-grid .t4-table .tw-col-perfil_profissional_para_apresentacao,.tw-sheet-grid .t4-table .tw-col-observacao_apresentacao { min-width:22rem; }
-.tw-sheet-grid .t4-table .tw-col-professional_score,.tw-sheet-grid .t4-table .tw-col-current_viability_score,.tw-sheet-grid .t4-table .tw-col-projected_b1_score { min-width:10rem; }
-.tw-cell-edit,.tw-cell-value { display:flex; gap:.7rem; align-items:flex-start; text-align:left; width:100%; max-width:23rem; color:inherit; font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
+.tw-sheet-grid .t4-table .tw-col-fit_reasons,.tw-sheet-grid .t4-table .tw-col-barriers,.tw-sheet-grid .t4-table .tw-col-perfil_profissional_para_apresentacao,.tw-sheet-grid .t4-table .tw-col-observacao_apresentacao { width:16rem; }
+.tw-sheet-grid .t4-table .tw-col-professional_score,.tw-sheet-grid .t4-table .tw-col-current_viability_score,.tw-sheet-grid .t4-table .tw-col-projected_b1_score { width:9rem; }
+/* Célula de uma linha só, com reticências no que não couber (clique/toque
+   sempre abre a edição com o valor completo — nunca perde informação, só
+   não a repete quebrada em várias linhas). Isso existe porque uma coluna
+   com texto longo, ao quebrar linha, deixava a altura da linha da tabela
+   diferente das vizinhas — e o cabeçalho fixo (position: sticky) não cobre
+   direito uma linha mais alta que as outras ao rolar, deixando um pedaço
+   dela visível colado no cabeçalho (achado de auditoria visual). Colunas
+   que precisam mesmo de texto livre completo usam `.tw-multiline` (abaixo),
+   um opt-in explícito, não o padrão. */
+.tw-cell-edit,.tw-cell-value { display:flex; gap:.7rem; align-items:center; text-align:left; width:100%; max-width:23rem; color:inherit; font:inherit; }
+.tw-cell-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1 1 auto; }
 .tw-cell-edit { background:transparent; border:1px solid transparent; border-radius:.35rem; cursor:pointer; padding:.15rem; }
 .tw-cell-edit:hover { background:white; border-color:#c4d6e4; }
-.tw-cell-edit > svg { width:.85rem; height:.85rem; opacity:.3; margin-left:auto; flex-shrink:0; margin-top:.25rem; }
+.tw-cell-edit > svg { width:.85rem; height:.85rem; opacity:.3; margin-left:auto; flex-shrink:0; }
 .tw-cell-edit:hover > svg,.tw-cell-edit:focus-visible > svg { opacity:1; }
-.tw-cell-value small,.tw-cell-edit small { display:block; color:#6c7e8e; }
+.tw-cell-value small,.tw-cell-edit small { color:#6c7e8e; }
+.tw-cell-value small::before,.tw-cell-edit small::before { content:" · "; }
 .tw-multiline { white-space:pre-wrap; min-width:13rem; max-width:24rem; overflow-wrap:anywhere; }
 .tw-link-cell { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; }
 .tw-score { display:grid; grid-template-columns:auto 1fr; gap:.2rem; width:6rem; color:var(--tw-ink); }
