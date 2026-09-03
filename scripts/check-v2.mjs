@@ -81,6 +81,10 @@ for (const [name, module] of Object.entries(pages)) {
     const ui = scriptRefs.findIndex((r) => r.endsWith('t4-v2-ui.js'));
     const records = scriptRefs.findIndex((r) => r.endsWith('t4-v2-records.js'));
     check(core >= 0 && core < models && models < data && data < ui && ui < records, `${file}: dependências compartilhadas na ordem correta`);
+    const modern = scriptRefs.findIndex((r) => r.endsWith('t4-modern.js'));
+    const v24 = scriptRefs.findIndex((r) => r.endsWith('t4-v24.js'));
+    const v25 = scriptRefs.findIndex((r) => r.endsWith('t4-v25.js'));
+    check(records >= 0 && records < modern && modern < v24 && v24 < v25, `${file}: camadas modernas carregam depois do núcleo compartilhado`);
     check(/href="(?:\.\/|\.\.\/)assets\/t4-v2.css"/.test(html), `${file}: mesmo design system`);
     check(html.includes('Content-Security-Policy') && html.includes("object-src 'none'"), `${file}: política de conteúdo`);
     if (demo) {
@@ -100,6 +104,8 @@ check(mappingCSS.includes(':focus-visible') && mappingCSS.includes('prefers-redu
 for (const file of Object.keys(pages)) check(core.includes(`href: './${file}'`), `switch ${file} presente no componente único`);
 check((core.match(/class="t4-switch-item/g) || []).length === 1, 'quatro switches gerados por um único componente');
 check(core.includes('aria-current') && core.includes('t4-skip'), 'navegação identifica a página e oferece atalho ao conteúdo');
+check(core.includes('data-search-clear') && core.includes("search.addEventListener('search'") && core.includes('dispatchSearch'), 'busca possui limpeza explícita e sincroniza o estado ao apagar');
+check(core.includes('Pronto para apresentação') && core.includes('Apresentado ao empregador'), 'rótulos legados são traduzidos na interface');
 check(core.includes('dataset.saving') && core.includes('dataset.dirty'), 'formulário protege alterações não salvas e gravação em andamento');
 for (const color of ['#002a4a', '#dcd0c3', '#d50c2f', '#e63121', '#f07f00', '#fbb900', '#1e1349']) check(css.toLowerCase().includes(color), `paleta da marca contém ${color}`);
 check(css.includes('@media (max-width: 1000px)') && css.includes('@media (max-width: 680px)'), 'adaptação a telas menores');
@@ -114,10 +120,12 @@ for (const [pattern, label] of [
   [/drive\.googleapis\.com|accounts\.google\.com\/gsi/i, 'API de Drive / OAuth Google'],
   [/\bSheetJS\b|\bMammoth\b/i, 'bibliotecas de importação legadas'],
   [/\bclient_secret\b|\bservice_role\b|BEGIN PRIVATE KEY|ghp_[A-Za-z0-9]+/i, 'segredo administrativo'],
-  [/\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
+  [/\blocalStorage\b|\bindexedDB\b/, 'cache persistente de dados de negócio'],
   [/fetch\s*\(\s*['"]https?:\/\//i, 'chamada direta a serviço externo'],
   [/\.rpc\(/, 'execução de procedimento de banco pelo frontend']
 ]) check(!pattern.test(front), `ausência de ${label}`);
+const sessionStorageFiles = [...new Set(required.filter((file) => /^(assets\/|[^/]+\.html$)/.test(file) && /\bsessionStorage\b/.test(read(file))))];
+check(sessionStorageFiles.length === 0 || (sessionStorageFiles.length === 1 && sessionStorageFiles[0] === 'assets/t4-v2-core.js' && core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('readSidebarCollapsed') && core.includes('writeSidebarCollapsed')), 'armazenamento de sessão limitado à preferência visual da sidebar');
 check(!front.includes('10_additive.sql') && !front.includes('supabase/migrations'), 'interface não aplica SQL automaticamente; campos novos exigem pré-checagem separada');
 const data = read('assets/t4-v2-data.js');
 const modern = read('assets/t4-modern.js'), modernCSS = read('assets/t4-modern.css');
@@ -129,15 +137,29 @@ check(v24.includes('t4-table tbody tr') && v24.includes('trigger.click'), 'workb
 check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24CSS.includes('v24-command-list'), 'workbench V2.4 possui superfícies macOS e ações rápidas');
 check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
 const v25 = read('assets/t4-v25.js'), v25CSS = read('assets/t4-v25.css');
+check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collapsed') && v25CSS.includes('body.t4-sidebar-collapsed { --v25-sidebar: 76px; }'), 'menu lateral possui recolhimento funcional compatível com a largura visual V2.5');
+check(core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('document.body.classList.toggle(\'t4-sidebar-collapsed\', sidebarCollapsed)'), 'sidebar preserva a preferência visual entre módulos');
+check(core.includes('aria-label="Mais espaços"') && v25CSS.includes('t4-nav-more[open] > div'), 'Mais espaços permanece acessível como flyout no menu recolhido');
+check(v25CSS.includes('.t4-table td.t4-selection-cell:first-child') && v25CSS.includes('max-width: 42px'), 'coluna de seleção não ocupa a largura da primeira coluna');
+check(v25CSS.includes('.t4-multi-options input[type="checkbox"]') && v25CSS.includes('.t4-sr-only'), 'filtro mantém busca larga e oculta apenas o rótulo auxiliar');
+check(v25CSS.includes('width: min(360px, calc(100vw - 32px))') && v25CSS.includes('text-overflow: ellipsis'), 'popover de filtro limita a largura e preserva nomes longos');
+const organizationCode = read('assets/organization-v2.js');
+check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
+check(organizationCode.includes("defaultView: 'employers'") && organizationCode.includes("employerClassification: 'partner'") && organizationCode.includes("employerDisplay: 'cards'"), 'Organizacional abre em Empregadores, parceiras e cartões');
+check(organizationCode.includes('planning-focus') && organizationCode.includes('operations-focus') && organizationCode.includes('org-priority-panel') && organizationCode.includes("W.section('Métricas do período'"), 'Planejamento e PO organizam prioridade, fila e métricas');
+check(organizationCode.includes('org-ready-card') && organizationCode.includes('Lista completa') && organizationCode.includes('M.isOpen(r.status)') && v25CSS.includes('.org-operations-split') && v25CSS.includes('.org-ready-list'), 'PO abre cartões de prontidão ao lado da lista completa');
+check(!front.match(/\bW\.badge\s*\(/), 'nenhuma tela chama um componente W.badge inexistente');
 check(v25.includes('T4V25') && v25.includes('bindPopovers') && v25.includes('focusMainOnRoute'), 'camada V2.5 compartilha popovers e foco de rota');
 check(v25CSS.includes('--v25-canvas') && v25CSS.includes('backdrop-filter') && !v25CSS.includes('t4-window-controls') && v25CSS.includes('v25-archive-callout'), 'camada V2.5 possui materiais macOS, blur e arquivo separado, sem controles decorativos');
 check(v25CSS.includes('color-mix') && v25CSS.includes('prefers-reduced-motion') && v25CSS.includes('@supports not (backdrop-filter'), 'camada V2.5 possui cor de empregador, fallback e movimento reduzido');
 const workUI = read('assets/t4-v2-ui.js'), coreShell = read('assets/t4-v2-core.js');
 check(workUI.includes('multiFilter') && workUI.includes('data-multi-filter') && workUI.includes('multiOpenKey') && workUI.includes('data-multi-filter-search'), 'filtro múltiplo compartilhado mantém menu aberto e pesquisa opções');
+check(workUI.includes('searchableSelect') && workUI.includes('bindSearchableSelects') && workUI.includes('data-select-search'), 'seletores longos oferecem busca sem trocar o controle nativo');
 check(v25CSS.includes('background: #fff !important') && v25CSS.includes('z-index: 1001') && v25CSS.includes('@media (prefers-contrast: more)'), 'popovers têm camada opaca, contraste reforçado e empilhamento seguro');
 check(files.includes('assets/talents4-logo.png') && files.includes('assets/talents4-mark.png'), 'logo oficial Talents 4 (lockup completo e marca compacta extraída dele) está no pacote');
 check(coreShell.includes('t4-brand-mark') && coreShell.includes('talents4-mark.png') && coreShell.includes('t4-brand-name') && !coreShell.includes('t4-window-controls'), 'marca compacta (ícone pequeno + texto real, não palavra dentro de imagem) é renderizada sem controles decorativos no shell compartilhado');
-const talentsV25 = read('assets/talents-v2.js'), organizationV25 = read('assets/organization-v2.js'), contactsV25 = read('assets/contacts-v2.js'), germanV25 = read('assets/german-v2.js');
+const talentsV25 = read('assets/talents-v2.js'), mappingUI = read('assets/talents-mapping-ui.js'), organizationV25 = read('assets/organization-v2.js'), contactsV25 = read('assets/contacts-v2.js'), germanV25 = read('assets/german-v2.js');
+check(talentsV25.includes('bindSearchableSelects') && mappingUI.includes('data-filter="mappingTalent"'), 'seleção de Talento também possui busca quando a lista é longa');
 check(talentsV25.includes("selectionScope: 'active'") && talentsV25.includes('talentListTable') && talentsV25.includes('Liberado para apresentação'), 'Talentos inicia na fila ativa e possui lista analítica');
 check(organizationV25.includes("employerScope: 'active'") && organizationV25.includes('org-opportunities') && organizationV25.includes("const workViews = () => ''"), 'Organizacional separa lista, oportunidades e navegação oficial');
 check(contactsV25.includes("followupScope: 'open'") && contactsV25.includes("W.multiFilter('category'") && contactsV25.includes("label: 'Arquivo'"), 'Contatos inicia no ativo e usa filtros múltiplos');
@@ -145,9 +167,10 @@ check(germanV25.includes("classScope: 'active'") && germanV25.includes("studentS
 check(!organizationV25.includes('T4V24.savedViews') && !talentsV25.includes('T4V24.savedViews'), 'navegação lateral não duplica a antiga barra de visões');
 const importExport = read('assets/t4-import-export.js'), workbook = read('assets/t4-workbook.js');
 check(importExport.includes('buildNectaWorkbook') && importExport.includes('buildMappingWorkbook') && importExport.includes('exportFiles') && !importExport.includes('Confirmar importação') && !importExport.includes('data-data-import'), 'tela de exportação gera os dois modelos oficiais e não expõe fluxo de importação de planilha');
-check(talentsV25.includes('A seleção não altera etapas') && importExport.includes('source.mapping.radar'), 'importação respeita seleção manual e preserva o radar');
+check((talentsV25.includes('não muda a etapa') || talentsV25.includes('não altera etapas')) && importExport.includes('source.mapping.radar'), 'exportação respeita seleção manual e preserva o radar');
 check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbook.includes('pageBreaks'), 'leitor e escritor local preservam abas, congelamento e quebra de página');
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
+check(talentsV25.includes('archivedSearchNotice') && talentsV25.includes('também no arquivo') && talentsV25.includes('Selecione ao menos um Talento'), 'arquivo e exportação deixam estados ambíguos explícitos');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
 check(read('docs/design/ARQUITETURA_FRONTEND.md').includes('Supabase') && read('docs/mapeamento/MAPEAMENTO_SUPABASE.md').includes('Lista Nectanet') && read('README.md').includes('docs/'), 'documentação atual cobre arquitetura, mapeamento e ponto de entrada (README)');
 check(read('docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md').includes('30_frontend_schema_audit.sql') && read('docs/mapeamento/IMPORTACAO_SQL.md').includes('00_preflight.sql'), 'auditoria do Supabase tem roteiro seguro e explícito');

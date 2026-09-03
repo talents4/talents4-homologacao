@@ -14,8 +14,8 @@
     { id: 'summary', label: 'Resumo geral', subtitle: 'Leitura consolidada das atividades e do histórico.', icon: 'history', primary: false },
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
-  const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'overview' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerDisplay: 'list', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), planningMonth: M.today().slice(0, 7), loaded: false, archive: null };
+  const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'employers' });
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -105,23 +105,34 @@
   }
   function employersView() {
     const scope = state.employerScope || 'active';
+    const classification = state.employerClassification || 'all';
+    const employerPriority = (row) => {
+      if (R.employerClassificationMatches(row, 'partner')) return 0;
+      if (R.employerClassificationMatches(row, 'nectanet')) return 1;
+      if (R.employerClassificationMatches(row, 'general')) return 2;
+      if (R.employerClassificationMatches(row, 'external')) return 3;
+      return 4;
+    };
     const rows = state.employers.filter((r) => {
       const isActive = M.activeRecord(r);
       if (scope === 'active' && !isActive) return false;
       if (scope === 'archived' && isActive) return false;
-      return matches(r.id, state.employer) && matches(r.status || 'Ativo', state.status) && matchQuery(r);
-    });
+      return matches(r.id, state.employer) && matches(r.status || 'Ativo', state.status) && R.employerClassificationMatches(r, classification) && matchQuery(r);
+    }).sort((left, right) => employerPriority(left) - employerPriority(right) || M.norm(left.nome).localeCompare(M.norm(right.nome), 'pt-BR'));
     const scopeCount = (id) => id === 'active' ? state.employers.filter((r) => M.activeRecord(r)).length : id === 'archived' ? state.employers.filter((r) => !M.activeRecord(r)).length : state.employers.length;
     const scopeBar = W.chips([{ id: 'active', label: 'Ativos', count: scopeCount('active'), icon: 'building' }, { id: 'all', label: 'Todos os registros', count: scopeCount('all'), icon: 'list' }, { id: 'archived', label: 'Arquivo', count: scopeCount('archived'), icon: 'archive' }], scope, 'employer-scope');
+    const classificationOptions = [{ id: 'partner', label: 'Parceiras diretas', icon: 'check' }, { id: 'nectanet', label: 'Apresentadas pela NectaNet', icon: 'arrow' }, { id: 'general', label: 'Empresas gerais', icon: 'building' }, { id: 'pending', label: 'Parceria a confirmar', icon: 'warning' }, { id: 'all', label: 'Todos', icon: 'list' }];
+    const classificationCount = (id) => state.employers.filter((r) => (scope === 'active' ? M.activeRecord(r) : scope === 'archived' ? !M.activeRecord(r) : true) && R.employerClassificationMatches(r, id)).length;
+    const classificationBar = `<div class="v25-classification-filter"><div><strong>Tipo de relação</strong><span>Parceira, origem do contato ou empresa geral.</span></div>${W.chips(classificationOptions.map((item) => ({ ...item, count: item.id === 'all' ? scopeCount(scope === 'active' ? 'active' : scope === 'archived' ? 'archived' : 'all') : classificationCount(item.id) })), classification, 'employer-classification')}</div>`;
     const displayBar = W.chips([{ id: 'cards', label: 'Cartões', icon: 'grid' }, { id: 'list', label: 'Lista', icon: 'list' }], state.employerDisplay, 'employer-display');
-    const helper = scope === 'active' ? 'A fila operacional mostra somente empregadores ativos. O arquivo fica disponível quando você precisar consultar histórico.' : scope === 'archived' ? 'Registros inativos ou arquivados ficam isolados aqui; não entram na fila operacional.' : 'Todos os registros, inclusive os arquivados. Use esta visão para auditoria, não para a operação diária.';
+    const classificationHelp = 'Parceira direta = confirmação manual. Apresentada pela NectaNet = origem do contato. Empresa geral = sem parceria confirmada.';
     const list = W.table({ id: 'employers', rows, columns: [
       { key: 'nome', label: 'Empregador', required: true, render: (r) => { const color = window.T4Modern?.color(r) || '#7890a4'; return `<div class="v25-employer-cell" style="--employer-color:${a(color)}"><i></i>${W.person(r.nome, r.area_atuacao || '', '', 'employer-detail', r.id)}</div>`; } },
       { key: 'cidade', label: 'Cidade' }, { key: 'contato_principal', label: 'Contato principal' }, { key: 'email_principal', label: 'E-mail' }, { key: 'responsavel_interno', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(M.activeRecord(r) ? (r.status || 'Ativo') : 'Arquivado') },
       { key: 'classification', label: 'Classificação', sort: false, render: (r) => R.employerClassificationHtml(r) },
       { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'employer') }
     ] });
-    return workViews('employers') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">RELACIONAMENTO COM EMPRESAS</span><h2>Uma empresa por vez, contexto sempre visível.</h2><p>${e(helper)}</p></div><span class="v25-result-count">${rows.length} registro${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
+    return workViews('employers') + scopeBar + classificationBar + `<p class="v25-classification-help">${e(classificationHelp)}</p>` + toolbar(state.employers, { noMonth: true }) + displayBar + (state.employerDisplay === 'cards' ? employerCards(rows) : list);
   }
   // Dias corridos desde o início registrado — é isto que responde "o que
   // está aberto há mais tempo", sem precisar de uma coluna nova no banco.
@@ -131,42 +142,18 @@
     if (Number.isNaN(start.getTime())) return null;
     return Math.max(0, Math.round((Date.now() - start.getTime()) / 86400000));
   }
-  // "Prioridade" não é um campo do banco nesta tabela — inventar um valor
-  // manual duplicaria a situação/prazo que já existem. Em vez disso, a
-  // urgência é calculada a partir do que já é real: prazo vencido, sinal
-  // explícito de bloqueio, ou já iniciado — nessa ordem de atenção.
-  const PLANNING_BUCKETS = [
-    { id: 'late', label: 'Atrasado', tone: 'danger', hint: 'O prazo final já passou e a atividade continua aberta.' },
-    { id: 'blocked', label: 'Bloqueado', tone: 'warning', hint: 'A equipe sinalizou um impedimento — precisa de decisão.' },
-    { id: 'progress', label: 'Em andamento', tone: 'info', hint: 'Já começou, dentro do prazo.' },
-    { id: 'todo', label: 'A fazer', tone: '', hint: 'Ainda não iniciada.' }
-  ];
-  function planningBucket(row) {
-    if (M.overdue(row.end_date, row.status)) return 'late';
-    if (M.norm(row.status) === M.norm('Bloqueado')) return 'blocked';
-    if (M.norm(row.status) === M.norm('Em andamento')) return 'progress';
-    return 'todo';
-  }
   function planningAgingCell(row) {
-    if (row._days == null) return '<span class="t4-muted">Sem data de início</span>';
-    const label = row._days === 0 ? 'Iniciado hoje' : `há ${row._days} dia${row._days === 1 ? '' : 's'}`;
-    return row._days >= 21 ? U.badge(label, 'danger') : row._days >= 10 ? U.badge(label, 'warning') : e(label);
-  }
-  function planningTable(rows, bucketId) {
-    return W.table({ id: `planning-${bucketId}`, rows, groupBy: employerOf, columns: [
-      { key: 'activity_label', label: 'Atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button>` },
-      { key: 'aging', label: 'Há quanto tempo', value: (r) => r._days ?? -1, render: planningAgingCell },
-      { key: 'end_date', label: 'Prazo', render: (r) => `${e(U.formatDate(r.end_date))}${M.overdue(r.end_date, r.status) ? U.badge('Vencido', 'danger') : ''}` },
-      { key: 'responsavel', label: 'Responsável' },
-      { key: 'obs', label: 'Observação / próxima ação', render: (r) => `<span class="t4-clamp-3">${e(r.obs || '—')}</span>` },
-      { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
-    ] });
+    const days = planningDaysOpen(row);
+    if (days == null) return '<span class="t4-muted">Sem data de início</span>';
+    const label = days === 0 ? 'Iniciado hoje' : `há ${days} dia${days === 1 ? '' : 's'}`;
+    return days >= 21 ? U.badge(label, 'danger') : days >= 10 ? U.badge(label, 'warning') : e(label);
   }
   // Filtro próprio do Planejamento mensal: sempre um mês por vez, nunca
-  // "todos os períodos" misturados (o pedido explícito era "sempre mostrar
-  // o mês atual"). Deliberadamente não usa o `state.month` genérico
-  // compartilhado com Reuniões/PO/Resumo — um valor só de mês não pode
-  // significar coisas diferentes em telas diferentes ao mesmo tempo.
+  // "todos os períodos" misturados (pedido explícito: "sempre mostrar o mês
+  // atual"). Deliberadamente não usa o `state.month` genérico compartilhado
+  // com Reuniões/PO/Resumo — um valor só de mês não pode significar coisas
+  // diferentes em telas diferentes ao mesmo tempo (achado ao integrar esta
+  // tela com o resto do módulo: um teste existente pegou esse vazamento).
   function planningRows() {
     return state.plans.filter((r) => scoped(r) && String(r.month_ref) === state.planningMonth && (values(state.status).length ? matches(r.status, state.status) : !closedStatus(r.status)) && matchQuery(r));
   }
@@ -175,17 +162,40 @@
     return `<div class="t4-calendar-heading"><div>${W.button('Anterior', 'planning-month-prev', '', { className: 'sm' })}<h2>${e(monthLabel(state.planningMonth))}</h2>${W.button('Próximo', 'planning-month-next', '', { className: 'sm' })}</div>${isCurrent ? '' : W.button('Mês atual', 'planning-month-today', '', { className: 'sm primary' })}</div>`;
   }
   function planningView() {
-    const rows = planningRows().map((r) => ({ ...r, _days: planningDaysOpen(r) }))
-      .sort((x, y) => (y._days ?? -1) - (x._days ?? -1) || employerOf(x).localeCompare(employerOf(y), 'pt-BR'));
-    const byBucket = new Map(PLANNING_BUCKETS.map((b) => [b.id, rows.filter((r) => planningBucket(r) === b.id)]));
-    const sections = PLANNING_BUCKETS.map((b) => {
-      const items = byBucket.get(b.id);
-      return items.length ? W.section(`${b.label} · ${items.length}`, planningTable(items, b.id), '', b.hint) : '';
-    }).join('');
-    return `<div class="v25-page-intro"><div><span class="mx-eyebrow">PLANEJAMENTO MENSAL</span><h2>Um mês por vez, o que precisa de atenção primeiro</h2><p>Atrasado e bloqueado aparecem antes de "a fazer" — a ordem não é mais alfabética por empregador.</p></div><span class="v25-result-count">${rows.length} atividade${rows.length === 1 ? '' : 's'}</span></div>`
-      + planningMonthStepper()
-      + toolbar(state.plans, { noMonth: true })
-      + (rows.length ? sections : U.emptyState(`Nada planejado em ${monthLabel(state.planningMonth)}`, 'Crie uma atividade mensal ou navegue para outro mês acima.'));
+    const baseRows = planningRows();
+    const dueOf = (r) => M.dateOnly(r.end_date || r.start_date);
+    const daysUntil = (date) => { if (!date) return null; const start = new Date(`${M.today()}T12:00:00`), end = new Date(`${date}T12:00:00`); return Number.isNaN(end.getTime()) ? null : Math.round((end - start) / 86400000); };
+    // "Prioridade" não é um campo do banco nesta tabela — inventar um valor
+    // manual duplicaria a situação/prazo que já existem. A urgência é
+    // calculada a partir do que já é real: prazo vencido, bloqueio
+    // explícito, prazo próximo, ou sem data — nessa ordem de atenção.
+    const bucketOf = (r) => {
+      const due = dueOf(r);
+      if (M.overdue(due, r.status)) return 'overdue';
+      if (M.norm(r.status) === M.norm('Bloqueado')) return 'blocked';
+      if (!due) return 'no-date';
+      return daysUntil(due) <= 7 ? 'next' : 'scheduled';
+    };
+    const bucketRank = { overdue: 0, blocked: 1, next: 2, scheduled: 3, 'no-date': 4 };
+    const sortRows = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || bucketRank[bucketOf(left)] - bucketRank[bucketOf(right)] || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999')) || (Number(left.order_index) || 0) - (Number(right.order_index) || 0) || M.norm(left.activity_label).localeCompare(M.norm(right.activity_label), 'pt-BR');
+    const focus = ['all', 'overdue', 'blocked', 'next', 'scheduled', 'no-date'].includes(state.planningFocus) ? state.planningFocus : 'all';
+    const rows = baseRows.filter((r) => focus === 'all' || bucketOf(r) === focus).sort(sortRows);
+    const open = baseRows.filter((r) => M.isOpen(r.status)).length;
+    const next = baseRows.filter((r) => M.isOpen(r.status)).sort(sortRows)[0];
+    const count = (bucket) => baseRows.filter((r) => bucketOf(r) === bucket).length;
+    const label = { overdue: 'Vencida', blocked: 'Bloqueada', next: 'Próximos 7 dias', scheduled: 'Programada', 'no-date': 'Sem prazo' };
+    const tone = { overdue: 'danger', blocked: 'warning', next: 'warning', scheduled: 'info', 'no-date': '' };
+    const priority = (r) => U.badge(label[bucketOf(r)], tone[bucketOf(r)]);
+    const priorityPanel = `<section class="org-priority-panel org-planning-priority"><div class="org-priority-main"><span class="org-priority-eyebrow">PRÓXIMA PRIORIDADE</span><strong>${e(next?.activity_label || 'Nenhuma atividade aberta neste recorte')}</strong>${next ? `<p>${e([employerOf(next), dueOf(next) ? `até ${U.formatDate(dueOf(next))}` : 'sem prazo', next.responsavel || 'sem responsável'].join(' · '))}</p><span class="org-priority-note">${e(next.obs || 'Abra a atividade para registrar o próximo passo.')}</span>` : `<p>Nada planejado em ${e(monthLabel(state.planningMonth))} — crie uma atividade ou navegue para outro mês.</p>`}</div><div class="org-priority-stats"><span><b>${open}</b><small>em aberto</small></span><span class="risk"><b>${count('overdue')}</b><small>vencidas</small></span><span class="risk"><b>${count('blocked')}</b><small>bloqueadas</small></span><span><b>${count('next')}</b><small>próximos 7 dias</small></span></div><div class="org-priority-action">${next ? W.button('Abrir atividade', 'edit-plan', next.id, { className: 'primary sm', icon: 'arrow' }) : ''}</div></section>`;
+    const focusBar = `<div class="org-focus-bar"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'all', label: 'Todas', count: baseRows.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: count('overdue'), icon: 'warning' }, { id: 'blocked', label: 'Bloqueadas', count: count('blocked'), icon: 'warning' }, { id: 'next', label: 'Próximos 7 dias', count: count('next'), icon: 'calendar' }, { id: 'scheduled', label: 'Programadas', count: count('scheduled'), icon: 'clock' }, { id: 'no-date', label: 'Sem prazo', count: count('no-date'), icon: 'note' }], focus, 'planning-focus')}</div>`;
+    const table = W.table({ id: 'planning', rows, groupBy: employerOf, columns: [
+      { key: 'priority', label: 'Prioridade', sort: false, render: priority },
+      { key: 'activity_label', label: 'Atividade', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label)}</button><span class="t4-cell-secondary t4-clamp-2">${e(r.obs || 'Sem observação')}</span>` },
+      { key: 'aging', label: 'Há quanto tempo', value: (r) => planningDaysOpen(r) ?? -1, render: planningAgingCell },
+      { key: 'end_date', label: 'Entrega', value: dueOf, render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : ''}` },
+      { key: 'responsavel', label: 'Responsável', render: (r) => e(r.responsavel || 'Sem responsável') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'plan') }
+    ] });
+    return `<div class="org-workspace org-planning-view">${planningMonthStepper()}${priorityPanel}${focusBar}${toolbar(state.plans, { noMonth: true })}${W.section('Fila do mês', table, can('plans') ? W.button('Nova atividade', 'new-plan', '', { className: 'primary sm', icon: 'plus' }) : '', 'Ordenada pelo que precisa de atenção primeiro.')}</div>`;
   }
   function meetingsView() {
     return toolbar(state.meetings) + W.table({ id: 'meetings', rows: filtered(state.meetings, 'scheduled_at').sort((x, y) => String(y.scheduled_at).localeCompare(String(x.scheduled_at))), columns: [
@@ -202,15 +212,37 @@
       body: `<div class="t4-detail-grid">${U.field('Semana', row.week_label)}${U.field('Responsável', row.owner_name)}${U.field('Situação', row.status)}${U.field('Escopo', row.meeting_scope)}</div>${[['Decisões', row.decision_summary], ['Itens resolvidos', row.resolved_items], ['Pendências', row.pending_items], ['Próxima ação', row.next_action], ['Observações', row.notes]].map(([label, value]) => W.section(label, `<p class="t4-preserve">${e(value || 'Não informado')}</p>`)).join('')}` });
   }
   function operationsView() {
-    const tasks = filtered(state.tasks), metrics = state.metrics.filter((r) => (!state.month || r.month_ref === state.month) && matchQuery(r));
-    return toolbar(state.tasks) + `<div class="t4-kpi-grid">${U.kpi('Tarefas no recorte', tasks.length, 'Histórico incluído')}${U.kpi('Em aberto', tasks.filter((r) => M.isOpen(r.status)).length, 'Ações da equipe')}${U.kpi('Vencidas', tasks.filter((r) => M.overdue(r.due_date, r.status)).length, 'Prazos a revisar', 'warn')}${U.kpi('Concluídas', tasks.filter((r) => /pronto|conclu/i.test(r.status)).length, 'Entregas registradas', 'good')}</div>` +
-      W.section('Métricas do período', W.table({ id: 'metrics', rows: metrics, columns: [
-        { key: 'metric_label', label: 'Métrica', required: true }, { key: 'month_ref', label: 'Mês' }, { key: 'target_value', label: 'Meta' }, { key: 'actual_value', label: 'Realizado' }, { key: 'owner_user_key', label: 'Responsável' }, { key: 'notes', label: 'Leitura / contexto' }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'metric') }
-      ] }), can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '') +
-      W.section('Tarefas operacionais', W.table({ id: 'tasks', rows: tasks, columns: [
-        { key: 'title', label: 'Tarefa', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title)}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || '')}</span>` },
-        { key: 'due_date', label: 'Prazo', render: (r) => e(U.formatDate(r.due_date)) }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority, /alta|crit/i.test(r.priority) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || '—') }, { key: 'context_type', label: 'Contexto', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'task') }
-      ] }));
+    const allTasks = state.tasks.filter((r) => scoped(r) && matches(r.month_ref, state.month) && (values(state.status).length ? matches(r.status, state.status) : true) && matchQuery(r));
+    const today = M.today(), metrics = state.metrics.filter((r) => scoped(r) && matches(r.month_ref, state.month) && matchQuery(r));
+    const priorityRank = { critica: 0, alta: 1, media: 2, normal: 2, baixa: 3 };
+    const dueOf = (r) => M.dateOnly(r.due_date);
+    const isHigh = (r) => /alta|crit/i.test(M.norm(r.priority));
+    const isUnassigned = (r) => !String(r.owner_user_key || r.assigned_user_key || '').trim();
+    const isOverdue = (r) => M.overdue(dueOf(r), r.status);
+    const isToday = (r) => M.isOpen(r.status) && dueOf(r) === today;
+    const taskSort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || (priorityRank[M.norm(left.priority)] ?? 9) - (priorityRank[M.norm(right.priority)] ?? 9) || (isOverdue(left) ? 0 : 1) - (isOverdue(right) ? 0 : 1) || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999')) || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR');
+    const focus = ['all', 'overdue', 'today', 'high', 'unassigned'].includes(state.operationsFocus) ? state.operationsFocus : 'all';
+    const matchesFocus = (r) => focus === 'all' || (M.isOpen(r.status) && ({ overdue: isOverdue(r), today: isToday(r), high: isHigh(r), unassigned: isUnassigned(r) }[focus] || false));
+    const tasks = allTasks.filter(matchesFocus).sort(taskSort);
+    const readyTasks = tasks.filter((r) => M.isOpen(r.status));
+    const open = allTasks.filter((r) => M.isOpen(r.status)).length, overdue = allTasks.filter(isOverdue).length, todayCount = allTasks.filter(isToday).length, high = allTasks.filter((r) => M.isOpen(r.status) && isHigh(r)).length, unassigned = allTasks.filter((r) => M.isOpen(r.status) && isUnassigned(r)).length;
+    const taskCount = (bucket) => ({ overdue, today: todayCount, high, unassigned }[bucket] ?? 0);
+    const focusBar = `<div class="org-focus-bar"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'all', label: 'Todas', count: allTasks.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: taskCount('overdue'), icon: 'warning' }, { id: 'today', label: 'Para hoje', count: taskCount('today'), icon: 'calendar' }, { id: 'high', label: 'Alta prioridade', count: taskCount('high'), icon: 'activity' }, { id: 'unassigned', label: 'Sem responsável', count: taskCount('unassigned'), icon: 'people' }], focus, 'operations-focus')}</div>`;
+    const readyCards = readyTasks.map((r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${isOverdue(r) ? 'is-overdue' : ''}" data-ready-task="${a(r.id)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : '')}${isOverdue(r) ? U.badge('Vencida', 'danger') : isToday(r) ? U.badge('Hoje', 'warning') : ''}</div><h3><button type="button" class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), dueOf(r) ? `até ${U.formatDate(dueOf(r))}` : 'sem prazo', r.owner_user_key || r.assigned_user_key || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.description || r.notes || 'Sem descrição registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div></footer></article>`).join('');
+    const readyBody = readyCards || U.emptyState('Nenhuma tarefa em aberto', focus === 'all' ? 'As tarefas concluídas continuam disponíveis na lista completa.' : 'Remova o recorte para conferir as demais tarefas abertas.');
+    const taskActions = (r) => `<div class="t4-chip-row">${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div>`;
+    const taskTable = W.table({ id: 'tasks', rows: tasks, columns: [
+      { key: 'title', label: 'Tarefa / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || r.notes || 'Sem descrição ou resultado registrado.')}</span>` },
+      { key: 'due_date', label: 'Prazo', render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : dueOf(r) === today && M.isOpen(r.status) ? U.badge('Hoje', 'warning') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(M.norm(r.priority)) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', sort: false, render: taskActions }
+    ] });
+    const metricBody = W.table({ id: 'metrics', rows: metrics, columns: [
+      { key: 'metric_label', label: 'Métrica', required: true }, { key: 'month_ref', label: 'Mês' }, { key: 'target_value', label: 'Meta' }, { key: 'actual_value', label: 'Realizado' }, { key: 'owner_user_key', label: 'Responsável' }, { key: 'notes', label: 'Leitura / contexto' }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'metric') }
+    ] });
+    const readyPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">EXECUTAR AGORA</span><h2>Cartões de prontidão</h2><p>${readyTasks.length} tarefa${readyTasks.length === 1 ? '' : 's'} sem status Pronto neste recorte.</p></div><strong class="org-panel-count">${readyTasks.length} abertas</strong></div><div class="t4-panel-body"><div class="org-ready-summary"><span><b>${open}</b> em aberto</span><span class="risk"><b>${overdue}</b> vencidas</span><span><b>${todayCount}</b> para hoje</span><span><b>${high}</b> alta prioridade</span><span><b>${unassigned}</b> sem responsável</span></div><div class="org-ready-list">${readyBody}</div></div></section>`;
+    const listTitle = focus === 'all' ? 'Lista completa' : 'Lista filtrada';
+    const listSubtitle = focus === 'all' ? 'Todos os registros; tarefas abertas primeiro e, depois, por prioridade.' : 'O mesmo recorte dos cartões, ordenado por status aberto e prioridade.';
+    const listPanel = `<section class="t4-panel org-all-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONSULTAR HISTÓRICO</span><h2>${listTitle}</h2><p>${e(listSubtitle)}</p></div><strong class="org-panel-count">${tasks.length} registros</strong></div><div class="t4-panel-body">${taskTable}</div></section>`;
+    return `<div class="org-workspace org-operations-view">${focusBar}${toolbar(allTasks)}<div class="org-operations-split">${readyPanel}${listPanel}</div>${W.section('Métricas do período', metricBody, can('metrics') ? W.button('Nova métrica', 'new-metric', '', { className: 'sm', icon: 'plus' }) : '', 'Resultados do período, separados da execução diária.')}</div>`;
   }
   function summaryView() {
     const manual = state.summaries.map((r) => ({ ...r, title: r.what_was_done, detail: r.result_summary, next: r.next_action, due: r.period_end, owner: r.owner_name, type: 'Resumo manual', action: 'edit-summary' }));
@@ -290,9 +322,9 @@
     const related = (r) => M.same(r.employer_id, id) || (!r.employer_id && M.norm(r.employer_name_snapshot) === M.norm(row.nome));
     U.openDrawer({ title: row.nome, subtitle: [row.area_atuacao, row.cidade, row.pais].filter(Boolean).join(' · '),
       actions: actions(row, 'employer') + W.link('Contatos vinculados', `./contatos.html?employer=${encodeURIComponent(id)}`, 'contact') + (can('openings') ? W.button('Nova vaga', 'new-opening-for', id, { className: 'primary sm', icon: 'plus' }) : ''),
-      body: `${R.employerClassificationHtml(row)}<div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
+      body: `${R.employerClassificationHtml(row)}<p class="v25-classification-help">Parceira Talents 4 exige confirmação direta. A origem “Apresentada pela NectaNet” é informativa e não altera a parceria nem a etapa de nenhuma seleção.</p><div class="t4-detail-grid">${U.field('Responsável', row.responsavel_interno)}${U.field('Situação', row.status)}${U.field('Contato principal', row.contato_principal)}${U.field('E-mail', row.email_principal)}${U.field('Telefone', row.telefone)}${U.field('Alemão mínimo', row.nivel_alemao_minimo)}</div>
         ${W.section('Contexto da parceria', `<p class="t4-preserve">${e(row.descricao_operacional || row.descricao_resumida || 'Não informado')}</p><div class="t4-detail-grid">${U.field('Áreas-foco', row.area_atuacao)}${U.field('Perfis buscados', row.perfis_buscados)}${U.field('Requisitos', row.requisitos_principais)}${U.field('Diferenciais', row.diferenciais_desejaveis)}</div>${W.external('Site / referência', row.site)}`)}
-        ${W.section('Seleções em andamento', R.selectionTable(state, select, 'dossier-selections'))}${closedSelect.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, closedSelect, 'dossier-closed-selections'), W.badge(`${closedSelect.length} preservada(s)`, 'info')) : ''}
+        ${W.section('Seleções em andamento', R.selectionTable(state, select, 'dossier-selections'))}${closedSelect.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, closedSelect, 'dossier-closed-selections'), U.badge(`${closedSelect.length} preservada(s)`, 'info')) : ''}
         ${W.section('Próximas ações e reuniões', eventTable(events().filter(related), 'dossier-events'))}
         ${W.section('Reposições', replacementTable(state.replacements.filter(related)))}
         ${W.section('Observações internas', `<p class="t4-preserve">${e(row.observacoes_internas || 'Não informadas')}</p>`)}
@@ -303,6 +335,17 @@
           'presented_by_nectanet', 'source_channel', 'direct_talents4_partnership', 'partnership_status', 'company_scope', 'classification_confidence', 'classification_source', 'classification_notes'
         ])}` });
   }
+  const EMPLOYER_CLASSIFICATION_EDIT_KEYS = ['company_scope', 'direct_talents4_partnership', 'partnership_status', 'classification_notes'];
+  const employerClassificationSchemaReady = (row = null) => row
+    ? EMPLOYER_CLASSIFICATION_EDIT_KEYS.every((key) => Object.prototype.hasOwnProperty.call(row, key))
+    : state.employers.some((item) => EMPLOYER_CLASSIFICATION_EDIT_KEYS.every((key) => Object.prototype.hasOwnProperty.call(item, key)));
+  const EMPLOYER_CLASSIFICATION_FIELDS = [
+    { section: 'Relacionamento e classificação' },
+    { name: 'company_scope', label: 'Tipo de relação', type: 'select', options: [{ value: 'GENERAL', label: 'Empresa geral' }, { value: 'NECTANET_PRESENTED', label: 'Apresentada pela NectaNet' }, { value: 'TALENTS4_PARTNER', label: 'Parceira Talents 4 · escopo' }, { value: 'EXTERNAL_BW', label: 'Externa · BW' }, { value: 'UNKNOWN', label: 'Não definido' }], help: 'Origem ou escopo comercial; não confirma parceria direta.' },
+    { name: 'direct_talents4_partnership', label: 'Parceria direta Talents 4', type: 'select', options: [{ value: 'UNKNOWN', label: 'Não confirmada' }, { value: 'CONFIRMADA', label: 'Confirmada manualmente' }, { value: 'REJEITADA', label: 'Não é parceira direta' }], help: 'Só “Confirmada manualmente” exibe Parceira Talents 4.' },
+    { name: 'partnership_status', label: 'Situação da parceria', type: 'select', options: [{ value: 'ACTIVE', label: 'Ativa' }, { value: 'PROSPECT', label: 'Em prospecção' }, { value: 'FORMER', label: 'Anterior' }, { value: 'PAUSED', label: 'Pausada' }, { value: 'UNKNOWN', label: 'Não definida' }] },
+    { name: 'classification_notes', label: 'Justificativa / observação da classificação', type: 'textarea', wide: true }
+  ];
   const EMPLOYER_FIELDS = [
     { name: 'nome', label: 'Nome do empregador', required: true, wide: true },
     ...R.fields([['area_atuacao', 'Áreas-foco'], ['subsetor', 'Subsetor'], ['cidade', 'Cidade'], ['pais', 'País'], ['contato_principal', 'Contato principal'], ['email_principal', 'E-mail', 'email'], ['telefone', 'Telefone'], ['site', 'Site / referência', 'url'], ['responsavel_interno', 'Responsável interno'], ['nivel_alemao_minimo', 'Alemão mínimo', 'select', R.LEVELS], ['descricao_resumida', 'Descrição da empresa', 'textarea'], ['descricao_operacional', 'Contexto operacional', 'textarea'], ['perfis_buscados', 'Perfis buscados', 'textarea'], ['requisitos_principais', 'Requisitos', 'textarea'], ['diferenciais_desejaveis', 'Diferenciais desejáveis', 'textarea'], ['observacoes_internas', 'Observações internas', 'textarea']]),
@@ -310,9 +353,13 @@
   ];
   function editEmployer(row) {
     if (!D.canEdit()) return employerDetail(row);
-    return W.recordForm({ title: row ? 'Editar empregador' : 'Novo empregador', table: D.TABLES.employers, row: row || { ativo: true },
-      fields: row ? EMPLOYER_FIELDS.filter((f) => f.name in row) : EMPLOYER_FIELDS.filter((f) => !['subsetor', 'perfis_buscados', 'requisitos_principais', 'diferenciais_desejaveis', 'observacoes_internas'].includes(f.name)),
-      prepare(v, changes) { if (!row) Object.assign(v, { nome_normalizado: M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), tipo: 'empregador', status: 'ativo' }); if ('nome' in changes) changes.nome_normalizado = M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }, after: load });
+    const classificationReady = employerClassificationSchemaReady(row);
+    const classificationFields = EMPLOYER_CLASSIFICATION_FIELDS.map((field) => field.name && !classificationReady ? { ...field, readonly: true, help: 'Campos de classificação ainda não existem no Supabase. Aplique a migração aditiva e atualize a tela para poder definir este dado.' } : field);
+    const data = row || { ativo: true, ...(classificationReady ? { company_scope: 'UNKNOWN', direct_talents4_partnership: 'UNKNOWN', partnership_status: 'UNKNOWN' } : {}) };
+    return W.recordForm({ title: row ? 'Editar empregador' : 'Novo empregador', table: D.TABLES.employers, row: data,
+      fields: [...(row ? EMPLOYER_FIELDS.filter((f) => f.name in row) : EMPLOYER_FIELDS.filter((f) => !['subsetor', 'perfis_buscados', 'requisitos_principais', 'diferenciais_desejaveis', 'observacoes_internas'].includes(f.name))), ...classificationFields],
+      notice: `${classificationReady ? 'Classifique a relação com cuidado: origem NectaNet e parceria direta são dimensões diferentes.' : 'A classificação aparece como pendente porque as colunas correspondentes ainda não foram encontradas no Supabase. Nenhuma tentativa de gravação será feita nesses campos.'} Apenas a confirmação manual pode marcar uma parceira.`,
+      prepare(v, changes) { if (!row) Object.assign(v, { nome_normalizado: M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), tipo: 'empregador', status: 'ativo', ...(classificationReady ? { source_channel: 'UNKNOWN' } : {}) }); if ('nome' in changes) changes.nome_normalizado = M.norm(v.nome).replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''); }, after: load });
   }
   function editOpening(row, employerId) {
     if (!D.canEdit()) return openingDetail(row);
@@ -325,7 +372,7 @@
   function openingDetail(row) {
     if (!row) return;
     const relationships = state.selections.rows.filter((r) => M.same(r.opening_id, row.id)), activeRelationships = relationships.filter((r) => M.selectionBucket(r) !== 'closed'), closedRelationships = relationships.filter((r) => M.selectionBucket(r) === 'closed');
-    U.openDrawer({ title: row.title, subtitle: employerOf(row), actions: actions(row, 'opening') + (state.selections.modern && D.canEdit() ? W.button('Vincular talento', 'selection-for-opening', row.id, { className: 'primary sm', icon: 'plus' }) : ''), body: `<div class="t4-detail-grid">${['quantity', 'status', 'location', 'area', 'language_requirement', 'recognition_requirement', 'source', 'verified_at'].map((key) => U.field({ quantity: 'Posições', status: 'Situação', location: 'Local', area: 'Área', language_requirement: 'Idioma requerido', recognition_requirement: 'Reconhecimento', source: 'Origem', verified_at: 'Última verificação' }[key], row[key])).join('')}</div><p class="t4-preserve">${e(row.description || 'Descrição não informada')}</p>${W.external('Abrir referência', row.external_url)}${W.section('Talentos em andamento', R.selectionTable(state, activeRelationships, 'opening-selections'))}${closedRelationships.length ? W.section('Histórico encerrado', R.selectionTable(state, closedRelationships, 'opening-closed-selections'), W.badge(`${closedRelationships.length} preservada(s)`, 'info')) : ''}` });
+    U.openDrawer({ title: row.title, subtitle: employerOf(row), actions: actions(row, 'opening') + (state.selections.modern && D.canEdit() ? W.button('Vincular talento', 'selection-for-opening', row.id, { className: 'primary sm', icon: 'plus' }) : ''), body: `<div class="t4-detail-grid">${['quantity', 'status', 'location', 'area', 'language_requirement', 'recognition_requirement', 'source', 'verified_at'].map((key) => U.field({ quantity: 'Posições', status: 'Situação', location: 'Local', area: 'Área', language_requirement: 'Idioma requerido', recognition_requirement: 'Reconhecimento', source: 'Origem', verified_at: 'Última verificação' }[key], row[key])).join('')}</div><p class="t4-preserve">${e(row.description || 'Descrição não informada')}</p>${W.external('Abrir referência', row.external_url)}${W.section('Talentos em andamento', R.selectionTable(state, activeRelationships, 'opening-selections'))}${closedRelationships.length ? W.section('Histórico encerrado', R.selectionTable(state, closedRelationships, 'opening-closed-selections'), U.badge(`${closedRelationships.length} preservada(s)`, 'info')) : ''}` });
   }
   function employerFields() { return [{ name: 'employer_id', label: 'Empregador (opcional para assuntos internos)', type: 'select', options: R.choices(state.employers, 'nome') }]; }
   function snapshotEmployer(v, changes, row) {
@@ -362,8 +409,16 @@
       if (!row) Object.assign(v, { context_type: context.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal', assigned_user_key: v.owner_user_key, completed_at: v.status === 'Pronto' ? new Date().toISOString() : null, sort_index: 0, is_recurring: false, deleted_at: null, meeting_id: context.meeting_id || null });
       if (row && 'employer_id' in c) c.context_type = row.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal';
       if ('owner_user_key' in c) c.assigned_user_key = v.owner_user_key;
-      if ('status' in c) c.completed_at = v.status === 'Pronto' ? new Date().toISOString() : null;
+      if ('status' in c && (!row || Object.prototype.hasOwnProperty.call(row, 'completed_at'))) c.completed_at = v.status === 'Pronto' ? new Date().toISOString() : null;
     }, after: load });
+  }
+  async function finishTask(row) {
+    if (!row || !D.canEdit() || !M.isOpen(row.status)) return;
+    const payload = { status: 'Pronto' };
+    if (Object.prototype.hasOwnProperty.call(row, 'completed_at')) payload.completed_at = new Date().toISOString();
+    await D.update(D.TABLES.tasks, row.id, payload, row.updated_at ? { expectedUpdatedAt: row.updated_at } : {});
+    U.toast('Tarefa concluída. A entrega continua registrada no histórico.', 'success');
+    await load();
   }
   function editMetric(row) {
     if (!D.canEdit()) return readonlyDetail(row, 'Métrica');
@@ -406,14 +461,17 @@
     if (name === 'v24-view') { U.closeDrawer(); state.status = []; state.employer = []; app.route(id); return; }
     if (name === 'display') { state.employerDisplay = id; render(); return; }
     if (name === 'employer-display') { state.employerDisplay = ['cards', 'list'].includes(id) ? id : 'list'; render(); return; }
+    if (name === 'planning-focus') { state.planningFocus = ['all', 'overdue', 'blocked', 'next', 'scheduled', 'no-date'].includes(id) ? id : 'all'; render(); return; }
+    if (name === 'operations-focus') { state.operationsFocus = ['all', 'overdue', 'today', 'high', 'unassigned'].includes(id) ? id : 'all'; render(); return; }
     if (name === 'multi-filter-clear') { if (id in state) state[id] = []; render(); return; }
     if (name === 'active-filter-remove') { const [key, value] = JSON.parse(id); if (Array.isArray(state[key])) state[key] = state[key].filter((v) => v !== value); render(); return; }
     if (name === 'employer-scope') { state.employerScope = ['active', 'all', 'archived'].includes(id) ? id : 'active'; state.employer = []; state.status = []; render(); return; }
+    if (name === 'employer-classification') { state.employerClassification = ['all', 'partner', 'nectanet', 'general', 'pending'].includes(id) ? id : 'all'; render(); return; }
     if (name === 'opportunity-scope') { state.opportunityScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.employerScope = 'active'; state.employerDisplay = 'list'; state.opportunityScope = 'open'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.operationsFocus = 'all'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name.startsWith('month-')) { const date = new Date(`${state.calendar}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'month-prev' ? -1 : 1)); state.calendar = name === 'month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
     if (name.startsWith('planning-month-')) { const date = new Date(`${state.planningMonth}-01T12:00:00`); date.setMonth(date.getMonth() + (name === 'planning-month-prev' ? -1 : 1)); state.planningMonth = name === 'planning-month-today' ? M.today().slice(0, 7) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`; render(); return; }
     if (name === 'employer-detail') return employerDetail(W.find(state.employers, id));
@@ -425,10 +483,13 @@
     if (name === 'selection-detail') return R.selectionDrawer(state, state.selections.rows.find((r) => r.key === id));
     if (name === 'edit-selection') return R.editSelection(state, state.selections.rows.find((r) => r.key === id), {}, load);
     if (name === 'edit-plan') return editPlan(W.find(state.plans, id));
+    if (name === 'new-plan') return editPlan();
     if (name === 'meeting-detail') return meetingDetail(W.find(state.meetings, id));
     if (name === 'edit-meeting') return editMeeting(W.find(state.meetings, id));
     if (name === 'meeting-task') { const m = W.find(state.meetings, id); return editTask(null, { title: m.next_action || m.pending_items || m.title, description: m.decision_summary, meeting_id: m.id, employer_id: m.employer_id, owner_user_key: m.owner_name }); }
     if (name === 'edit-task') return editTask(W.find(state.tasks, id));
+    if (name === 'finish-task') return finishTask(W.find(state.tasks, id));
+    if (name === 'new-task') return editTask();
     if (name === 'edit-metric' || name === 'new-metric') return editMetric(W.find(state.metrics, id));
     if (name === 'edit-summary') return editSummary(W.find(state.summaries, id));
     if (name === 'edit-replacement' || name === 'new-replacement') return editReplacement(W.find(state.replacements, id));

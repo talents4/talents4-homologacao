@@ -93,6 +93,12 @@
 
   function term(value) {
     return String(value ?? '')
+      // Os valores antigos continuam iguais no banco; esta camada só traduz
+      // rótulos exibidos na interface para a nomenclatura atual do CRM.
+      .replace(/\bPronto para employer\b/gi, 'Pronto para apresentação')
+      .replace(/\bEnviado ao employer\b/gi, 'Apresentado ao empregador')
+      .replace(/\bEmployer\s*\/\s*Matching\b/gi, 'Correspondência com empregador')
+      .replace(/\bEmployer\b/gi, 'Empregador')
       .replace(/\bNovo candidato\b/gi, 'Novo Talento')
       .replace(/\bCandidatos\b/g, 'Talentos')
       .replace(/\bcandidatos\b/g, 'Talentos')
@@ -338,13 +344,21 @@
 
     document.body.dataset.t4Module = moduleId;
     document.title = `${config.moduleLabel} · Talents 4`;
-    // Padrão Notion/Linear: menu lateral recolhível. Fica só em memória —
-    // este arquivo é auditado para nunca cachear estado em disco do
-    // navegador fora do Supabase (ver "ausência de cache persistente de
-    // dados de negócio" em scripts/check-v2.mjs). Resultado: a preferência
-    // sobrevive à troca de tela dentro do mesmo módulo (navegação é
-    // client-side) e reinicia ao trocar de módulo ou recarregar a página.
-    let sidebarCollapsed = false;
+    // Padrão Notion/Linear: menu lateral recolhível. Isto é somente uma
+    // preferência visual da aba atual — não é dado de negócio e não altera
+    // nada no Supabase. A preferência precisa sobreviver à navegação entre
+    // módulos, que troca o documento HTML, sem criar um cache da aplicação.
+    const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed';
+    const readSidebarCollapsed = () => {
+      try { return window.sessionStorage?.getItem(SIDEBAR_STATE_KEY) === '1'; }
+      catch (_) { return false; }
+    };
+    const writeSidebarCollapsed = (value) => {
+      try {
+        if (window.sessionStorage) window.sessionStorage.setItem(SIDEBAR_STATE_KEY, value ? '1' : '0');
+      } catch (_) { /* preferência visual não pode impedir a inicialização */ }
+    };
+    let sidebarCollapsed = readSidebarCollapsed();
 
     const primaryViews = views.filter((view) => view.primary !== false);
     const secondaryViews = views.filter((view) => view.primary === false);
@@ -364,7 +378,7 @@
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
               <div class="t4-nav-label">${esc(config.moduleLabel)}</div>
               ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
-              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
+              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary aria-label="Mais espaços" data-tooltip="Mais espaços"><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
               <div class="t4-nav-label">Áreas do sistema</div>
@@ -386,20 +400,30 @@
             <button type="button" class="t4-icon-btn t4-mobile-menu" data-menu aria-label="Abrir menu">${icon('menu')}</button>
             <div class="t4-topbar-heading"><div class="t4-eyebrow">${esc(config.moduleLabel)}</div><h1 class="t4-page-title" data-page-title></h1><p class="t4-page-subtitle" data-page-subtitle></p></div>
             <div class="t4-topbar-spacer"></div>
-            <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><span class="t4-keycap">/</span></label>
+            <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><button type="button" class="t4-search-clear" data-search-clear hidden aria-label="Limpar busca">${icon('close')}</button><span class="t4-keycap">/</span></label>
             <button type="button" class="t4-command-trigger" data-command aria-label="Abrir ações rápidas">${icon('command')}<span>Ações</span><kbd>⌘K</kbd></button>
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
           </header>
-          <div class="t4-environment">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração · dados fictícios' : 'Homologação isolada'}</span><span class="t4-environment-copy">${window.T4_DEMO ? 'Explore o fluxo com dados de exemplo; alterações não são persistidas.' : 'Ambiente separado para validar o CRM antes da operação principal.'}</span></div>
+          <div class="t4-environment" title="${attr(window.T4_DEMO ? 'Dados fictícios; alterações não são persistidas.' : 'Ambiente de homologação')}">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração' : 'Homologação'}</span></div>
           <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;
 
+    document.body.classList.toggle('t4-sidebar-collapsed', sidebarCollapsed);
     const pageRoot = root.querySelector('#t4-page-root');
     const search = root.querySelector('[data-global-search]');
+    const searchClear = root.querySelector('[data-search-clear]');
     const primary = root.querySelector('[data-primary]');
     const command = root.querySelector('[data-command]');
+    const collapseToggle = root.querySelector('[data-sidebar-collapse]');
+    const syncSidebarToggle = () => {
+      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
+      collapseToggle?.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
+      collapseToggle?.setAttribute('aria-label', label);
+      if (collapseToggle) collapseToggle.dataset.tooltip = label;
+    };
+    syncSidebarToggle();
 
     function openCommandPalette() {
       const nav = [...root.querySelectorAll('[data-route]')]
@@ -437,6 +461,9 @@
       });
       root.querySelector('[data-page-title]').textContent = view?.title || view?.label || '';
       root.querySelector('[data-page-subtitle]').textContent = view?.subtitle || config.subtitle || '';
+      // Abre "Mais espaços" ao navegar para um item seu, mas nunca o fecha
+      // sozinho: um clique manual do usuário no <summary> deve persistir
+      // entre navegações (pedido explícito: não fechar automaticamente).
       const more = root.querySelector('.t4-nav-more');
       if (more && secondaryViews.some((item) => item.id === currentView)) more.open = true;
       if (options.notify !== false) routeListeners.forEach((listener) => listener(currentView, view));
@@ -454,13 +481,15 @@
 
     root.querySelectorAll('[data-route]').forEach((item) => item.addEventListener('click', () => route(item.dataset.route)));
     root.querySelector('[data-menu]').addEventListener('click', () => document.body.classList.toggle('t4-sidebar-open'));
-    root.querySelector('[data-sidebar-collapse]').addEventListener('click', (event) => {
+    collapseToggle.addEventListener('click', () => {
       sidebarCollapsed = !sidebarCollapsed;
       document.body.classList.toggle('t4-sidebar-collapsed', sidebarCollapsed);
-      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
-      event.currentTarget.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
-      event.currentTarget.setAttribute('aria-label', label);
-      event.currentTarget.dataset.tooltip = label;
+      writeSidebarCollapsed(sidebarCollapsed);
+      syncSidebarToggle();
+      // Sem isto, o botão fica focado após o clique e a lateral recolhida
+      // se expande de novo sozinha (:focus-within), como se o hover nunca
+      // tivesse terminado — o recolher pareceria não ter efeito nenhum.
+      if (sidebarCollapsed) collapseToggle.blur();
     });
     root.querySelector('.t4-mobile-overlay').addEventListener('click', () => document.body.classList.remove('t4-sidebar-open'));
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
@@ -469,7 +498,12 @@
       catch (error) { toast(error?.message || 'Não foi possível abrir esta ação. Atualize a tela.', 'error', 6500); }
     });
     command?.addEventListener('click', openCommandPalette);
-    search.addEventListener('input', debounce(() => searchHandler?.(search.value), 160));
+    const syncSearchClear = () => { if (searchClear) searchClear.hidden = !String(search.value || '').trim(); };
+    const dispatchSearch = () => { syncSearchClear(); searchHandler?.(search.value); };
+    search.addEventListener('input', debounce(dispatchSearch, 160));
+    search.addEventListener('search', dispatchSearch);
+    searchClear?.addEventListener('click', () => { search.value = ''; dispatchSearch(); search.focus(); });
+    syncSearchClear();
     window.addEventListener('popstate', () => { currentView = getRequestedView(); renderRoute(); });
 
     document.addEventListener('keydown', (event) => {
@@ -511,8 +545,9 @@
         searchHandler = handler || null;
         search.closest('label').hidden = !handler;
         if (placeholder) search.placeholder = placeholder;
+        syncSearchClear();
       },
-      resetSearch() { search.value = ''; searchHandler?.(''); },
+      resetSearch() { search.value = ''; dispatchSearch(); },
       setSync(state = 'ok', label = '') {
         const node = root.querySelector('[data-sync]');
         node.className = `t4-sync ${state === 'ok' ? '' : state}`;

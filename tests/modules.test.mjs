@@ -21,6 +21,61 @@ test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar'
   assert.match(h.html(), /2 selecionados/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('classificação dos empregadores é acionável e prioriza parceiras diretas', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers[0].direct_talents4_partnership = 'CONFIRMADA';
+  h.fixture.db.employers[1].company_scope = 'GENERAL';
+  await h.load('organization');
+  h.app.route('employers');
+  await h.action('employer-classification', 'all');
+  const names = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
+  assert.deepEqual(names, ['Clínica Aurora · exemplo', 'Nord Technik · exemplo']);
+  assert.match(h.html(), /data-action="employer-classification" data-id="partner"/);
+  await h.action('employer-classification', 'partner');
+  const partnerNames = [...h.html().matchAll(/data-action="employer-detail" data-id="[^"]+">([^<]+)</g)].map(([, name]) => name);
+  assert.deepEqual(partnerNames, ['Clínica Aurora · exemplo']);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('Organizacional abre em Empregadores com parceiras e cartões em destaque', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers[0].direct_talents4_partnership = 'CONFIRMADA';
+  await h.load('organization');
+  assert.equal(h.app.view, 'employers');
+  assert.match(h.html(), /data-action="employer-classification" data-id="partner"[^>]*aria-pressed="true"/);
+  assert.match(h.html(), /data-action="employer-display" data-id="cards"[^>]*aria-pressed="true"/);
+  assert.doesNotMatch(h.html(), /Uma empresa por vez|A fila operacional mostra/);
+});
+test('seletores longos mostram busca sem mudar o valor nativo do formulário', async () => {
+  const h = makeHarness();
+  h.fixture.db.employers.push(...Array.from({ length: 20 }, (_, i) => ({ ...h.fixture.db.employers[0], id: h.id(500 + i), nome: `Empresa ${i}` })));
+  await h.load('organization');
+  await h.action('new-opening-for', h.id(101));
+  assert.match(h.forms.at(-1).innerHTML, /data-select-search="employer_id"/);
+  assert.match(h.forms.at(-1).innerHTML, /name="employer_id"/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('busca deixa claro quando o Talento arquivado ainda tem seleção ativa', async () => {
+  const h = makeHarness();
+  h.fixture.db.candidatos[0].ativo = false;
+  await h.load('talents');
+  h.app.search('Marina');
+  assert.match(h.html(), /também no arquivo/);
+  assert.match(h.html(), /Arquivado · 1 seleção em andamento/);
+  assert.match(h.html(), /Abrir ficha/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('exportação exige uma seleção explícita de Talentos', async () => {
+  const h = await makeHarness().load('talents');
+  await h.action('data-center');
+  assert.match(h.notices.at(-1)?.[0] || '', /Selecione ao menos um Talento/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('rótulos legados são traduzidos somente na apresentação', async () => {
+  const h = makeHarness();
+  assert.equal(h.originalCore.term('Novo candidato'), 'Novo Talento');
+  assert.equal(h.originalCore.term('Pronto para employer'), 'Pronto para apresentação');
+  assert.equal(h.originalCore.term('Enviado ao employer'), 'Apresentado ao empregador');
+});
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
   for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas']]) {
@@ -56,6 +111,34 @@ test('decisão de reunião cria tarefa referenciada, sem reescrever a reunião',
 test('filtro de status das tarefas não oculta métricas mensais sem status próprio', async () => {
   const h = await makeHarness().load('organization'); h.app.route('operations'); h.filter('status', 'A fazer');
   assert.match(h.html(), /Entrevistas preparadas/);
+});
+test('PO operacional abre prontidão em cartões e lista todos por status e prioridade', async () => {
+  const h = makeHarness();
+  h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa já concluída', status: 'Pronto', priority: 'Crítica', completed_at: '2026-08-31T12:00:00Z', due_date: '2026-08-31' });
+  await h.load('organization'); h.app.route('operations');
+  const html = h.html();
+  assert.ok(html.indexOf('Cartões de prontidão') < html.indexOf('Lista completa'));
+  assert.equal((html.match(/data-ready-task=/g) || []).length, 1);
+  const listStart = html.indexOf('data-table="tasks"');
+  assert.ok(listStart >= 0);
+  assert.ok(html.indexOf('Preparar pauta das entrevistas', listStart) < html.indexOf('Tarefa já concluída', listStart));
+  assert.match(html, /Concluir/);
+  assert.ok(html.indexOf('<h2>Métricas do período') > html.indexOf('Lista completa'));
+  await h.action('finish-task', h.id(1005));
+  assert.equal(h.fixture.writes.at(-1).table, 'operational_tasks');
+  assert.equal(h.fixture.writes.at(-1).payload.status, 'Pronto');
+  assert.ok(h.fixture.db.operational_tasks[0].completed_at);
+  assert.equal((h.html().match(/data-ready-task=/g) || []).length, 0);
+});
+test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
+  const h = makeHarness();
+  h.fixture.db.talent_opportunity_matches.push({ id: h.id(305), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z', talent_id: 'DEMO-T2', opening_id: h.id(201), employer_id: h.id(101), stage: 'Encerrado', status: 'Encerrado', priority: 3, owner_username: 'demo', next_action: null, next_action_at: null, viability: 'Baixa', overall_score: null, reasons: null, barriers: null, sent_at: null, responded_at: null });
+  await h.load('organization');
+  await h.action('employer-detail', h.id(101));
+  assert.match(h.drawer.options.body, /Histórico de seleções encerradas/);
+  await h.action('opening-detail', h.id(201));
+  assert.match(h.drawer.options.body, /Histórico encerrado/);
+  assert.equal(h.fixture.writes.length, 0);
 });
 test('nova seleção grava vínculo por vaga sem mudar o acompanhamento do talento', async () => {
   const h = await makeHarness().load('talents'); const original = JSON.stringify(h.fixture.db.candidatos);
