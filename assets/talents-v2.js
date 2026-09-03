@@ -77,6 +77,7 @@
     app.setCounts({ talents: state.talents.filter(active).length, archived: state.talents.filter((r) => !active(r)).length, processes: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length, agenda: state.activities.filter((r) => M.isOpen(r.status)).length });
     const html = ({ overview, talents: () => directory(false), archived: () => directory(true), mapping: workspace.tracking, presentation: workspace.presentation, 'mapping-summary': workspace.summary, 'mapping-radar': workspace.radar, processes: selectionsView, opportunities: opportunitiesView, agenda: agendaView, manual: () => window.T4Modern?.manual() || W.note('Manual indisponível.') }[app.view] || overview)();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
+    W.bindSearchableSelects?.(app.pageRoot);
     U.animateCounters(app.pageRoot);
   }
   const PIPELINE_STAGES = [
