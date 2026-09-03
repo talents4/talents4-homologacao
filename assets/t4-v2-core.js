@@ -343,13 +343,21 @@
 
     document.body.dataset.t4Module = moduleId;
     document.title = `${config.moduleLabel} · Talents 4`;
-    // Padrão Notion/Linear: menu lateral recolhível. Fica só em memória —
-    // este arquivo é auditado para nunca cachear estado em disco do
-    // navegador fora do Supabase (ver "ausência de cache persistente de
-    // dados de negócio" em scripts/check-v2.mjs). Resultado: a preferência
-    // sobrevive à troca de tela dentro do mesmo módulo (navegação é
-    // client-side) e reinicia ao trocar de módulo ou recarregar a página.
-    let sidebarCollapsed = false;
+    // Padrão Notion/Linear: menu lateral recolhível. Isto é somente uma
+    // preferência visual da aba atual — não é dado de negócio e não altera
+    // nada no Supabase. A preferência precisa sobreviver à navegação entre
+    // módulos, que troca o documento HTML, sem criar um cache da aplicação.
+    const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed';
+    const readSidebarCollapsed = () => {
+      try { return window.sessionStorage?.getItem(SIDEBAR_STATE_KEY) === '1'; }
+      catch (_) { return false; }
+    };
+    const writeSidebarCollapsed = (value) => {
+      try {
+        if (window.sessionStorage) window.sessionStorage.setItem(SIDEBAR_STATE_KEY, value ? '1' : '0');
+      } catch (_) { /* preferência visual não pode impedir a inicialização */ }
+    };
+    let sidebarCollapsed = readSidebarCollapsed();
 
     const primaryViews = views.filter((view) => view.primary !== false);
     const secondaryViews = views.filter((view) => view.primary === false);
@@ -401,11 +409,20 @@
         </main>
       </div>`;
 
+    document.body.classList.toggle('t4-sidebar-collapsed', sidebarCollapsed);
     const pageRoot = root.querySelector('#t4-page-root');
     const search = root.querySelector('[data-global-search]');
     const searchClear = root.querySelector('[data-search-clear]');
     const primary = root.querySelector('[data-primary]');
     const command = root.querySelector('[data-command]');
+    const collapseToggle = root.querySelector('[data-sidebar-collapse]');
+    const syncSidebarToggle = () => {
+      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
+      collapseToggle?.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
+      collapseToggle?.setAttribute('aria-label', label);
+      if (collapseToggle) collapseToggle.dataset.tooltip = label;
+    };
+    syncSidebarToggle();
 
     function openCommandPalette() {
       const nav = [...root.querySelectorAll('[data-route]')]
@@ -460,13 +477,11 @@
 
     root.querySelectorAll('[data-route]').forEach((item) => item.addEventListener('click', () => route(item.dataset.route)));
     root.querySelector('[data-menu]').addEventListener('click', () => document.body.classList.toggle('t4-sidebar-open'));
-    root.querySelector('[data-sidebar-collapse]').addEventListener('click', (event) => {
+    collapseToggle.addEventListener('click', () => {
       sidebarCollapsed = !sidebarCollapsed;
       document.body.classList.toggle('t4-sidebar-collapsed', sidebarCollapsed);
-      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
-      event.currentTarget.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
-      event.currentTarget.setAttribute('aria-label', label);
-      event.currentTarget.dataset.tooltip = label;
+      writeSidebarCollapsed(sidebarCollapsed);
+      syncSidebarToggle();
     });
     root.querySelector('.t4-mobile-overlay').addEventListener('click', () => document.body.classList.remove('t4-sidebar-open'));
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
