@@ -93,6 +93,12 @@
 
   function term(value) {
     return String(value ?? '')
+      // Os valores antigos continuam iguais no banco; esta camada só traduz
+      // rótulos exibidos na interface para a nomenclatura atual do CRM.
+      .replace(/\bPronto para employer\b/gi, 'Pronto para apresentação')
+      .replace(/\bEnviado ao employer\b/gi, 'Apresentado ao empregador')
+      .replace(/\bEmployer\s*\/\s*Matching\b/gi, 'Correspondência com empregador')
+      .replace(/\bEmployer\b/gi, 'Empregador')
       .replace(/\bNovo candidato\b/gi, 'Novo Talento')
       .replace(/\bCandidatos\b/g, 'Talentos')
       .replace(/\bcandidatos\b/g, 'Talentos')
@@ -385,7 +391,7 @@
             <button type="button" class="t4-icon-btn t4-mobile-menu" data-menu aria-label="Abrir menu">${icon('menu')}</button>
             <div class="t4-topbar-heading"><div class="t4-eyebrow">${esc(config.moduleLabel)}</div><h1 class="t4-page-title" data-page-title></h1><p class="t4-page-subtitle" data-page-subtitle></p></div>
             <div class="t4-topbar-spacer"></div>
-            <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><span class="t4-keycap">/</span></label>
+            <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><button type="button" class="t4-search-clear" data-search-clear hidden aria-label="Limpar busca">${icon('close')}</button><span class="t4-keycap">/</span></label>
             <button type="button" class="t4-command-trigger" data-command aria-label="Abrir ações rápidas">${icon('command')}<span>Ações</span><kbd>⌘K</kbd></button>
             <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
             <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
@@ -397,6 +403,7 @@
 
     const pageRoot = root.querySelector('#t4-page-root');
     const search = root.querySelector('[data-global-search]');
+    const searchClear = root.querySelector('[data-search-clear]');
     const primary = root.querySelector('[data-primary]');
     const command = root.querySelector('[data-command]');
 
@@ -468,7 +475,12 @@
       catch (error) { toast(error?.message || 'Não foi possível abrir esta ação. Atualize a tela.', 'error', 6500); }
     });
     command?.addEventListener('click', openCommandPalette);
-    search.addEventListener('input', debounce(() => searchHandler?.(search.value), 160));
+    const syncSearchClear = () => { if (searchClear) searchClear.hidden = !String(search.value || '').trim(); };
+    const dispatchSearch = () => { syncSearchClear(); searchHandler?.(search.value); };
+    search.addEventListener('input', debounce(dispatchSearch, 160));
+    search.addEventListener('search', dispatchSearch);
+    searchClear?.addEventListener('click', () => { search.value = ''; dispatchSearch(); search.focus(); });
+    syncSearchClear();
     window.addEventListener('popstate', () => { currentView = getRequestedView(); renderRoute(); });
 
     document.addEventListener('keydown', (event) => {
@@ -510,8 +522,9 @@
         searchHandler = handler || null;
         search.closest('label').hidden = !handler;
         if (placeholder) search.placeholder = placeholder;
+        syncSearchClear();
       },
-      resetSearch() { search.value = ''; searchHandler?.(''); },
+      resetSearch() { search.value = ''; dispatchSearch(); },
       setSync(state = 'ok', label = '') {
         const node = root.querySelector('[data-sync]');
         node.className = `t4-sync ${state === 'ok' ? '' : state}`;

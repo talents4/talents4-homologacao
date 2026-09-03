@@ -21,6 +21,28 @@ test('filtros compartilhados oferecem pesquisa e seleção múltipla sem gravar'
   assert.match(h.html(), /2 selecionados/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('busca deixa claro quando o Talento arquivado ainda tem seleção ativa', async () => {
+  const h = makeHarness();
+  h.fixture.db.candidatos[0].ativo = false;
+  await h.load('talents');
+  h.app.search('Marina');
+  assert.match(h.html(), /também no arquivo/);
+  assert.match(h.html(), /Arquivado · 1 seleção em andamento/);
+  assert.match(h.html(), /Abrir ficha/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('exportação exige uma seleção explícita de Talentos', async () => {
+  const h = await makeHarness().load('talents');
+  await h.action('data-center');
+  assert.match(h.notices.at(-1)?.[0] || '', /Selecione ao menos um Talento/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('rótulos legados são traduzidos somente na apresentação', async () => {
+  const h = makeHarness();
+  assert.equal(h.originalCore.term('Novo candidato'), 'Novo Talento');
+  assert.equal(h.originalCore.term('Pronto para employer'), 'Pronto para apresentação');
+  assert.equal(h.originalCore.term('Enviado ao employer'), 'Apresentado ao empregador');
+});
 test('Organizacional mostra planejamento, decisões, PO e resumo de fontes antigas', async () => {
   const h = await makeHarness().load('organization');
   for (const [view, text] of [['planning', 'Alinhar apresentação de perfis'], ['meetings', 'Confirmar horários'], ['operations', 'Entrevistas preparadas']]) {

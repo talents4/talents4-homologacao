@@ -135,7 +135,7 @@
   }
   function selectionTable(state, rows, id = 'selections') {
     return W.table({ id, rows, columns: [
-      { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => W.person(talentName(state, r.talent_id), W.find(state.talents, r.talent_id)?.profissao_principal || '', '', 'selection-detail', r.key) },
+      { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => { const talent = W.find(state.talents, r.talent_id); const meta = [talent?.profissao_principal || talent?.area_profissional, talent && !M.activeRecord(talent) ? 'Arquivado' : ''].filter(Boolean).join(' · '); return W.person(talentName(state, r.talent_id), meta, '', 'selection-detail', r.key); } },
       { key: 'employer_id', label: 'Empregador / vaga', value: (r) => employerName(state, r.employer_id), render: (r) => { const employer = W.find(state.employers, r.employer_id); const name = window.T4Modern?.employer ? window.T4Modern.employer(employer || { nome: employerName(state, r.employer_id), id: r.employer_id }) : e(employerName(state, r.employer_id)); return W.stackHtml(name, r.opening_id ? W.find(state.openings, r.opening_id)?.title || 'Vaga não encontrada' : 'Vínculo geral · anterior à V2'); } },
       { key: 'stage', label: 'Etapa', render: (r) => W.status(r.stage) },
       { key: 'next_action', label: 'Próxima ação', render: (r) => W.stack(r.next_action, M.dateOnly(r.next_action_at) ? U.formatDate(r.next_action_at) : '') },
@@ -146,9 +146,10 @@
   function selectionDrawer(state, row) {
     if (!row) return;
     const opening = W.find(state.openings, row.opening_id);
-    return U.openDrawer({ title: talentName(state, row.talent_id), subtitle: `${employerName(state, row.employer_id)} · ${opening?.title || 'Vínculo geral'}`,
+    const talent = W.find(state.talents, row.talent_id), archived = talent && !M.activeRecord(talent);
+    return U.openDrawer({ title: talentName(state, row.talent_id), subtitle: `${archived ? 'Arquivado · ' : ''}${employerName(state, row.employer_id)} · ${opening?.title || 'Vínculo geral'}`,
       actions: `${D.canEdit() ? W.button('Editar seleção', 'edit-selection', row.key, { className: 'primary', icon: 'edit' }) : ''}${W.link('Ficha do talento', `./index.html?talent=${encodeURIComponent(row.talent_id)}`, 'user')}${W.link('Empregador', `./organizacional.html?employer=${encodeURIComponent(row.employer_id)}`, 'building')}`,
-      body: `${row.sourceConflict ? W.note('Há etapas diferentes nas duas fontes antigas. O registro principal do CRM é exibido; ambos os originais permanecem abaixo para conferência.', 'warning') : ''}
+      body: `${archived ? W.note('Este Talento está arquivado, mas a seleção continua em andamento. Revise o vínculo antes de avançar.', 'warning') : ''}${row.sourceConflict ? W.note('Há etapas diferentes nas duas fontes antigas. O registro principal do CRM é exibido; ambos os originais permanecem abaixo para conferência.', 'warning') : ''}
         <div class="t4-detail-grid">${U.field('Etapa', row.stage)}${U.field('Situação', row.status)}${U.field('Responsável', row.owner_username)}${U.field('Prazo', U.formatDate(row.next_action_at))}${U.field('Enviado em', U.formatDate(row.sent_at))}${U.field('Retorno em', U.formatDate(row.responded_at))}</div>
         ${W.section('Próxima ação', `<p class="t4-preserve">${e(row.next_action || 'Defina o próximo passo desta seleção.')}</p>`)}
         ${W.section('Avaliação e contexto', `<div class="t4-detail-grid">${U.field('Viabilidade', row.viability)}${U.field('Compatibilidade geral', M.finite(row.overall_score) ? `${row.overall_score}%` : 'Não avaliada')}</div><h3>Motivos</h3><p class="t4-preserve">${e(row.reasons || 'Não informado')}</p><h3>Barreiras</h3><p class="t4-preserve">${e(row.barriers || 'Não informadas')}</p><p class="t4-preserve">${e(row.notes || '')}</p>`)}

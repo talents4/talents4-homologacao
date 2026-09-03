@@ -909,3 +909,58 @@ body {
 .t4-empty { border: 1.5px dashed var(--t4-line-strong, #cbd5e1); border-radius: var(--t4-radius-lg, 16px); background: var(--t4-surface-sunken, #f8fafc); }
 .t4-empty-icon { width: 52px; height: 52px; border: none; background: var(--t4-accent-soft, #e6f0f7); color: var(--t4-accent, var(--t4-navy)); border-radius: var(--t4-radius-md, 11px); }
 .t4-empty-icon .t4-icon { width: 22px; height: 22px; flex-basis: 22px; }
+
+/* V2.6.1 · consistência de densidade e leitura. Mantém os alvos de toque
+   acessíveis, mas remove alturas decorativas que empurravam a informação
+   importante para baixo da tela. */
+.t4-brand { min-height: 0; padding: 14px 18px 13px; }
+.t4-brand-logo { display: none; }
+.t4-content { padding: 20px 24px 42px; }
+.t4-topbar { min-height: 76px; padding: 12px 24px; gap: 12px; }
+.t4-topbar-heading { min-width: 210px; }
+.t4-global-search { width: min(340px, 29vw); min-height: 38px; padding: 7px 10px; }
+.t4-search-clear { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: 6px; color: #527087; background: transparent; cursor: pointer; }
+.t4-search-clear:hover, .t4-search-clear:focus-visible { color: #002a4a; background: #e8f0f5; }
+.t4-search-clear .t4-icon { width: 13px; height: 13px; }
+.t4-search-clear[hidden] { display: none; }
+.v25-scope-strip { gap: 12px; padding: 13px 15px; }
+.t4-bulk-bar { gap: 10px; margin: 10px 0 12px; padding: 8px 11px; border-radius: 11px; }
+.t4-bulk-icon { width: 25px; height: 25px; border-radius: 7px; }
+.t4-bulk-bar strong { font-size: 11px; }
+.t4-bulk-bar small { font-size: 9px; }
+.t4-bulk-actions { gap: 5px; }
+.t4-btn.sm { min-height: 29px; padding: 5px 8px; }
+.t4-selection-hint { color: #6a7f90; font-size: 10px; }
+[data-t4-module="talents"] .tw-quickfilters { gap: 6px; margin-bottom: 7px; }
+[data-t4-module="talents"] .tw-quick { min-height: 32px; padding: 6px 9px; font-size: 11px; }
+[data-t4-module="talents"] .tw-filter-surface { gap: 7px; padding: 9px 11px; margin-bottom: 10px; }
+[data-t4-module="talents"] .tw-filter-head { padding-bottom: 6px; }
+[data-t4-module="talents"] .tw-filter-caption { margin-left: 6px; }
+[data-t4-module="talents"] .tw-filter-help { display: none; }
+.v25-archive-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; margin: 9px 0 11px; padding: 9px 11px; border: 1px solid #dfc8cf; border-radius: 11px; color: #75515d; background: #fffafb; }
+.v25-archive-search-head { display: grid; align-content: center; gap: 2px; min-width: 0; }
+.v25-archive-search-head strong { color: #754653; font-size: 11px; }
+.v25-archive-search-head span { color: #806b73; font-size: 10px; }
+.v25-archive-results { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 6px; }
+.v25-archive-result { display: flex; align-items: center; justify-content: space-between; gap: 7px; min-width: 0; padding: 6px 7px; border: 1px solid #eddde1; border-radius: 8px; background: #fff; }
+.v25-archive-result > div { display: grid; gap: 1px; min-width: 0; }
+.v25-archive-result strong, .v25-archive-result small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v25-archive-result strong { color: #553b44; font-size: 10px; }
+.v25-archive-result small, .v25-archive-more { color: #90757d; font-size: 9px; }
+.v25-archive-more { align-self: center; padding: 0 3px; }
+.tw-sheet-grid .tw-cell-edit, .tw-sheet-grid .tw-cell-value, .tw-sheet-grid .tw-multiline { max-height: 6em; overflow: auto; scrollbar-width: thin; }
+
+@media (max-width: 900px) {
+  .t4-content { padding: 18px 18px 38px; }
+  .t4-topbar { padding-left: 18px; padding-right: 18px; }
+}
+@media (max-width: 680px) {
+  .t4-brand { min-height: 0; padding: 10px 14px; }
+  .t4-content { padding: 16px 13px 36px; }
+  .t4-topbar { min-height: 0; padding: 11px 14px; }
+  .t4-topbar-heading { min-width: 0; }
+  .t4-global-search { width: 42px; min-width: 42px; padding: 9px; }
+  .t4-global-search input, .t4-global-search .t4-keycap, .t4-search-clear { display: none; }
+  .v25-archive-search { grid-template-columns: 1fr; }
+  .v25-archive-search > .t4-btn { justify-self: start; }
+}

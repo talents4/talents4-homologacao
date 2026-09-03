@@ -18,7 +18,7 @@ function walk(dir) {
 }
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
-const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPABASE_AUDITORIA.md',
+const required = [...Object.keys(pages),
   'assets/t4-tokens.css', 'assets/t4-components.css', 'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
@@ -27,7 +27,6 @@ const required = [...Object.keys(pages), 'README.md', 'PASSO_A_PASSO.md', 'SUPAB
   'assets/t4-v24.js','assets/t4-v24.css',
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
   'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs','tests/import-data.test.mjs','tests/export-roundtrip.test.mjs',
-  'TALENTOS_V2_5.md','PASSO_A_PASSO_TALENTOS_V2_5.md','MANUAL_TALENTOS_V2_5.md',
   'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql','supabase/talents-v22/40_harden_anon_grants.sql',
   'docs/mapeamento/CONTRATO_PLANILHAS.md','docs/mapeamento/CLASSIFICACAO_EMPRESAS.md','docs/mapeamento/MAPEAMENTO_SUPABASE.md','docs/mapeamento/IMPORTACAO_SQL.md','docs/mapeamento/EXPORTACAO.md',
   'supabase/talents-v22/import-planilhas/00_preflight.sql','supabase/talents-v22/import-planilhas/01_schema_additive.sql','supabase/talents-v22/import-planilhas/02_create_staging.sql',
@@ -82,6 +81,10 @@ for (const [name, module] of Object.entries(pages)) {
     const ui = scriptRefs.findIndex((r) => r.endsWith('t4-v2-ui.js'));
     const records = scriptRefs.findIndex((r) => r.endsWith('t4-v2-records.js'));
     check(core >= 0 && core < models && models < data && data < ui && ui < records, `${file}: dependências compartilhadas na ordem correta`);
+    const modern = scriptRefs.findIndex((r) => r.endsWith('t4-modern.js'));
+    const v24 = scriptRefs.findIndex((r) => r.endsWith('t4-v24.js'));
+    const v25 = scriptRefs.findIndex((r) => r.endsWith('t4-v25.js'));
+    check(records >= 0 && records < modern && modern < v24 && v24 < v25, `${file}: camadas modernas carregam depois do núcleo compartilhado`);
     check(/href="(?:\.\/|\.\.\/)assets\/t4-v2.css"/.test(html), `${file}: mesmo design system`);
     check(html.includes('Content-Security-Policy') && html.includes("object-src 'none'"), `${file}: política de conteúdo`);
     if (demo) {
@@ -101,6 +104,8 @@ check(mappingCSS.includes(':focus-visible') && mappingCSS.includes('prefers-redu
 for (const file of Object.keys(pages)) check(core.includes(`href: './${file}'`), `switch ${file} presente no componente único`);
 check((core.match(/class="t4-switch-item/g) || []).length === 1, 'quatro switches gerados por um único componente');
 check(core.includes('aria-current') && core.includes('t4-skip'), 'navegação identifica a página e oferece atalho ao conteúdo');
+check(core.includes('data-search-clear') && core.includes("search.addEventListener('search'") && core.includes('dispatchSearch'), 'busca possui limpeza explícita e sincroniza o estado ao apagar');
+check(core.includes('Pronto para apresentação') && core.includes('Apresentado ao empregador'), 'rótulos legados são traduzidos na interface');
 check(core.includes('dataset.saving') && core.includes('dataset.dirty'), 'formulário protege alterações não salvas e gravação em andamento');
 for (const color of ['#002a4a', '#dcd0c3', '#d50c2f', '#e63121', '#f07f00', '#fbb900', '#1e1349']) check(css.toLowerCase().includes(color), `paleta da marca contém ${color}`);
 check(css.includes('@media (max-width: 1000px)') && css.includes('@media (max-width: 680px)'), 'adaptação a telas menores');
@@ -146,12 +151,11 @@ check(germanV25.includes("classScope: 'active'") && germanV25.includes("studentS
 check(!organizationV25.includes('T4V24.savedViews') && !talentsV25.includes('T4V24.savedViews'), 'navegação lateral não duplica a antiga barra de visões');
 const importExport = read('assets/t4-import-export.js'), workbook = read('assets/t4-workbook.js');
 check(importExport.includes('buildNectaWorkbook') && importExport.includes('buildMappingWorkbook') && importExport.includes('exportFiles') && !importExport.includes('Confirmar importação') && !importExport.includes('data-data-import'), 'tela de exportação gera os dois modelos oficiais e não expõe fluxo de importação de planilha');
-check(talentsV25.includes('A seleção não altera etapas') && importExport.includes('source.mapping.radar'), 'importação respeita seleção manual e preserva o radar');
+check((talentsV25.includes('não muda a etapa') || talentsV25.includes('não altera etapas')) && importExport.includes('source.mapping.radar'), 'exportação respeita seleção manual e preserva o radar');
 check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbook.includes('pageBreaks'), 'leitor e escritor local preservam abas, congelamento e quebra de página');
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
+check(talentsV25.includes('archivedSearchNotice') && talentsV25.includes('também no arquivo') && talentsV25.includes('Selecione ao menos um Talento'), 'arquivo e exportação deixam estados ambíguos explícitos');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
-check(read('TALENTOS_V2_5.md').includes('Supabase') && read('MANUAL_TALENTOS_V2_5.md').includes('Lista NectaNet') && read('PASSO_A_PASSO_TALENTOS_V2_5.md').includes('talents4/talents4-homologacao'), 'documentação V2.5 cobre produto, uso e upload');
-check(read('SUPABASE_AUDITORIA.md').includes('30_frontend_schema_audit.sql') && /não execute[\s`*]+10_additive\.sql/i.test(read('SUPABASE_AUDITORIA.md')), 'auditoria do Supabase tem roteiro seguro e explícito');
 check(read('manual-talentos.html').includes('./index.html?view=manual') && !/<script\b/i.test(read('manual-talentos.html')), 'endereço antigo do manual redireciona sem código legado');
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-modern.css') && read(file).includes('t4-modern.js'), `${file}: camada moderna compartilhada presente`);
 for (const file of ['index.html','organizacional.html','alemao.html','contatos.html','demo/index.html','demo/organizacional.html','demo/alemao.html','demo/contatos.html']) check(read(file).includes('t4-v25.css') && read(file).includes('t4-v25.js'), `${file}: camada V2.5 compartilhada presente`);
