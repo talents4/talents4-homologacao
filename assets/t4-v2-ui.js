@@ -338,11 +338,67 @@
     const top = shown.reduce((best, b) => (!best || b.count > best.count ? b : best), null);
     const header = `<header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header>`;
     if (!shown.length) return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}<p class="t4-funnel-empty">Nenhum registro nas etapas acompanhadas.</p></section>`;
+    // Tooltip flutuante e legenda clicável reaproveitam o componente
+    // [data-tooltip] já usado no resto do app (t4-components.css) — nada
+    // de biblioteca nova. data-bucket liga cada segmento ao seu item de
+    // legenda; clicar na legenda soma só o que ainda está visível e
+    // redistribui a barra (ver bindFunnelInteractivity, abaixo).
+    const pct = (b) => total > 0 ? Math.round(b.count / total * 100) : 0;
+    const tip = (b) => `${b.label} · ${b.count} · ${pct(b)}%`;
     return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}
-      <div class="t4-funnel-bar" role="img" aria-label="${a(shown.map((b) => `${b.label}: ${b.count}`).join(', '))}">${shown.map((b) => `<span class="t4-funnel-seg ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" style="--seg-width:${Math.round(b.count / total * 1000) / 10}%" title="${a(`${b.label} · ${b.count}`)}"></span>`).join('')}</div>
-      <ul class="t4-funnel-legend">${shown.map((b) => `<li class="${a(b.tone || '')} ${b === top ? 'is-top' : ''}"><i aria-hidden="true"></i><span>${e(b.label)}</span><strong>${e(b.count)}</strong></li>`).join('')}</ul>
+      <div class="t4-funnel-bar" role="img" aria-label="${a(shown.map((b) => `${b.label}: ${b.count}`).join(', '))}">${shown.map((b, i) => `<span class="t4-funnel-seg ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" data-bucket="${i}" data-count="${b.count}" style="--seg-width:${Math.round(b.count / total * 1000) / 10}%; --i:${i}" data-tooltip="${a(tip(b))}"></span>`).join('')}</div>
+      <ul class="t4-funnel-legend">${shown.map((b, i) => `<li style="--i:${i}"><button type="button" class="t4-funnel-legend-toggle ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" data-bucket="${i}" data-tooltip="${a(tip(b))}" aria-pressed="true"><i aria-hidden="true"></i><span>${e(b.label)}</span><strong>${e(b.count)}</strong></button></li>`).join('')}</ul>
       ${empty.length ? `<p class="t4-funnel-empty">Sem registros agora: ${e(empty.map((b) => b.label).join(', '))}.</p>` : ''}</section>`;
   }
+  // Interatividade do funil por delegação em document — funciona em toda
+  // instância (Talentos e Organizacional, hoje e futuras), inclusive
+  // depois de um re-render trocar o HTML inteiro, sem precisar religar
+  // nada a cada render(). Hover cruza segmento↔legenda (esmaece o resto);
+  // clique na legenda alterna a etapa fora do total e redistribui a barra
+  // — só oculta visualmente, nunca apaga o valor mostrado na legenda.
+  function bindFunnelInteractivity() {
+    const closestFunnel = (el) => el.closest?.('.t4-funnel') || null;
+    const setHover = (funnel, bucket) => {
+      const bar = funnel.querySelector('.t4-funnel-bar');
+      const legend = funnel.querySelector('.t4-funnel-legend');
+      bar?.classList.toggle('is-active', bucket != null);
+      legend?.classList.toggle('is-active', bucket != null);
+      bar?.querySelectorAll('.t4-funnel-seg').forEach((seg) => seg.classList.toggle('is-hovered', seg.dataset.bucket === bucket));
+      legend?.querySelectorAll('.t4-funnel-legend-toggle').forEach((btn) => btn.classList.toggle('is-hovered', btn.dataset.bucket === bucket));
+    };
+    const recompute = (bar) => {
+      if (!bar) return;
+      const segs = [...bar.querySelectorAll('.t4-funnel-seg')];
+      const visible = segs.filter((seg) => !seg.classList.contains('is-excluded'));
+      const total = visible.reduce((sum, seg) => sum + (Number(seg.dataset.count) || 0), 0);
+      visible.forEach((seg) => {
+        const pct = total > 0 ? Math.round((Number(seg.dataset.count) || 0) / total * 1000) / 10 : 0;
+        seg.style.setProperty('--seg-width', `${pct}%`);
+      });
+    };
+    document.addEventListener('mouseover', (event) => {
+      const target = event.target.closest?.('.t4-funnel-seg, .t4-funnel-legend-toggle');
+      const funnel = target && closestFunnel(target);
+      if (funnel) setHover(funnel, target.dataset.bucket);
+    });
+    document.addEventListener('mouseout', (event) => {
+      const target = event.target.closest?.('.t4-funnel-seg, .t4-funnel-legend-toggle');
+      const funnel = target && closestFunnel(target);
+      if (funnel && !funnel.contains(event.relatedTarget)) setHover(funnel, null);
+    });
+    document.addEventListener('click', (event) => {
+      const toggle = event.target.closest?.('.t4-funnel-legend-toggle');
+      const funnel = toggle && closestFunnel(toggle);
+      if (!funnel) return;
+      const bar = funnel.querySelector('.t4-funnel-bar');
+      const seg = bar?.querySelector(`.t4-funnel-seg[data-bucket="${toggle.dataset.bucket}"]`);
+      const excluding = toggle.getAttribute('aria-pressed') !== 'false';
+      toggle.setAttribute('aria-pressed', excluding ? 'false' : 'true');
+      seg?.classList.toggle('is-excluded', excluding);
+      recompute(bar);
+    });
+  }
+  bindFunnelInteractivity();
   window.T4Work = Object.freeze({ button, link, external, optionsHtml, searchableSelect, bindSearchableSelects, filter, multiFilter, chips, note, section, person, stack, stackHtml, status, unique, find,
     formatError, table, form, inputField, recordForm, saveRecord, sourceAlerts, loader, bind, start, activeFiltersBar, funnelChart });
 })();

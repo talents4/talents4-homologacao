@@ -141,7 +141,19 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .t4-work-intro h2, .t4-directory-intro h2 { font-size: 30px; letter-spacing: -.065em; }
 .t4-work-intro p, .t4-directory-intro p { color: #718198; font-size: 13px; }
 .t4-kpi-grid { gap: 14px; margin-bottom: 22px; }
-.t4-kpi { padding: 19px 21px; border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); }
+.t4-kpi {
+  padding: 19px 21px; border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow);
+  animation: t4-kpi-in .34s var(--v25-ease) backwards;
+  transition: transform .16s var(--v25-ease), box-shadow .16s var(--v25-ease);
+}
+.t4-kpi:nth-child(1) { animation-delay: 0ms; }
+.t4-kpi:nth-child(2) { animation-delay: 55ms; }
+.t4-kpi:nth-child(3) { animation-delay: 110ms; }
+.t4-kpi:nth-child(4) { animation-delay: 165ms; }
+@keyframes t4-kpi-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .t4-kpi:hover { transform: translateY(-2px); box-shadow: var(--v25-shadow-hover); }
 .t4-kpi-label { color: #79899e; font-size: 10px; letter-spacing: .07em; }
 .t4-kpi-value { font-size: 34px; }

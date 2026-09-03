@@ -169,29 +169,58 @@
    Cor por tom semântico (não a mesma cor pintada N vezes) e a etapa com
    mais gente ganha um leve destaque (is-top), para responder "onde a
    maioria está" no primeiro relance, sem precisar comparar 10 números. */
-.t4-funnel-bar { display: flex; height: 34px; border-radius: var(--t4-radius-md); overflow: hidden; background: var(--t4-surface-sunken); gap: 2px; }
-.t4-funnel-seg { display: block; height: 100%; min-width: 6px; flex: 0 0 var(--seg-width, 0%); background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken)); animation: t4-funnel-grow var(--t4-duration-base) var(--t4-ease) both; animation-delay: 60ms; }
-.t4-funnel-seg.info { background: color-mix(in srgb, var(--t4-info) 75%, transparent); }
-.t4-funnel-seg.warning { background: color-mix(in srgb, var(--t4-warning) 80%, transparent); }
-.t4-funnel-seg.success { background: color-mix(in srgb, var(--t4-success) 80%, transparent); }
-.t4-funnel-seg.critical { background: color-mix(in srgb, var(--t4-critical) 80%, transparent); }
+.t4-funnel-bar { display: flex; height: 34px; background: transparent; gap: 3px; }
+.t4-funnel-seg {
+  display: block; height: 100%; min-width: 6px; flex: 0 0 var(--seg-width, 0%);
+  background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken));
+  border-radius: 999px;
+  box-shadow: 0 1px 2px rgba(10, 20, 35, .08);
+  animation: t4-funnel-grow var(--t4-duration-base) var(--t4-ease) backwards;
+  animation-delay: calc(60ms + var(--i, 0) * 55ms);
+  transition: flex-basis .35s var(--t4-ease), min-width .35s var(--t4-ease), opacity .25s var(--t4-ease), filter .15s var(--t4-ease), transform .15s var(--t4-ease), box-shadow .15s var(--t4-ease);
+  transform-origin: center;
+}
+.t4-funnel-seg.info { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-info) 85%, #fff), color-mix(in srgb, var(--t4-info) 75%, transparent)); }
+.t4-funnel-seg.warning { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-warning) 90%, #fff), color-mix(in srgb, var(--t4-warning) 80%, transparent)); }
+.t4-funnel-seg.success { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-success) 90%, #fff), color-mix(in srgb, var(--t4-success) 80%, transparent)); }
+.t4-funnel-seg.critical { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-critical) 90%, #fff), color-mix(in srgb, var(--t4-critical) 80%, transparent)); }
 .t4-funnel-seg.is-top { outline: 2px solid var(--t4-ink); outline-offset: -2px; }
+.t4-funnel-seg.is-hovered { filter: brightness(1.14) saturate(1.2); transform: scaleY(1.1); box-shadow: 0 3px 10px rgba(10, 20, 35, .22); position: relative; z-index: 1; cursor: default; }
+.t4-funnel-bar.is-active .t4-funnel-seg:not(.is-hovered) { opacity: .32; }
+.t4-funnel-seg.is-excluded { flex-basis: 0% !important; min-width: 0 !important; opacity: 0; }
 @keyframes t4-funnel-grow {
   from { flex-basis: 0%; }
   to { flex-basis: var(--seg-width, 0%); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .t4-funnel-seg { animation: none; }
+  .t4-funnel-seg { animation: none; transition: opacity .15s linear; }
+  .t4-funnel-legend li { animation: none; }
 }
-.t4-funnel-legend { list-style: none; margin: var(--t4-space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--t4-space-2) var(--t4-space-5); }
-.t4-funnel-legend li { display: flex; align-items: center; gap: 7px; font-size: var(--t4-text-small); color: var(--t4-ink-soft); }
-.t4-funnel-legend i { width: 9px; height: 9px; border-radius: 3px; background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken)); flex-shrink: 0; }
-.t4-funnel-legend li.info i { background: var(--t4-info); }
-.t4-funnel-legend li.warning i { background: var(--t4-warning); }
-.t4-funnel-legend li.success i { background: var(--t4-success); }
-.t4-funnel-legend li.critical i { background: var(--t4-critical); }
-.t4-funnel-legend li.is-top { color: var(--t4-ink); font-weight: 650; }
-.t4-funnel-legend strong { font-variant-numeric: tabular-nums; font-weight: 750; color: var(--t4-ink); }
+.t4-funnel-legend { list-style: none; margin: var(--t4-space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--t4-space-1) var(--t4-space-3); }
+.t4-funnel-legend li { animation: t4-legend-in .3s var(--t4-ease) backwards; animation-delay: calc(80ms + var(--i, 0) * 45ms); }
+@keyframes t4-legend-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.t4-funnel-legend-toggle {
+  display: flex; align-items: center; gap: 8px; font: inherit; font-size: var(--t4-text-small); color: var(--t4-ink-soft);
+  background: transparent; border: 0; margin: 0; padding: 5px 10px 5px 5px; border-radius: 999px; cursor: pointer;
+  transition: background-color .15s var(--t4-ease), opacity .2s var(--t4-ease), color .15s var(--t4-ease);
+}
+.t4-funnel-legend-toggle:hover, .t4-funnel-legend-toggle:focus-visible, .t4-funnel-legend-toggle.is-hovered { background: var(--t4-surface-sunken); color: var(--t4-ink); }
+.t4-funnel-legend-toggle:focus-visible { outline: 2px solid var(--t4-info); outline-offset: 1px; }
+.t4-funnel-legend.is-active .t4-funnel-legend-toggle:not(.is-hovered) { opacity: .45; }
+.t4-funnel-legend-toggle[aria-pressed="false"] { opacity: .4; }
+.t4-funnel-legend-toggle[aria-pressed="false"] i { background: var(--t4-ink-faint) !important; }
+.t4-funnel-legend-toggle[aria-pressed="false"] span { text-decoration: line-through; }
+.t4-funnel-legend-toggle i { width: 13px; height: 13px; border-radius: 4px; background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken)); flex-shrink: 0; }
+.t4-funnel-legend-toggle.info i { background: var(--t4-info); }
+.t4-funnel-legend-toggle.warning i { background: var(--t4-warning); }
+.t4-funnel-legend-toggle.success i { background: var(--t4-success); }
+.t4-funnel-legend-toggle.critical i { background: var(--t4-critical); }
+.t4-funnel-legend-toggle.is-top { color: var(--t4-ink); font-weight: 650; }
+.t4-funnel-legend-toggle strong { font-variant-numeric: tabular-nums; font-weight: 750; color: var(--t4-ink); }
+.t4-funnel-legend-toggle[aria-pressed="false"] strong { color: var(--t4-ink-faint); }
 .t4-funnel-empty { margin: var(--t4-space-4) 0 0; font-size: var(--t4-text-small); color: var(--t4-ink-faint); }
 @media (max-width: 680px) {
   .t4-dist { padding: var(--t4-space-5); }
