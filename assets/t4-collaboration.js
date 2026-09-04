@@ -3,18 +3,20 @@
   'use strict';
   const U = window.T4V2, D = window.T4Data;
   const e = U.esc, a = U.attr;
-  const state = { started: false, notifications: [], notificationsAvailable: false, chatAvailable: false, chatModal: null, chatData: null, activeConversation: '', reminder: null, interval: null, notificationSubscription: null, chatSubscription: null, lastReminderAt: 0, reminderLockAt: 0 };
+  const state = { started: false, notifications: [], notificationsAvailable: false, chatAvailable: false, chatDock: null, chatData: null, activeConversation: '', reminder: null, interval: null, notificationSubscription: null, chatSubscription: null, lastReminderAt: 0, reminderLockAt: 0 };
   const REMINDER_INTERVAL = 45 * 60 * 1000;
   const norm = (value) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
   const active = (value) => value == null || !/^(false|0|nao|no|inativo|cancelado|concluido|concluida|pronto)$/i.test(norm(value));
   const currentUser = () => String(D.profile?.username || '').trim();
   const displayUser = (username, users = []) => users.find((row) => norm(row.username) === norm(username))?.nome || username || 'Usuário';
-  const formatError = (error) => error?.code === '42501' ? 'Seu perfil não tem permissão para esta colaboração.' : error?.message || 'Não foi possível carregar a colaboração agora.';
+  const formatError = (error) => error?.code === '42501' ? 'Seu perfil não tem permissão para esta colaboração.'
+    : error?.code === '42703' ? 'Este recurso ainda não foi migrado no Supabase (coluna ausente). Aplique a migração 53 antes de encerrar ou editar uma conversa.'
+    : error?.message || 'Não foi possível carregar a colaboração agora.';
 
   function injectShellActions() {
     const topbar = document.querySelector('.t4-topbar');
     if (!topbar || topbar.querySelector('[data-collab-notifications]')) return;
-    topbar.insertAdjacentHTML('beforeend', `<div class="t4-collab-actions" aria-label="Colaboração"><button type="button" class="t4-icon-btn t4-collab-notification-button" data-collab-notifications data-collab-action="notifications" aria-label="Notificações" title="Notificações">${U.icon('bell')}<span class="t4-collab-count" data-collab-count hidden>0</span></button><button type="button" class="t4-btn ghost sm t4-collab-chat-button" data-collab-action="chat">${U.icon('people')}<span>Chat</span></button></div>`);
+    topbar.insertAdjacentHTML('beforeend', `<div class="t4-collab-actions" aria-label="Colaboração"><button type="button" class="t4-icon-btn t4-collab-notification-button" data-collab-notifications data-collab-action="notifications" aria-label="Notificações" title="Notificações">${U.icon('bell')}<span class="t4-collab-count" data-collab-count hidden>0</span></button><button type="button" class="t4-btn ghost sm t4-collab-chat-button" data-collab-action="chat" aria-expanded="false" aria-controls="t4-chat-dock">${U.icon('people')}<span>Chat</span></button></div>`);
     paintNotificationButton();
   }
 
@@ -129,40 +131,95 @@
     return names.length ? `${conversation.title || 'Conversa'} · ${names.join(', ')}` : conversation.title || 'Conversa sem título';
   }
 
-  function chatList(data) {
-    return `<aside class="t4-chat-list"><div class="t4-chat-list-head"><div><span class="t4-notification-type">CONVERSAS</span><h3>Chat interno</h3></div><button type="button" class="t4-btn primary sm" data-collab-action="chat-new">Nova conversa</button></div>${data.conversations.length ? data.conversations.map((conversation) => `<button type="button" class="t4-chat-conversation ${String(conversation.id) === String(state.activeConversation) ? 'is-active' : ''}" data-collab-action="chat-select" data-collab-id="${a(conversation.id)}"><strong>${e(conversation.title || 'Conversa sem título')}</strong><span>${e(conversationTitle(conversation, data).replace(`${conversation.title || 'Conversa'} · `, ''))}</span></button>`).join('') : '<div class="t4-collab-empty"><strong>Nenhuma conversa</strong><span>Abra a primeira conversa com um título e participantes.</span></div>'}</aside>`;
+  // O criador ou um participante com role 'owner' pode renomear a conversa,
+  // ajustar participantes e encerrar — mesmo critério das policies do banco
+  // (t4_collab_conversation_manage), só que avaliado no lado do cliente para
+  // decidir o que mostrar. A aplicação real continua sendo do RLS.
+  function canManage(conversation, data) {
+    if (!conversation) return false;
+    if (norm(conversation.created_by) === norm(currentUser())) return true;
+    return data.participants.some((row) => String(row.conversation_id) === String(conversation.id) && !row.deleted_at && row.role === 'owner' && norm(row.username) === norm(currentUser()));
   }
 
-  async function renderConversation(modal, data, id) {
+  function chatConversationItem(conversation, data) {
+    const closed = Boolean(conversation.closed_at);
+    return `<button type="button" class="t4-chat-conversation ${String(conversation.id) === String(state.activeConversation) ? 'is-active' : ''} ${closed ? 'is-closed' : ''}" data-collab-action="chat-select" data-collab-id="${a(conversation.id)}">${closed ? `<span class="t4-chat-conversation-flag">${U.icon('archive')}</span>` : ''}<strong>${e(conversation.title || 'Conversa sem título')}</strong><span>${e(conversationTitle(conversation, data).replace(`${conversation.title || 'Conversa'} · `, ''))}</span></button>`;
+  }
+
+  function chatList(data) {
+    const open = data.conversations.filter((row) => !row.closed_at);
+    const closed = data.conversations.filter((row) => row.closed_at);
+    return `<aside class="t4-chat-list"><div class="t4-chat-list-head"><div><span class="t4-notification-type">CONVERSAS</span><h3>Chat interno</h3></div><button type="button" class="t4-btn primary sm" data-collab-action="chat-new">Nova conversa</button></div>${open.length ? open.map((row) => chatConversationItem(row, data)).join('') : '<div class="t4-collab-empty"><strong>Nenhuma conversa ativa</strong><span>Abra a primeira conversa com um título e participantes.</span></div>'}${closed.length ? `<div class="t4-chat-list-group-label">Arquivadas</div>${closed.map((row) => chatConversationItem(row, data)).join('')}` : ''}</aside>`;
+  }
+
+  async function renderConversation(dock, data, id) {
     state.activeConversation = String(id || '');
+    const body = dock.querySelector('.t4-chat-dock-body');
     const conversation = data.conversations.find((row) => String(row.id) === String(id));
-    if (!conversation) { modal.querySelector('.t4-modal-body').innerHTML = `${chatList(data)}<div class="t4-chat-empty"><strong>Selecione uma conversa</strong><span>As mensagens permanecem armazenadas por conversa.</span></div>`; return; }
+    if (!conversation) { body.innerHTML = `${chatList(data)}<div class="t4-chat-empty"><strong>Selecione uma conversa</strong><span>As mensagens permanecem armazenadas por conversa.</span></div>`; return; }
     let messages = [];
     try {
       const result = await D.optionalSelect(D.TABLES.chatMessages, '*', (query) => query.eq('conversation_id', conversation.id).order('created_at', { ascending: true }).limit(300));
       if (result.available) messages = result.data || [];
     } catch (error) { U.toast(formatError(error), 'error', 6000); }
     const messageHtml = messages.map((message) => `<article class="t4-chat-message ${norm(message.sender_username) === norm(currentUser()) ? 'is-mine' : ''}"><strong>${e(displayUser(message.sender_username, data.users))}</strong><p>${e(message.body || '')}</p><small>${e(U.formatDate(message.created_at, true))}</small></article>`).join('');
-    modal.querySelector('.t4-modal-body').innerHTML = `<div class="t4-chat-layout">${chatList(data)}<section class="t4-chat-thread"><header><div><span class="t4-notification-type">CONVERSA</span><h3>${e(conversation.title || 'Conversa sem título')}</h3><p>${e(conversationTitle(conversation, data))}</p></div><button type="button" class="t4-btn ghost sm" data-collab-action="chat-refresh">Atualizar</button></header><div class="t4-chat-messages">${messageHtml || '<div class="t4-chat-empty"><strong>Conversa criada</strong><span>Envie a primeira mensagem para registrar o contexto.</span></div>'}</div><form class="t4-chat-compose" data-collab-chat-form data-collab-id="${a(conversation.id)}"><textarea name="body" rows="2" required placeholder="Escreva uma mensagem para a equipe…"></textarea><button type="submit" class="t4-btn primary sm">Enviar</button></form></section></div>`;
-    const messagesNode = modal.querySelector('.t4-chat-messages');
+    const closed = Boolean(conversation.closed_at);
+    const manage = canManage(conversation, data);
+    // Editar e encerrar somem para quem não gerencia e para conversas já
+    // encerradas — encerrar é definitivo (mesma regra do banco: a policy de
+    // update só aceita linhas com closed_at ainda nulo).
+    const headerActions = `${!closed && manage ? `<button type="button" class="t4-icon-btn" data-collab-action="chat-edit" data-collab-id="${a(conversation.id)}" aria-label="Editar título e participantes" title="Editar título e participantes">${U.icon('edit')}</button>` : ''}${!closed && manage ? `<button type="button" class="t4-icon-btn" data-collab-action="chat-close-conversation" data-collab-id="${a(conversation.id)}" aria-label="Encerrar conversa" title="Encerrar conversa">${U.icon('archive')}</button>` : ''}<button type="button" class="t4-btn ghost sm" data-collab-action="chat-refresh">Atualizar</button>`;
+    const closedBanner = closed ? `<div class="t4-chat-closed-banner">${U.icon('archive')}<span>Encerrada em ${e(U.formatDate(conversation.closed_at, true))}${conversation.closed_by ? ` por ${e(displayUser(conversation.closed_by, data.users))}` : ''} · somente leitura.</span></div>` : '';
+    const composer = closed ? '' : `<form class="t4-chat-compose" data-collab-chat-form data-collab-id="${a(conversation.id)}"><textarea name="body" rows="2" required placeholder="Escreva uma mensagem para a equipe…"></textarea><button type="submit" class="t4-btn primary sm">Enviar</button></form>`;
+    body.innerHTML = `<div class="t4-chat-layout">${chatList(data)}<section class="t4-chat-thread ${closed ? 'is-closed' : ''}"><header><div><span class="t4-notification-type">CONVERSA</span><h3>${e(conversation.title || 'Conversa sem título')}</h3><p>${e(conversationTitle(conversation, data))}</p></div><div class="t4-chat-thread-actions">${headerActions}</div></header>${closedBanner}<div class="t4-chat-messages">${messageHtml || '<div class="t4-chat-empty"><strong>Conversa criada</strong><span>Envie a primeira mensagem para registrar o contexto.</span></div>'}</div>${composer}</section></div>`;
+    const messagesNode = body.querySelector('.t4-chat-messages');
     if (messagesNode) messagesNode.scrollTop = messagesNode.scrollHeight;
   }
 
-  async function openChat() {
+  // Painel retrátil (dock) fixado no canto — substitui o modal bloqueante
+  // anterior. O elemento persiste no DOM e só alterna `hidden`, preservando
+  // conversa/scroll ao reabrir; pedido explícito do usuário, no mesmo
+  // espírito de um widget de chat flutuante já comum em produtos B2B.
+  function ensureChatDock() {
+    let dock = document.getElementById('t4-chat-dock');
+    if (dock) return dock;
+    dock = document.createElement('aside');
+    dock.id = 't4-chat-dock';
+    dock.className = 't4-chat-dock';
+    dock.hidden = true;
+    dock.setAttribute('aria-label', 'Chat interno');
+    dock.innerHTML = `<div class="t4-chat-dock-head"><h2>Chat interno</h2><button type="button" class="t4-icon-btn" data-collab-action="chat-close" aria-label="Fechar chat">${U.icon('close')}</button></div><div class="t4-chat-dock-body"><div class="t4-skeleton"></div></div>`;
+    document.body.append(dock);
+    return dock;
+  }
+
+  function setChatOpen(open) {
+    const dock = ensureChatDock();
+    dock.hidden = !open;
+    document.querySelector('[data-collab-action="chat"]')?.setAttribute('aria-expanded', String(open));
+    return dock;
+  }
+
+  async function toggleChat() {
+    const dock = ensureChatDock();
+    if (!dock.hidden) { setChatOpen(false); return; }
+    setChatOpen(true);
+    state.chatDock = dock;
     const data = await loadChatData();
     state.chatData = data;
-    const modal = U.openModal({ title: 'Chat interno', subtitle: 'Conversas nomeadas e armazenadas no CRM.', wide: true, body: state.chatAvailable ? '<div class="t4-skeleton"></div>' : '<div class="t4-collab-empty"><strong>Chat ainda não configurado</strong><span>Aplique a migração de colaboração da homologação para criar conversas persistentes e protegidas por participante.</span></div>' });
-    state.chatModal = modal;
-    if (state.chatAvailable) await renderConversation(modal, data, state.activeConversation || data.conversations[0]?.id || '');
+    const body = dock.querySelector('.t4-chat-dock-body');
+    if (!state.chatAvailable) { body.innerHTML = '<div class="t4-collab-empty"><strong>Chat ainda não configurado</strong><span>Aplique a migração de colaboração da homologação para criar conversas persistentes e protegidas por participante.</span></div>'; return; }
+    const fallback = data.conversations.find((row) => !row.closed_at)?.id || data.conversations[0]?.id || '';
+    await renderConversation(dock, data, state.activeConversation || fallback);
   }
 
-  async function newConversation(modal) {
+  async function newConversation(dock) {
     const users = state.chatData?.users?.length ? state.chatData.users : await loadUsers();
     const options = users.filter((row) => norm(row.username) !== norm(currentUser())).map((row) => `<label class="t4-chat-user-option"><input type="checkbox" name="participant" value="${a(row.username)}"><span><strong>${e(row.nome || row.username)}</strong><small>${e(row.username)}</small></span></label>`).join('');
-    modal.querySelector('.t4-modal-body').innerHTML = `<form class="t4-chat-new" data-collab-new-chat-form><div class="t4-alert info">Dê um título claro para o assunto. Você participa automaticamente; selecione quem mais poderá acompanhar.</div><label><span>Título da conversa</span><input name="title" required maxlength="120" placeholder="Ex.: Ajustes da seleção de março"></label><fieldset><legend>Participantes</legend><div class="t4-chat-user-grid">${options || '<span class="t4-muted">Nenhum outro usuário ativo encontrado.</span>'}</div></fieldset><div class="t4-chat-new-actions"><button type="button" class="t4-btn ghost" data-collab-action="chat-back">Voltar</button><button type="submit" class="t4-btn primary">Criar conversa</button></div></form>`;
+    dock.querySelector('.t4-chat-dock-body').innerHTML = `<form class="t4-chat-new" data-collab-new-chat-form><div class="t4-alert info">Dê um título claro para o assunto. Você participa automaticamente; selecione quem mais poderá acompanhar.</div><label><span>Título da conversa</span><input name="title" required maxlength="120" placeholder="Ex.: Ajustes da seleção de março"></label><fieldset><legend>Participantes</legend><div class="t4-chat-user-grid">${options || '<span class="t4-muted">Nenhum outro usuário ativo encontrado.</span>'}</div></fieldset><div class="t4-chat-new-actions"><button type="button" class="t4-btn ghost" data-collab-action="chat-back">Voltar</button><button type="submit" class="t4-btn primary">Criar conversa</button></div></form>`;
   }
 
-  async function createConversation(form, modal) {
+  async function createConversation(form, dock) {
     const title = String(form.elements.title.value || '').trim();
     const participants = [...form.querySelectorAll('input[name="participant"]:checked')].map((input) => input.value);
     if (!title) return;
@@ -182,16 +239,62 @@
       throw error;
     }
     U.toast('Conversa criada e armazenada no CRM.', 'success');
-    const data = await loadChatData(); state.chatData = data; state.activeConversation = id; await renderConversation(modal, data, id);
+    const data = await loadChatData(); state.chatData = data; state.activeConversation = id; await renderConversation(dock, data, id);
   }
 
-  async function sendMessage(form, modal) {
+  // Reaproveita a mesma tela de "Nova conversa", pré-preenchida — o usuário
+  // atual nunca aparece na lista de participantes (já está incluído por
+  // padrão), então não há como se remover sem querer por esta tela.
+  async function editConversation(dock, id) {
+    const data = state.chatData;
+    const conversation = data?.conversations.find((row) => String(row.id) === String(id));
+    if (!conversation) return;
+    const currentUsernames = new Set((data.participants || []).filter((row) => String(row.conversation_id) === String(id) && !row.deleted_at).map((row) => norm(row.username)));
+    const users = data.users?.length ? data.users : await loadUsers();
+    const options = users.filter((row) => norm(row.username) !== norm(currentUser())).map((row) => `<label class="t4-chat-user-option"><input type="checkbox" name="participant" value="${a(row.username)}" ${currentUsernames.has(norm(row.username)) ? 'checked' : ''}><span><strong>${e(row.nome || row.username)}</strong><small>${e(row.username)}</small></span></label>`).join('');
+    dock.querySelector('.t4-chat-dock-body').innerHTML = `<form class="t4-chat-new" data-collab-edit-chat-form data-collab-id="${a(id)}"><div class="t4-alert info">Ajuste o título e quem acompanha esta conversa. Você continua participando automaticamente.</div><label><span>Título da conversa</span><input name="title" required maxlength="120" value="${a(conversation.title || '')}"></label><fieldset><legend>Participantes</legend><div class="t4-chat-user-grid">${options || '<span class="t4-muted">Nenhum outro usuário ativo encontrado.</span>'}</div></fieldset><div class="t4-chat-new-actions"><button type="button" class="t4-btn ghost" data-collab-action="chat-back">Cancelar</button><button type="submit" class="t4-btn primary">Salvar alterações</button></div></form>`;
+  }
+
+  async function saveConversationEdit(form, dock) {
+    const id = form.dataset.collabId;
+    const title = String(form.elements.title.value || '').trim();
+    const desired = [...form.querySelectorAll('input[name="participant"]:checked')].map((input) => input.value);
+    if (!title || !id) return;
+    const data = state.chatData;
+    const conversation = data?.conversations.find((row) => String(row.id) === String(id));
+    const currentRows = (data?.participants || []).filter((row) => String(row.conversation_id) === String(id) && !row.deleted_at);
+    const currentUsernames = new Set(currentRows.map((row) => norm(row.username)));
+    const desiredUsernames = new Set(desired.map(norm));
+    const removed = currentRows.filter((row) => norm(row.username) !== norm(currentUser()) && !desiredUsernames.has(norm(row.username)));
+    const added = desired.filter((username) => !currentUsernames.has(norm(username)));
+    if (conversation && title !== conversation.title) await D.update(D.TABLES.chatConversations, id, { title, updated_at: new Date().toISOString() }, { select: false });
+    await Promise.all(removed.map((row) => D.update(D.TABLES.chatParticipants, row.id, { deleted_at: new Date().toISOString() }, { select: false })));
+    if (added.length) await D.insert(D.TABLES.chatParticipants, added.map((username) => ({ id: D.uuid(), conversation_id: id, username, role: 'member', deleted_at: null })), { single: false, select: false });
+    U.toast('Conversa atualizada.', 'success');
+    const fresh = await loadChatData(); state.chatData = fresh; state.activeConversation = id; await renderConversation(dock, fresh, id);
+  }
+
+  async function closeConversation(dock, id) {
+    const confirmed = await U.confirm({
+      title: 'Encerrar conversa',
+      subtitle: 'Esta ação não pode ser desfeita.',
+      message: 'A conversa vai para o arquivo e não poderá mais ser editada nem receber novas mensagens. O histórico continua disponível para consulta.',
+      confirmLabel: 'Encerrar conversa',
+      danger: true
+    });
+    if (!confirmed) return;
+    await D.update(D.TABLES.chatConversations, id, { closed_at: new Date().toISOString(), closed_by: currentUser() }, { select: false });
+    U.toast('Conversa encerrada e movida para o arquivo.', 'success');
+    const data = await loadChatData(); state.chatData = data; await renderConversation(dock, data, id);
+  }
+
+  async function sendMessage(form, dock) {
     const body = String(form.elements.body.value || '').trim();
     const id = form.dataset.collabId;
     if (!body || !id) return;
     await D.insert(D.TABLES.chatMessages, { id: D.uuid(), conversation_id: id, sender_username: currentUser(), body, created_at: new Date().toISOString() });
     form.elements.body.value = '';
-    const data = await loadChatData(); state.chatData = data; await renderConversation(modal, data, id);
+    const data = await loadChatData(); state.chatData = data; await renderConversation(dock, data, id);
   }
 
   async function handleClick(event) {
@@ -203,26 +306,36 @@
       if (action === 'notification-read') return markNotificationRead(id);
       if (action === 'close-reminder') return closeReminder();
       if (action === 'open-po') { location.href = './organizacional.html?view=operations'; return; }
-      if (action === 'chat') return openChat();
-      if (action === 'chat-new' && state.chatModal) return newConversation(state.chatModal);
-      if (action === 'chat-back' && state.chatModal) return renderConversation(state.chatModal, state.chatData || { conversations: [], participants: [], users: [] }, state.activeConversation);
-      if (action === 'chat-select' && state.chatModal) return renderConversation(state.chatModal, state.chatData, id);
-      if (action === 'chat-refresh' && state.chatModal) { const data = await loadChatData(); state.chatData = data; return renderConversation(state.chatModal, data, state.activeConversation); }
+      if (action === 'chat') return toggleChat();
+      if (action === 'chat-close') { setChatOpen(false); return; }
+      if (action === 'chat-new' && state.chatDock) return newConversation(state.chatDock);
+      if (action === 'chat-edit' && state.chatDock && id) return editConversation(state.chatDock, id);
+      if (action === 'chat-close-conversation' && state.chatDock && id) return closeConversation(state.chatDock, id);
+      if (action === 'chat-back' && state.chatDock) return renderConversation(state.chatDock, state.chatData || { conversations: [], participants: [], users: [] }, state.activeConversation);
+      if (action === 'chat-select' && state.chatDock) return renderConversation(state.chatDock, state.chatData, id);
+      if (action === 'chat-refresh' && state.chatDock) { const data = await loadChatData(); state.chatData = data; return renderConversation(state.chatDock, data, state.activeConversation); }
     } catch (error) { U.toast(formatError(error), 'error', 7000); }
   }
 
   async function handleSubmit(event) {
     const form = event.target;
-    if (form.matches('[data-collab-chat-form]')) { event.preventDefault(); try { await sendMessage(form, state.chatModal); } catch (error) { U.toast(formatError(error), 'error', 7000); } }
-    if (form.matches('[data-collab-new-chat-form]')) { event.preventDefault(); try { await createConversation(form, state.chatModal); } catch (error) { U.toast(formatError(error), 'error', 7000); } }
+    if (form.matches('[data-collab-chat-form]')) { event.preventDefault(); try { await sendMessage(form, state.chatDock); } catch (error) { U.toast(formatError(error), 'error', 7000); } }
+    if (form.matches('[data-collab-new-chat-form]')) { event.preventDefault(); try { await createConversation(form, state.chatDock); } catch (error) { U.toast(formatError(error), 'error', 7000); } }
+    if (form.matches('[data-collab-edit-chat-form]')) { event.preventDefault(); try { await saveConversationEdit(form, state.chatDock); } catch (error) { U.toast(formatError(error), 'error', 7000); } }
+  }
+
+  function handleKeydown(event) {
+    if (event.key !== 'Escape') return;
+    const dock = document.getElementById('t4-chat-dock');
+    if (dock && !dock.hidden) setChatOpen(false);
   }
 
   function subscribe() {
     try {
       state.notificationSubscription = D.subscribe([D.TABLES.notifications], () => loadNotifications(false), { name: 'collaboration-notifications' });
       state.chatSubscription = D.subscribe([D.TABLES.chatMessages, D.TABLES.chatConversations, D.TABLES.chatParticipants], async () => {
-        if (!state.chatModal?.isConnected) return;
-        const data = await loadChatData(); state.chatData = data; await renderConversation(state.chatModal, data, state.activeConversation);
+        if (!state.chatDock?.isConnected || state.chatDock.hidden) return;
+        const data = await loadChatData(); state.chatData = data; await renderConversation(state.chatDock, data, state.activeConversation);
       }, { name: 'collaboration-chat' });
     } catch (_) { /* As tabelas novas são opcionais até a migração ser aplicada. */ }
   }
@@ -237,9 +350,10 @@
     subscribe();
     document.addEventListener('click', handleClick);
     document.addEventListener('submit', handleSubmit);
+    document.addEventListener('keydown', handleKeydown);
     window.addEventListener('pagehide', () => { window.clearInterval(state.interval); state.notificationSubscription?.(); state.chatSubscription?.(); });
   }
 
   document.addEventListener('t4:ready', start, { once: true });
-  window.T4Collaboration = Object.freeze({ start, openChat, openNotifications, refresh: () => loadNotifications(true) });
+  window.T4Collaboration = Object.freeze({ start, openChat: toggleChat, openNotifications, refresh: () => loadNotifications(true) });
 })();
