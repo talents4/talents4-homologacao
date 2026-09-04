@@ -10,9 +10,14 @@ const preflight = read('supabase/talents-v22/documentation/00_preflight.sql');
 const additive = read('supabase/talents-v22/documentation/10_additive.sql');
 const verify = read('supabase/talents-v22/documentation/20_verify.sql');
 
+// has_table_privilege() recebe nomes de privilégio como STRING ('SELECT,
+// INSERT,UPDATE,...') para apenas consultar permissões — não é DML. Remove
+// literais de string (respeitando aspas simples escapadas como '') antes de
+// checar por comandos de escrita, para não confundir o argumento com o comando.
+const stripStringLiterals = (sql) => sql.replace(/'(?:[^']|'')*'/g, "''");
 test('preflight e verify da Documentação são somente leitura', () => {
   for (const sql of [preflight, verify]) {
-    assert.doesNotMatch(sql, /\b(insert|update|delete|alter|drop|create|grant|revoke|truncate)\b/i);
+    assert.doesNotMatch(stripStringLiterals(sql), /\b(insert|update|delete|alter|drop|create|grant|revoke|truncate)\b/i);
     assert.match(sql, /\bselect\b/i);
     assert.match(sql, /\bwith\b/i);
   }
