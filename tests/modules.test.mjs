@@ -85,6 +85,15 @@ test('reuniões e decisões usa o mesmo padrão de mês do PO, com histórico do
   assert.match(h.html(), /Setembro de 2026/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('agenda continua mostrando atividades marcadas como concluídas no dia em que aconteceram', async () => {
+  const h = makeHarness();
+  h.fixture.db.organizational_plan_entries.push({ ...h.fixture.db.organizational_plan_entries[0], id: h.id(1009), activity_label: 'Atividade concluída na agenda', status: 'Concluído', start_date: '2026-09-10', end_date: '2026-09-10' });
+  await h.load('organization'); h.app.route('calendar');
+  assert.match(h.html(), /Atividade concluída na agenda/);
+  h.filter('status', 'Concluído');
+  assert.match(h.html(), /Atividade concluída na agenda/);
+  assert.equal(h.fixture.writes.length, 0);
+});
 test('planejamento separa o que falta fazer do histórico do mês', async () => {
   const h = makeHarness();
   h.fixture.db.organizational_plan_entries.push({ ...h.fixture.db.organizational_plan_entries[0], id: h.id(1009), activity_label: 'Atividade concluída no mês', status: 'Concluído', completed_at: '2026-09-02', start_date: '2026-09-01', end_date: '2026-09-02' });

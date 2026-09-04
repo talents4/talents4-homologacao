@@ -327,7 +327,13 @@
     const [year, month] = state.calendar.split('-').map(Number);
     const first = new Date(year, month - 1, 1), offset = (first.getDay() + 6) % 7;
     const start = new Date(year, month - 1, 1 - offset);
-    const rows = events().filter((r) => scoped(r) && matchQuery(r) && (values(state.status).length ? matches(r.status, state.status) : !closedStatus(r.status)));
+    // Ao contrário das filas de trabalho (Planejamento, PO), a agenda é um
+    // calendário: mostra o que aconteceu num dia, não só o que ainda está
+    // aberto. Escondendo "Concluído" por padrão, marcar uma atividade como
+    // concluída a fazia sumir do próprio dia em que ela aconteceu — pedido
+    // explícito para corrigir. Mostra tudo, a menos que o usuário filtre
+    // por uma situação específica.
+    const rows = events().filter((r) => scoped(r) && matchQuery(r) && (values(state.status).length ? matches(r.status, state.status) : true));
     const days = Array.from({ length: 42 }, (_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
