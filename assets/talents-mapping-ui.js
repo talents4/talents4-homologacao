@@ -149,7 +149,7 @@
         if (key === 'ingles' && row._englishFallback) html = `<span>${html}<small>Nível registrado na ficha anterior</small></span>`;
         return { filled: true, html };
       };
-      const sheet = selectedRows.length ? `<div class="tw-presentation-sheet-scroll"><section class="tw-presentation-sheet" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}" style="--tw-presentation-count:${selectedRows.length}"><div class="tw-presentation-grid"><div class="tw-presentation-corner"><span>Informação</span><small>Folha de apresentação · ${e(meta.label)}</small></div>${selectedRows.map((row) => `<button type="button" class="tw-presentation-person" data-action="talent-detail" data-id="${a(row.id)}"><span class="t4-avatar sm">${U.initials(row.nome_completo || '')}</span><strong title="${a(row.nome_completo || 'Sem nome')}">${e(row.nome_completo || 'Sem nome')}</strong><small>${e(row.profissao_principal || row.area_profissional || 'Perfil não informado')}</small></button>`).join('')}${fields.map((field) => { const [key, label, source, type] = field; return `<div class="tw-presentation-field-label" data-presentation-field="${a(key)}"><strong>${e(label)}</strong><small>${source === 'profile' ? 'Complementar' : 'Cadastro único'}</small></div>${selectedRows.map((row) => { const data = cellData(row, field), editable = source === 'talent' || available('mappingProfiles'), content = data.html || '<span class="tw-presentation-blank" aria-hidden="true"></span>', control = editCell(content, 'presentation-cell', JSON.stringify([row.id, key]), label, editable), ariaLabel = `${label}: ${data.filled ? 'preenchido' : 'não informado'}`; return `<div class="tw-presentation-value ${data.filled ? 'is-filled' : 'is-missing'}" data-presentation-status="${data.filled ? 'filled' : 'missing'}" aria-label="${a(ariaLabel)}" title="${a(data.filled ? 'Preenchido' : 'Não informado')}">${control}</div>`; }).join('')}`; }).join('')}</div></section></div>` : `<div class="tw-presentation-sheet-scroll"><section class="tw-presentation-sheet is-empty" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}"><div class="tw-presentation-empty"><strong>Nenhum Talento selecionado</strong><span>Marque os candidatos no campo acima para preencher esta folha.</span></div></section></div>`;
+      const sheet = selectedRows.length ? `<div class="tw-presentation-sheet-scroll" data-presentation-scroll tabindex="0" aria-label="Folha de apresentação rolável"><section class="tw-presentation-sheet" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}" style="--tw-presentation-count:${selectedRows.length}"><div class="tw-presentation-grid"><div class="tw-presentation-corner"><span>Informação</span><small>Folha de apresentação · ${e(meta.label)}</small></div>${selectedRows.map((row) => `<button type="button" class="tw-presentation-person" data-action="talent-detail" data-id="${a(row.id)}"><span class="t4-avatar sm">${U.initials(row.nome_completo || '')}</span><strong title="${a(row.nome_completo || 'Sem nome')}">${e(row.nome_completo || 'Sem nome')}</strong><small>${e(row.profissao_principal || row.area_profissional || 'Perfil não informado')}</small></button>`).join('')}${fields.map((field) => { const [key, label, source, type] = field; return `<div class="tw-presentation-field-label" data-presentation-field="${a(key)}"><strong>${e(label)}</strong><small>${source === 'profile' ? 'Complementar' : 'Cadastro único'}</small></div>${selectedRows.map((row) => { const data = cellData(row, field), editable = source === 'talent' || available('mappingProfiles'), content = data.html || '<span class="tw-presentation-blank" aria-hidden="true"></span>', control = editCell(content, 'presentation-cell', JSON.stringify([row.id, key]), label, editable), ariaLabel = `${label}: ${data.filled ? 'preenchido' : 'não informado'}`; return `<div class="tw-presentation-value ${data.filled ? 'is-filled' : 'is-missing'}" data-presentation-status="${data.filled ? 'filled' : 'missing'}" aria-label="${a(ariaLabel)}" title="${a(data.filled ? 'Preenchido' : 'Não informado')}">${control}</div>`; }).join('')}`; }).join('')}</div></section></div>` : `<div class="tw-presentation-sheet-scroll" data-presentation-scroll tabindex="0" aria-label="Folha de apresentação rolável"><section class="tw-presentation-sheet is-empty" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}"><div class="tw-presentation-empty"><strong>Nenhum Talento selecionado</strong><span>Marque os candidatos no campo acima para preencher esta folha.</span></div></section></div>`;
       const legend = `<div class="tw-presentation-legend" aria-label="Legenda de preenchimento"><span><i class="is-filled"></i>Campo preenchido</span><span><i class="is-missing"></i>Campo a completar</span>${manualRows.length ? `<span><i class="is-manual"></i>Incluído manualmente neste recorte</span>` : ''}</div>`;
       const viewMenu = `<div class="tw-presentation-menu" role="group" aria-label="Recorte da apresentação">${PRESENTATION_VIEWS.map((item) => `<button type="button" data-action="presentation-view" data-id="${item.id}" aria-pressed="${item.id === selectedView}" class="${item.id === selectedView ? 'is-selected' : ''}"><strong>${e(item.label)}</strong><small>${e(item.description)}</small><span>${allRows.filter((row) => { const release = M.norm(row.pronto_para_employer); return item.id === 'nectanet' ? T.yes(row.lista_nectanet) : item.id === 'released' ? T.yes(row.pronto_para_employer) || /liberad|pronto para/.test(release) : /parcial/.test(release); }).length}</span></button>`).join('')}</div>`;
       const manualLabel = manualRows.length ? `${manualRows.length} incluído${manualRows.length === 1 ? '' : 's'} manualmente` : 'Seleção inicial automática';
@@ -367,7 +367,54 @@
       state.multiSearch[input.dataset.twSearch]=input.value;
       input.closest('[data-tw-multi]')?.querySelectorAll('[data-tw-option]').forEach((option) => {option.hidden=!option.dataset.twOption.includes(M.norm(input.value));});
     });
+    let presentationDrag = null;
+    document.addEventListener('pointerdown',(event) => {
+      const scroller = event.target.closest?.('[data-presentation-scroll]');
+      if (!scroller || event.button !== 0) return;
+      presentationDrag = { scroller, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startLeft: scroller.scrollLeft, moved: false };
+      scroller.classList.add('is-pointer-down');
+      scroller.setPointerCapture?.(event.pointerId);
+    });
+    document.addEventListener('pointermove',(event) => {
+      if (!presentationDrag || event.pointerId !== presentationDrag.pointerId) return;
+      const dx = event.clientX - presentationDrag.startX, dy = event.clientY - presentationDrag.startY;
+      if (!presentationDrag.moved && Math.max(Math.abs(dx), Math.abs(dy)) < 4) return;
+      presentationDrag.moved = true;
+      const scroller = presentationDrag.scroller;
+      scroller.scrollLeft = presentationDrag.startLeft - dx;
+      scroller.classList.add('is-dragging');
+      event.preventDefault();
+    }, {passive:false});
+    const finishPresentationDrag = (event) => {
+      if (!presentationDrag || event.pointerId !== presentationDrag.pointerId) return;
+      const { scroller, moved } = presentationDrag;
+      scroller.classList.remove('is-pointer-down','is-dragging');
+      scroller.releasePointerCapture?.(event.pointerId);
+      if (moved) {
+        scroller.dataset.presentationSuppressClick = 'true';
+        setTimeout(() => { delete scroller.dataset.presentationSuppressClick; }, 0);
+      }
+      presentationDrag = null;
+    };
+    document.addEventListener('pointerup', finishPresentationDrag);
+    document.addEventListener('pointercancel', finishPresentationDrag);
+    document.addEventListener('wheel',(event) => {
+      const scroller = event.target.closest?.('[data-presentation-scroll]');
+      if (!scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+      const delta = event.deltaX || event.deltaY;
+      if (!delta) return;
+      const before = scroller.scrollLeft;
+      scroller.scrollLeft += delta;
+      if (scroller.scrollLeft !== before) event.preventDefault();
+    }, {passive:false});
     document.addEventListener('click',(event) => {
+      const draggedSheet = event.target.closest?.('[data-presentation-scroll]');
+      if (draggedSheet?.dataset.presentationSuppressClick === 'true') {
+        event.preventDefault();
+        event.stopPropagation();
+        delete draggedSheet.dataset.presentationSuppressClick;
+        return;
+      }
       const menu=event.target.closest?.('[data-tw-multi]');
       if (menu) state.multiOpen=menu.dataset.twMulti;
       else if (!event.target.closest?.('.tw-more-filters')) {state.multiOpen=''; state.moreFiltersOpen=false; document.querySelectorAll('[data-tw-multi][open], .tw-more-filters[open]').forEach((n) => n.removeAttribute('open'));}
