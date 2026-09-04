@@ -1284,6 +1284,18 @@ body {
 .org-ready-card-footer .t4-btn { min-height: 27px; padding: 5px 8px; font-size: 10px; }
 .org-ready-card-footer .t4-badge { font-size: 9px; }
 .org-ready-list > .t4-empty-state { margin: 0; }
+/* Seleções abertas: grupos verticais na Lista analítica. O Kanban usa outra
+   estrutura e não recebe esta composição. */
+.org-selection-stage-groups { display: grid; gap: 14px; }
+.org-selection-stage-group { overflow: hidden; border: 1px solid #d7e3eb; border-radius: 13px; background: #fbfdff; }
+.org-selection-stage-group-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #e5edf2; background: linear-gradient(180deg, #f8fbfd, #f2f7fa); }
+.org-selection-stage-kicker { display: block; margin-bottom: 3px; color: #7891a3; font-size: 9px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.org-selection-stage-group-head h3 { margin: 0; color: #18344b; font-size: 14px; line-height: 1.2; }
+.org-selection-stage-group-head p { margin: 4px 0 0; color: #6d8496; font-size: 10px; line-height: 1.35; }
+.org-selection-stage-count { display: inline-grid; place-items: center; min-width: 31px; height: 27px; padding: 0 8px; border: 1px solid #c8dce8; border-radius: 8px; color: #28627f; background: #edf7fc; font-size: 11px; font-weight: 850; }
+.org-selection-stage-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); max-height: none; overflow: visible; padding: 10px 12px 12px; background: #fff; }
+.org-selection-stage-cards > .t4-empty-state { min-height: 58px; }
+
 .org-all-tasks-panel .t4-panel-body { padding-top: 9px; }
 .org-all-tasks-panel .t4-grid-tools { margin-bottom: 7px; }
 .org-all-tasks-panel .t4-table { min-width: 900px; }
