@@ -776,7 +776,7 @@
   function sourceNotice() {
     if (!sourceAvailable()) {
       return '<div class="t4-doc-migration-note" role="status">' + U.icon('info', '') + '<div><strong>Documentação ainda não foi ativada no banco.</strong>'
-        + '<p>A estrutura da área já está publicada. Aplique manualmente <code>supabase/talents-v22/documentation/10_additive.sql</code> após revisar o preflight; nenhuma alteração automática será feita.</p></div></div>';
+        + '<p>A estrutura da área já está publicada. Revise e aplique manualmente a migração da pasta <code>supabase/talents-v22/documentation/</code>; nenhuma alteração automática será feita.</p></div></div>';
     }
     return W.sourceAlerts(state, ['talents', 'employers', 'openings', 'selections']);
   }
