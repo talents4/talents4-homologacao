@@ -176,7 +176,13 @@ svg { display: block; width: 100%; height: 100%; }
 .t4-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; max-height: 4.6em; }
 .t4-pagination { padding: 12px 16px; display: flex; gap: 12px; justify-content: space-between; align-items: center; font-size: 10px; color: var(--t4-muted); border-top: 1px solid var(--t4-line); }
 .t4-pagination > div { display: flex; gap: 12px; align-items: center; }
-.t4-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; background: #eef2f6; color: #5c6c80; font-size: 10px; font-weight: 600; line-height: 1.35; max-width: 100%; white-space: normal; vertical-align: middle; }
+/* overflow-wrap:normal (não herda o "anywhere" de .t4-table td, pensado
+   para texto longo sem espaços) — badges são rótulos curtos de uma
+   palavra ("Empregador", "Talento"); herdar "anywhere" partia a palavra
+   no meio ("Empregado" + "r" em duas linhas) mesmo cabendo com folga se
+   só não fosse forçado a quebrar. white-space:normal continua permitindo
+   quebra em rótulos com mais de uma palavra, só não mais no meio de uma. */
+.t4-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 5px; background: #eef2f6; color: #5c6c80; font-size: 10px; font-weight: 600; line-height: 1.35; max-width: 100%; white-space: normal; overflow-wrap: normal; vertical-align: middle; }
 .t4-badge .dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .t4-badge.success { color: #087657; background: #e1f4eb; }
 .t4-badge.warning { color: #97600d; background: #fff2d7; }
