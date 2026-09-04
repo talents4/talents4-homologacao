@@ -122,15 +122,17 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .t4-mobile-menu { display: none; }
 .t4-topbar-heading { min-width: 235px; }
 .t4-eyebrow { color: #8a98aa; font-size: 10px; letter-spacing: .02em; }
-/* 25px era um número isolado, maior que o próprio --t4-text-display
-   (21px) já usado nos banners de abertura de página (Etapa 2A.2) — ao
-   vivo, título fixo da topbar (sempre presente) acabava mais pesado que
-   o título de destaque (só em algumas páginas), e essa altura extra
-   empurrava a topbar acima de 76px em 1366px (subtítulo virava 2
-   linhas). Reaproveita o mesmo token de "maior título do produto" em
-   vez de criar um terceiro tamanho — os dois nunca aparecem lado a
-   lado, então não há conflito visual em unificar o valor. */
-.t4-page-title { color: var(--v25-ink); font-size: var(--t4-text-display); font-weight: 760; letter-spacing: -.06em; }
+/* 25px era um número isolado — correção original (2B.2) unificou com
+   --t4-text-display (21px, banners de abertura de página), mas isso
+   apagou a diferença de nível que a Etapa 2A.2 tinha estabelecido entre
+   o título fixo da topbar (sempre presente, mais peso) e o banner de
+   destaque (só em algumas páginas). --t4-text-page-title (24px) é o
+   nível certo: continua bem abaixo do 25px original — a causa raiz da
+   topbar passando de 76px em 1366px era o subtítulo quebrando em 2
+   linhas (corrigido à parte, com white-space:nowrap), não o tamanho do
+   título — e mantém page-title > display > subtitle/card (24 > 21 >
+   16), a mesma hierarquia de 3 níveis que já existia antes. */
+.t4-page-title { color: var(--v25-ink); font-size: var(--t4-text-page-title); font-weight: 760; letter-spacing: -.06em; }
 /* Trunca numa linha: sem isto, o subtítulo quebrava para 2 linhas em
    1366px (menos espaço sobrando ao lado da busca/Command Palette),
    empurrando a topbar de ~76px para ~108px — mais que o dobro do

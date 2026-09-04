@@ -61,9 +61,13 @@
   /* ---------- Tipografia ---------- */
   --t4-font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, sans-serif;
   --t4-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  /* Escala (baseada nos tamanhos já em uso no código — 9 a 21px):
+  /* Escala (baseada nos tamanhos já em uso no código — 9 a 24px):
      eyebrow 9 · caption 10.5 · small 11.5 · body 13 (padrão) · emphasis 14.5
-     · subtitle 16 · title 18 · display 21 */
+     · subtitle/título de seção ou card 16 · title 18 · display (banners de
+     abertura de página) 21 · page-title (título fixo da topbar) 24 — o
+     único nível acima de display, por ser o identificador de página
+     sempre visível (Etapa 2B.2, corrigido na revisão que restaurou a
+     hierarquia). */
   --t4-text-eyebrow: 9px;
   --t4-text-caption: 10.5px;
   --t4-text-small: 11.5px;
@@ -72,6 +76,7 @@
   --t4-text-subtitle: 16px;
   --t4-text-title: 18px;
   --t4-text-display: 21px;
+  --t4-text-page-title: 24px;
   --t4-line-height: 1.5;
 
   /* ---------- Espaçamento (escala de 4px, já é o incremento dominante no código) ---------- */
