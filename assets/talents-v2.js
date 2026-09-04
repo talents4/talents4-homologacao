@@ -262,11 +262,11 @@
       'Fora do acompanhamento ativo; preservado somente para consulta.');
     const sortedVisibleRows = [...visibleRows].sort(byRecency);
     const current = display === 'cards' && scope !== 'closed'
-      ? R.selectionBoard(state, sortedActiveRows)
-      : R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'talent-closed-selections' : 'talent-selection-active');
-    // A Lista analítica mantém os resumos de trabalho e o registro completo.
-    // O Quadro opcional mostra somente o Kanban; não replica esses painéis.
-    const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';
+      ? R.selectionBoard(state, sortedVisibleRows)
+      : W.section('Lista analítica · todas as seleções', R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'talent-closed-selections' : 'talent-selection-active'), U.badge(sortedVisibleRows.length, 'info'), 'A mesma coleção usada no quadro, exibida em linhas para localizar, filtrar e editar registros com escala.');
+    // Lista analítica e Quadro opcional usam a mesma coleção canônica.
+    // A lista é uma tabela única para não esconder vínculos novos em painéis paralelos.
+    const analyticalPanels = '';
     const scopeBar = W.chips([
       { id: 'active', label: 'Em andamento', count: activeRows.length, icon: 'columns' },
       { id: 'all', label: 'Todas as relações', count: rows.length, icon: 'list' },
