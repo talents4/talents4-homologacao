@@ -4,6 +4,17 @@
   const norm = (v) => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase().replace(/\s+/g, ' ');
   const same = (a, b) => a != null && b != null && String(a) === String(b);
   const active = (v) => v == null || !['false', '0', 'nao', 'no', 'inativo'].includes(norm(v));
+  // `crm_scope` separates the operational Talent queue from the general
+  // intake bucket. Missing values remain compatible with the pre-migration
+  // database and are treated as Talents until the additive migration fills
+  // the column explicitly.
+  const talentScope = (row = {}) => {
+    const value = norm(row.crm_scope);
+    if (!value) return 'talento';
+    return ['talento', 'talent', 'operacional'].includes(value) ? 'talento' : 'balde';
+  };
+  const isTalent = (row = {}) => talentScope(row) === 'talento';
+  const scopeLabel = (row = {}) => isTalent(row) ? 'Talento' : 'Balde';
   // A database flag alone is not enough to determine whether a record should
   // appear in the working queue. Legacy imports often keep ativo=true while
   // the lifecycle field says Inativo, Arquivado, Excluído or Cancelado.
@@ -176,6 +187,6 @@
     const allowed = ['employers', 'planEntries', 'meetings', 'weeklySummaries', 'operationalTasks', 'operationalMetrics', 'opTasks', 'opMetrics', 'dossiers'];
     return Object.fromEntries(allowed.filter((key) => p[key] != null).map((key) => [key, p[key]]));
   }
-  window.T4Models = Object.freeze({ norm, same, active, negativeLifecycle, activeRecord, present, finite, number, dateOnly, today, isOpen, overdue,
+  window.T4Models = Object.freeze({ norm, same, active, negativeLifecycle, activeRecord, talentScope, isTalent, scopeLabel, present, finite, number, dateOnly, today, isOpen, overdue,
     riskReasons, mergeMatches, canonicalMatch, selectionBucket, SELECTION_COLUMNS, buildContacts, duplicateGroups, safeUrl, snapshotEntries });
 })();

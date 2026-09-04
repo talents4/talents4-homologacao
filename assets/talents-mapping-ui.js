@@ -76,7 +76,7 @@
     function quickFilters() {
       const picked = (id) => state.quick.includes(id) || id === 'ready' && app.view === 'presentation';
       const all = !state.quick.length && app.view !== 'presentation';
-      return `<div class="tw-quickfilters" aria-label="Visões rápidas"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos ativos <span>${state.talents.filter(T.active).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div>`;
+      return `<div class="tw-quickfilters" aria-label="Visões rápidas"><button type="button" class="tw-quick ${all ? 'selected' : ''}" data-action="quick" data-id="all" aria-pressed="${all}">Todos os Talentos <span>${state.talents.filter((row) => T.active(row) && M.isTalent(row)).length}</span></button>${quicks.map((q) => `<button type="button" class="tw-quick ${picked(q.id) ? 'selected' : ''}" data-action="quick" data-id="${q.id}" aria-pressed="${picked(q.id)}">${U.icon(q.icon)}${e(q.label)}<span class="tw-checkmark" aria-hidden="true">${picked(q.id) ? '✓' : '+'}</span></button>`).join('')}</div>`;
     }
     function sheetTabs(current) {
       // As visões principais já estão na navegação lateral. Mantemos a função
@@ -103,7 +103,7 @@
       const selectedView = PRESENTATION_VIEWS.some((item) => item.id === state.presentationView) ? state.presentationView : 'nectanet';
       state.presentationView = selectedView;
       const basePeople = T.filterTalents({ ...state, quick: [] }, { profile: D.profile });
-      const allPeople = state.talents.filter((row) => T.active(row));
+      const allPeople = state.talents.filter((row) => T.active(row) && M.isTalent(row));
       const allRows = T.presentationRows(state, allPeople);
       const baseRows = T.presentationRows(state, basePeople);
       const criteria = (row) => {
