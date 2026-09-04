@@ -245,6 +245,34 @@ test('PO separa atividades do mês do histórico completo paginado', async () =>
   assert.ok(augustHtml.indexOf('Tarefa aberta de outro mês') < augustHistoryStart);
   assert.match(augustHtml, /data-table="operations-history"/);
 });
+test('histórico completo do PO ordena abertas > vencidas > prioridade > prazo > mais recente', async () => {
+  const h = makeHarness();
+  const base = h.fixture.db.operational_tasks[0];
+  h.fixture.db.operational_tasks.length = 0;
+  h.fixture.db.operational_tasks.push(
+    { ...base, id: h.id(2001), title: 'Aberta vencida prioridade baixa', status: 'A fazer', priority: 'Baixa', due_date: '2026-08-01', updated_at: '2026-08-01T10:00:00Z' },
+    { ...base, id: h.id(2002), title: 'Aberta em dia prioridade crítica', status: 'A fazer', priority: 'Crítica', due_date: '2026-12-01', updated_at: '2026-09-01T10:00:00Z' },
+    { ...base, id: h.id(2003), title: 'Aberta em dia prioridade alta prazo próximo', status: 'A fazer', priority: 'Alta', due_date: '2026-11-01', updated_at: '2026-09-01T10:00:00Z' },
+    { ...base, id: h.id(2004), title: 'Aberta em dia prioridade alta prazo distante', status: 'A fazer', priority: 'Alta', due_date: '2026-12-15', updated_at: '2026-09-01T10:00:00Z' },
+    { ...base, id: h.id(2005), title: 'Concluída recente', status: 'Pronto', priority: 'Crítica', due_date: '2026-08-01', completed_at: '2026-09-03T10:00:00Z' },
+    { ...base, id: h.id(2006), title: 'Concluída antiga', status: 'Pronto', priority: 'Crítica', due_date: '2026-08-01', completed_at: '2026-08-01T10:00:00Z' }
+  );
+  await h.load('organization'); h.app.route('operations'); await h.action('operations-display', 'all');
+  const html = h.html(), historyStart = html.indexOf('Histórico completo');
+  const pos = (title) => html.indexOf(title, historyStart);
+  // Vencida antes de prioridade: mesmo com prioridade Baixa, a vencida
+  // vem antes das em dia (mesmo a Crítica), pois todas estão abertas.
+  assert.ok(pos('Aberta vencida prioridade baixa') < pos('Aberta em dia prioridade crítica'));
+  // Entre as em dia, prioridade decide primeiro que prazo.
+  assert.ok(pos('Aberta em dia prioridade crítica') < pos('Aberta em dia prioridade alta prazo próximo'));
+  // Mesma prioridade (Alta): prazo mais próximo vem primeiro.
+  assert.ok(pos('Aberta em dia prioridade alta prazo próximo') < pos('Aberta em dia prioridade alta prazo distante'));
+  // Todas as abertas vêm antes de todas as concluídas.
+  assert.ok(pos('Aberta em dia prioridade alta prazo distante') < pos('Concluída recente'));
+  // Entre concluídas, mais recente primeiro.
+  assert.ok(pos('Concluída recente') < pos('Concluída antiga'));
+  assert.equal(h.fixture.writes.length, 0);
+});
 test('PO operacional alterna entre atividades em cartões e lista completa', async () => {
   const h = makeHarness();
   h.fixture.db.operational_tasks.push({ ...h.fixture.db.operational_tasks[0], id: h.id(1007), title: 'Tarefa já concluída', status: 'Pronto', priority: 'Crítica', completed_at: '2026-08-31T12:00:00Z', due_date: '2026-08-31' });

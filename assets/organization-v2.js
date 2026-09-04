@@ -201,7 +201,15 @@
     const planSort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || (priorityRank[M.norm(left.priority)] ?? 9) - (priorityRank[M.norm(right.priority)] ?? 9) || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999')) || M.norm(left.activity_label).localeCompare(M.norm(right.activity_label), 'pt-BR');
     const historyDateOf = (r) => M.dateOnly(r.completed_at) || M.dateOnly(r.updated_at) || M.dateOnly(r.created_at) || M.dateOnly(r.end_date) || M.dateOnly(r.start_date) || M.dateOnly(r.month_ref);
     const historyMomentOf = (r) => String(r.completed_at || r.updated_at || r.created_at || r.end_date || r.start_date || r.month_ref || '');
-    const historyRows = [...state.plans.filter((r) => scoped(r) && matchQuery(r))].sort((left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true }) || M.norm(left.activity_label).localeCompare(M.norm(right.activity_label), 'pt-BR'));
+    // Mesma ordem de planSort acima, só com vencida antes de prioridade
+    // (pedido específico para o histórico completo) e o desempate por
+    // mais recente no lugar do alfabético como penúltimo critério.
+    const historyRows = [...state.plans.filter((r) => scoped(r) && matchQuery(r))].sort((left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1)
+      || (M.overdue(dueOf(left), left.status) ? 0 : 1) - (M.overdue(dueOf(right), right.status) ? 0 : 1)
+      || (priorityRank[M.norm(left.priority)] ?? 9) - (priorityRank[M.norm(right.priority)] ?? 9)
+      || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999'))
+      || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true })
+      || M.norm(left.activity_label).localeCompare(M.norm(right.activity_label), 'pt-BR'));
     const planCard = (r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${M.overdue(dueOf(r), r.status) ? 'is-overdue' : ''}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge(M.isOpen(r.status) ? 'Em aberto' : 'Concluída', M.isOpen(r.status) ? 'warning' : 'success')}<span class="org-ready-card-deadline ${M.overdue(dueOf(r), r.status) ? 'is-overdue' : 'is-scheduled'}">${U.icon('calendar')}${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="edit-plan" data-id="${a(r.id)}">${e(r.activity_label || 'Atividade sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), r.responsavel || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.obs || 'Sem observação registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${actions(r, 'plan')}</div></footer></article>`;
     const monthCards = monthRows.map(planCard).join('');
     const openCards = openRows.sort(planSort).map(planCard).join('');
@@ -221,7 +229,13 @@
     const openRows = state.meetings.filter((r) => scoped(r) && matchQuery(r) && M.isOpen(r.status)).sort((x, y) => String(x.scheduled_at || '9999').localeCompare(String(y.scheduled_at || '9999')));
     const historyMomentOf = (r) => String(r.completed_at || r.updated_at || r.created_at || r.scheduled_at || r.month_ref || '');
     const historyDateOf = (r) => M.dateOnly(r.completed_at) || M.dateOnly(r.updated_at) || M.dateOnly(r.created_at) || M.dateOnly(r.scheduled_at) || M.dateOnly(r.month_ref);
-    const historyRows = [...scopedRows].sort((left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true }) || M.norm(left.topic || left.title).localeCompare(M.norm(right.topic || right.title), 'pt-BR'));
+    // Sem campo de prioridade em reuniões (não existe esse conceito aqui)
+    // — abertas > vencidas (pela data agendada) > mais recente > mais
+    // antigo, pulando o critério de prioridade que não se aplica.
+    const historyRows = [...scopedRows].sort((left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1)
+      || (M.overdue(left.scheduled_at, left.status) ? 0 : 1) - (M.overdue(right.scheduled_at, right.status) ? 0 : 1)
+      || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true })
+      || M.norm(left.topic || left.title).localeCompare(M.norm(right.topic || right.title), 'pt-BR'));
     const meetingCard = (r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${M.overdue(r.scheduled_at, r.status) ? 'is-overdue' : ''}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge('Reunião', 'info')}<span class="org-ready-card-deadline ${M.overdue(r.scheduled_at, r.status) ? 'is-overdue' : 'is-scheduled'}">${U.icon('calendar')}${e(r.scheduled_at ? U.formatDate(r.scheduled_at, true) : 'Sem data')}</span></div><h3><button type="button" class="t4-row-link" data-action="meeting-detail" data-id="${a(r.id)}">${e(r.topic || r.title || 'Reunião sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), r.owner_name || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.pending_items || r.decision_summary || r.notes || 'Sem pendência ou decisão registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${actions(r, 'meeting')}</div></footer></article>`;
     const monthCards = monthRows.map(meetingCard).join('');
     const openCards = openRows.map(meetingCard).join('');
@@ -262,7 +276,16 @@
     const allOpenTasks = scopedTasks.filter((r) => M.isOpen(r.status)).sort(taskSort);
     const historyMomentOf = (r) => String(r.completed_at || r.updated_at || r.created_at || r.due_date || r.month_ref || '');
     const historyDateOf = (r) => M.dateOnly(r.completed_at) || M.dateOnly(r.updated_at) || M.dateOnly(r.created_at) || M.dateOnly(r.due_date) || M.dateOnly(r.month_ref);
-    const historySort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true }) || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR');
+    // Abertas > vencidas > alta prioridade > prazo mais próximo > mais
+    // recente > mais antigo por último — mesmos critérios de taskSort
+    // acima, só na ordem pedida especificamente para o histórico
+    // completo (vencida antes de prioridade, não depois).
+    const historySort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1)
+      || (isOverdue(left) ? 0 : 1) - (isOverdue(right) ? 0 : 1)
+      || (priorityRank[M.norm(left.priority)] ?? 9) - (priorityRank[M.norm(right.priority)] ?? 9)
+      || String(dueOf(left) || '9999').localeCompare(String(dueOf(right) || '9999'))
+      || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true })
+      || M.norm(left.title).localeCompare(M.norm(right.title), 'pt-BR');
     const historyRows = [...scopedTasks].sort(historySort);
     const open = allTasks.filter((r) => M.isOpen(r.status)).length, overdue = allTasks.filter(isOverdue).length, todayCount = allTasks.filter(isToday).length, high = allTasks.filter((r) => M.isOpen(r.status) && isHigh(r)).length, unassigned = allTasks.filter((r) => M.isOpen(r.status) && isUnassigned(r)).length;
     const taskCount = (bucket) => ({ overdue, today: todayCount, high, unassigned }[bucket] ?? 0);
