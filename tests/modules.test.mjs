@@ -500,3 +500,46 @@ test('resposta incerta impede um segundo envio do mesmo formulário', async () =
   delete h.fixture.writeErrors.german_course_classes; await h.submit({ notes: 'Tentativa duplicada' });
   assert.equal(h.fixture.writes.length, 0);
 });
+test('Seleções em Empregadores usam os mesmos escopos de Talentos e isolam o quadro opcional', async () => {
+  const h = await makeHarness().load('organization');
+  h.app.route('pipeline');
+  const listHtml = h.html();
+  for (const id of ['active', 'all', 'closed']) assert.match(listHtml, new RegExp('data-action="selection-scope" data-id="' + id + '"'));
+  assert.match(listHtml, /Lista analítica/);
+  assert.match(listHtml, /Quadro opcional/);
+  await h.action('selection-scope', 'closed');
+  assert.match(h.html(), /data-table="org-selection-closed"/);
+  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  await h.action('selection-scope', 'active');
+  await h.action('selection-display', 'cards');
+  assert.match(h.html(), /class="t4-board"/);
+  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  assert.doesNotMatch(h.html(), /Contratações mais recentes/);
+  assert.equal(h.fixture.writes.length, 0);
+});
+test('Apresentações usa três recortes, seleção manual e folha A4 vertical de campos', async () => {
+  const h = makeHarness();
+  h.fixture.db.talent_mapping_profiles = [
+    { id: 'DEMO-T1', lista_nectanet: 'Sim', visto: 'Sim', cluster: 'Saúde', novo_cv: 'Feito', updated_at: '2026-09-01T10:00:00.000Z' },
+    { id: 'DEMO-T2', lista_nectanet: 'Não', visto: 'Não informado', cluster: 'Técnico', updated_at: '2026-09-01T10:00:00.000Z' }
+  ];
+  h.fixture.db.candidatos[1].pronto_para_employer = 'Parcial';
+  await h.load('talents');
+  h.app.route('presentation');
+  const nectanet = h.html();
+  for (const label of ['Lista Nectanet = Sim', 'Sim — liberado para apresentação', 'Parcial — ainda em preparação']) assert.match(nectanet, new RegExp(label));
+  assert.match(nectanet, /Selecionar Talentos/);
+  assert.match(nectanet, /data-presentation-select/);
+  assert.match(nectanet, /data-tw-sheet="presentation-a4"/);
+  assert.match(nectanet, /tw-presentation-field-label/);
+  assert.match(nectanet, /tw-presentation-value is-filled/);
+  assert.match(nectanet, /tw-presentation-value is-missing/);
+  assert.match(nectanet, /Marina Duarte/);
+  await h.action('presentation-view', 'released');
+  assert.match(h.html(), /Sim — liberado para apresentação/);
+  assert.match(h.html(), /Marina Duarte/);
+  await h.action('presentation-view', 'partial');
+  assert.match(h.html(), /Parcial — ainda em preparação/);
+  assert.match(h.html(), /Lucas Vieira/);
+  assert.equal(h.fixture.writes.length, 0);
+});
