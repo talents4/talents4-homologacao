@@ -118,6 +118,8 @@
         state.presentationSelectionInitialized[selectedView] = true;
       }
       const selectedIds = state.presentationSelections[selectedView];
+      const fields = T.FIELDS.presentation.filter(([key]) => key !== 'nome_completo');
+      const hasValue = (value) => value !== null && value !== undefined && String(value).trim() !== '';
       const qualifyingRows = allRows.filter(criteria);
       // Perfis mais completos ocupam as primeiras colunas para facilitar a comparação.
       const filledFieldCount = (row) => fields.reduce((count, [key]) => count + (hasValue(row[key]) ? 1 : 0), 0);
@@ -131,8 +133,6 @@
       const pickerRows = [...allRows].sort((left, right) => M.norm(left.nome_completo).localeCompare(M.norm(right.nome_completo), 'pt-BR'));
       const pickerOptions = pickerRows.filter((row) => !pickerText || M.norm([row.nome_completo, row.profissao_principal, row.area_profissional].filter(Boolean).join(' ')).includes(pickerText));
       const picker = `<section class="tw-presentation-picker" data-presentation-picker="${selectedView}"><div class="tw-presentation-picker-head"><div><span class="tw-kicker">SELEÇÃO MANUAL</span><h3>Selecionar Talentos</h3><p>Os candidatos do recorte já vêm marcados. Pesquise pelo nome para incluir ou retirar qualquer Talento ativo.</p></div><strong>${selectedRows.length} selecionado${selectedRows.length === 1 ? '' : 's'}</strong></div><div class="tw-presentation-selected" aria-label="Talentos selecionados">${selectedRows.map((row) => `<span class="tw-presentation-chip"><span class="t4-avatar xs">${U.initials(row.nome_completo || '')}</span>${e(row.nome_completo || 'Sem nome')}</span>`).join('') || '<span class="tw-muted">Nenhum Talento selecionado.</span>'}</div><label class="tw-presentation-search"><span>Buscar por nome</span><input type="search" data-presentation-search="${selectedView}" value="${a(pickerSearch)}" placeholder="Digite o nome do Talento…" autocomplete="off"></label><div class="tw-presentation-options" role="group" aria-label="Talentos disponíveis">${pickerOptions.slice(0, 100).map((row) => `<label class="tw-presentation-option" data-presentation-option="${a(M.norm([row.nome_completo, row.profissao_principal, row.area_profissional].filter(Boolean).join(' ')))}"><input type="checkbox" data-presentation-select data-presentation-view="${selectedView}" data-id="${a(row.id)}" ${selectedIds.has(String(row.id)) ? 'checked' : ''}><span><strong>${e(row.nome_completo || 'Sem nome')}</strong><small>${e(row.profissao_principal || row.area_profissional || 'Perfil ainda não informado')}</small></span></label>`).join('') || '<p class="tw-muted">Nenhum Talento encontrado para esta busca.</p>'}</div>${pickerOptions.length > 100 ? `<small class="tw-presentation-picker-note">Mostrando os primeiros 100 resultados. Continue refinando pelo nome para encontrar outros.</small>` : ''}</section>`;
-      const fields = T.FIELDS.presentation.filter(([key]) => key !== 'nome_completo');
-      const hasValue = (value) => value !== null && value !== undefined && String(value).trim() !== '';
       const cellData = (row, field) => {
         const [key, label, source, type] = field;
         let value = row[key];
