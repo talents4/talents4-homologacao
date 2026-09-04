@@ -38,6 +38,8 @@
   --t4-bg: #f4f7fb;
   --t4-surface: #ffffff;
   --t4-surface-sunken: #f8fafc;
+  --t4-surface-elevated: #ffffff;
+  --t4-surface-interactive: color-mix(in srgb, var(--t4-ink) 4%, var(--t4-surface));
   --t4-ink: #1b2a3e;
   --t4-ink-soft: #64748b;
   --t4-ink-faint: #94a3b8;
@@ -97,6 +99,7 @@
   --t4-ease: cubic-bezier(.2, .8, .2, 1);
   --t4-duration-fast: 120ms;
   --t4-duration-base: 180ms;
+  --t4-duration-panel: 240ms;
 
   /* ---------- Z-index (nomeado por camada, não por número mágico) ---------- */
   --t4-z-dropdown: 60;
@@ -121,6 +124,7 @@
   --t4-bg: #0b1622;
   --t4-surface: #12202f;
   --t4-surface-sunken: #0e1a26;
+  --t4-surface-elevated: #17293b;
   --t4-ink: #eaf1f8;
   --t4-ink-soft: #9fb4c6;
   --t4-ink-faint: #67809669;
