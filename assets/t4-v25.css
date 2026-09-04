@@ -1151,6 +1151,15 @@ body {
 .org-operations-view .t4-table th:nth-child(5), .org-operations-view .t4-table td:nth-child(5) { width: 145px; }
 .org-operations-view .t4-table th:nth-child(6), .org-operations-view .t4-table td:nth-child(6) { width: 19%; }
 .org-operations-view .t4-table th:nth-child(7), .org-operations-view .t4-table td:nth-child(7) { width: 115px; }
+/* 8ª coluna (ações — Concluir + Editar em taskTable, só Editar em
+   historyTable) nunca tinha largura própria: table-layout:fixed dava
+   tudo às 7 primeiras (2 delas em %, cobrindo o resto), sobrando ~0px
+   para esta e empurrando os botões para fora da viewport sem clipar
+   (visível, mas inacessível). Com largura própria, o total passa a
+   exceder min-width — a tabela cresce e .t4-table-wrap (overflow-x:auto)
+   passa a rolar internamente em telas estreitas, o padrão já usado em
+   outras tabelas densas do produto. */
+.org-operations-view .t4-table th:nth-child(8), .org-operations-view .t4-table td:nth-child(8) { width: 170px; }
 
 /* Selectores de vínculo: acima de uma dúzia de opções aparece uma busca
    real, mas o select nativo continua sendo o controle que grava o valor. */
