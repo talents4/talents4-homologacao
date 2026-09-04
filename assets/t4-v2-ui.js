@@ -337,14 +337,31 @@
       catch (error) { U.toast(formatError(error), 'error', 7500); }
     });
     app.pageRoot.addEventListener('input', (event) => {
-      if (!event.target.matches('[data-multi-filter-search]')) return;
-      const key = event.target.dataset.multiFilterSearch || '';
-      const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
-      multiSearch.set(key, event.target.value);
-      app.pageRoot.querySelectorAll('[data-multi-filter-option]').forEach((option) => {
-        if (option.dataset.multiFilterOption !== key) return;
-        option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
-      });
+      if (event.target.matches('[data-multi-filter-search]')) {
+        const key = event.target.dataset.multiFilterSearch || '';
+        const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
+        multiSearch.set(key, event.target.value);
+        app.pageRoot.querySelectorAll('[data-multi-filter-option]').forEach((option) => {
+          if (option.dataset.multiFilterOption !== key) return;
+          option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
+        });
+        return;
+      }
+      // searchableSelect() (linha ~24) sempre renderizou este campo de
+      // busca junto do <select> nativo quando a lista passa de 12 opções,
+      // mas nada escutava o input — digitar não filtrava nada. O <select>
+      // continua sendo a fonte de valor/acessibilidade; só escondemos as
+      // <option> que não combinam, igual ao filtro multi-seleção acima.
+      if (event.target.matches('[data-select-search]')) {
+        const key = event.target.dataset.selectSearch || '';
+        const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
+        const select = key && app.pageRoot.querySelector(`select[data-searchable-value="${CSS.escape(key)}"]`);
+        if (!select) return;
+        [...select.options].forEach((option) => {
+          if (!option.value) return;
+          option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
+        });
+      }
     });
     app.pageRoot.addEventListener('change', (event) => {
       if (event.target.matches('[data-filter]')) change?.(event.target.dataset.filter, event.target.value);
