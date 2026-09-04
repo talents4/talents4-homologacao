@@ -53,7 +53,7 @@ test('filtro de períodos destaca o mês atual e escala por ano', async () => {
   assert.match(h.html(), /data-action="planning-month-prev"/);
   assert.match(h.html(), /Setembro de 2026/);
 });
-test('reuniões e decisões usa o mesmo padrão de mês do PO, com histórico do mês e histórico completo', async () => {
+test('reuniões e decisões usa o mesmo padrão de mês do PO, com atividades do mês, pendências abertas e histórico completo', async () => {
   const h = makeHarness();
   h.fixture.db.organizational_meetings.push({ ...h.fixture.db.organizational_meetings[0], id: h.id(1008), month_ref: '2027-01', topic: 'Reunião de janeiro de 2027', status: 'Concluído' });
   await h.load('organization'); h.app.route('meetings');
@@ -63,22 +63,24 @@ test('reuniões e decisões usa o mesmo padrão de mês do PO, com histórico do
   assert.match(html, /MÊS DE REFERÊNCIA/);
   assert.match(html, /data-action="meetings-month-prev"/);
   assert.match(html, /Setembro de 2026/);
-  assert.match(html, /Histórico do mês/);
-  assert.match(html, /Histórico completo/);
-  // Setembro (mês atual): só a reunião de setembro aparece no histórico do mês;
-  // a de janeiro de 2027 só aparece no histórico completo (todos os meses).
-  assert.ok(html.indexOf('Histórico do mês') < html.indexOf('Histórico completo'));
-  const monthSection = html.slice(html.indexOf('Histórico do mês'), html.indexOf('Histórico completo'));
+  assert.match(html, /ATIVIDADES DO MÊS/);
+  assert.match(html, /PENDÊNCIAS ABERTAS/);
+  assert.match(html, /HISTÓRICO COMPLETO/);
+  assert.ok(html.indexOf('ATIVIDADES DO MÊS') < html.indexOf('PENDÊNCIAS ABERTAS'));
+  assert.ok(html.indexOf('PENDÊNCIAS ABERTAS') < html.indexOf('HISTÓRICO COMPLETO'));
+  // Setembro (mês atual): só a reunião de setembro aparece nas atividades do
+  // mês; a de janeiro de 2027 (concluída) só aparece no histórico completo.
+  const monthSection = html.slice(html.indexOf('ATIVIDADES DO MÊS'), html.indexOf('PENDÊNCIAS ABERTAS'));
   assert.match(monthSection, /Prioridades da semana/);
   assert.doesNotMatch(monthSection, /Reunião de janeiro de 2027/);
-  const allSection = html.slice(html.indexOf('Histórico completo'));
-  assert.match(allSection, /Reunião de janeiro de 2027/);
-  assert.match(allSection, /Prioridades da semana/);
-  // Avançar 4 meses (out/nov/dez/jan) leva o histórico do mês para janeiro de 2027.
+  const historySection = html.slice(html.indexOf('HISTÓRICO COMPLETO'));
+  assert.match(historySection, /Reunião de janeiro de 2027/);
+  assert.match(historySection, /Prioridades da semana/);
+  // Avançar 4 meses (out/nov/dez/jan) leva as atividades do mês para janeiro de 2027.
   for (let i = 0; i < 4; i++) await h.action('meetings-month-next');
   const jan = h.html();
   assert.match(jan, /Janeiro de 2027/);
-  const janMonthSection = jan.slice(jan.indexOf('Histórico do mês'), jan.indexOf('Histórico completo'));
+  const janMonthSection = jan.slice(jan.indexOf('ATIVIDADES DO MÊS'), jan.indexOf('PENDÊNCIAS ABERTAS'));
   assert.match(janMonthSection, /Reunião de janeiro de 2027/);
   assert.doesNotMatch(janMonthSection, /Prioridades da semana/);
   await h.action('meetings-month-today');
@@ -94,16 +96,26 @@ test('agenda continua mostrando atividades marcadas como concluídas no dia em q
   assert.match(h.html(), /Atividade concluída na agenda/);
   assert.equal(h.fixture.writes.length, 0);
 });
-test('planejamento separa o que falta fazer do histórico do mês', async () => {
+test('planejamento mostra atividades concluídas no mês, com pendências abertas e histórico completo', async () => {
   const h = makeHarness();
   h.fixture.db.organizational_plan_entries.push({ ...h.fixture.db.organizational_plan_entries[0], id: h.id(1009), activity_label: 'Atividade concluída no mês', status: 'Concluído', completed_at: '2026-09-02', start_date: '2026-09-01', end_date: '2026-09-02' });
   await h.load('organization'); h.app.route('planning');
   const html = h.html();
-  assert.match(html, /A fazer neste mês/);
-  assert.match(html, /Histórico do mês/);
+  assert.match(html, /ATIVIDADES DO MÊS/);
+  assert.match(html, /PENDÊNCIAS ABERTAS/);
+  assert.match(html, /HISTÓRICO COMPLETO/);
   assert.match(html, /Atividade concluída no mês/);
-  assert.ok(html.indexOf('Histórico do mês') < html.indexOf('Atividade concluída no mês'));
-  assert.ok(html.indexOf('A fazer neste mês') < html.indexOf('Histórico do mês'));
+  assert.ok(html.indexOf('ATIVIDADES DO MÊS') < html.indexOf('PENDÊNCIAS ABERTAS'));
+  assert.ok(html.indexOf('PENDÊNCIAS ABERTAS') < html.indexOf('HISTÓRICO COMPLETO'));
+  // A atividade concluída aparece nas atividades do mês (qualquer situação)
+  // e no histórico completo, mas não nas pendências abertas (só o que está
+  // em aberto, de qualquer mês).
+  const monthSection = html.slice(html.indexOf('ATIVIDADES DO MÊS'), html.indexOf('PENDÊNCIAS ABERTAS'));
+  assert.match(monthSection, /Atividade concluída no mês/);
+  const openSection = html.slice(html.indexOf('PENDÊNCIAS ABERTAS'), html.indexOf('HISTÓRICO COMPLETO'));
+  assert.doesNotMatch(openSection, /Atividade concluída no mês/);
+  const historySection = html.slice(html.indexOf('HISTÓRICO COMPLETO'));
+  assert.match(historySection, /Atividade concluída no mês/);
   h.filter('status', 'Em andamento');
   assert.match(h.html(), /Atividade concluída no mês/);
 });
@@ -235,7 +247,10 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.doesNotMatch(html, /org-ready-summary/);
   assert.doesNotMatch(html, /Métricas do período/);
   assert.doesNotMatch(html, /Lista completa/);
-  assert.equal((html.match(/data-ready-task=/g) || []).length, 1);
+  // A tarefa aberta aparece 2x em modo "Atividades": no painel do mês e no
+  // painel de pendências abertas (todos os meses) — são superfícies
+  // diferentes, não uma duplicata por engano.
+  assert.equal((html.match(/data-ready-task=/g) || []).length, 2);
   assert.doesNotMatch(html, /data-table="tasks"/);
 
   await h.action('operations-display', 'all');
