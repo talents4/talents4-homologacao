@@ -116,7 +116,10 @@
     return `<aside class="v25-archive-search" role="status"><div class="v25-archive-search-head"><strong>${matches.length} resultado${matches.length === 1 ? '' : 's'} também no arquivo</strong><span>A ficha arquivada fica fora da fila ativa, mas continua disponível.</span></div><div class="v25-archive-results">${shown}${more}</div>${W.button('Abrir arquivo', 'v24-view', 'archived', { className: 'ghost sm', icon: 'archive' })}</aside>`;
   }
   function directory(archived) {
-    if (!archived && state.quick.includes('ready')) return workspace.presentation();
+    // O atalho "Prontos para apresentar" sempre mostra o recorte de liberação
+    // humana (pronto_para_employer), não o último recorte que a pessoa tinha
+    // aberto nas Apresentações (Nectanet/Liberado/Parcial).
+    if (!archived && state.quick.includes('ready')) { state.presentationView = 'released'; return workspace.presentation(); }
     const rows = filtered(archived);
     const mode = `<div class="mx-toolbar"><div><span class="mx-eyebrow">${archived ? 'HISTÓRICO PRESERVADO' : 'FICHA ÚNICA DE CADA TALENTO'}</span><p class="t4-muted">${rows.length} registro(s) neste recorte</p></div><div class="mx-segment" role="group" aria-label="Visualização da base"><button type="button" data-action="talent-display" data-id="cards" data-selected="${state.display === 'cards'}">Cartões</button><button type="button" data-action="talent-display" data-id="list" data-selected="${state.display === 'list'}">Lista</button><button type="button" data-action="talent-display" data-id="table" data-selected="${state.display === 'table'}">Tabela completa</button></div></div>`;
     return `${talentViews(archived)}${archived ? '' : workspace.quickFilters()}${workspace.toolbar({archived})}${archived ? '' : archivedSearchNotice()}${selectionBar(rows)}${mode}${state.display === 'cards' ? talentCards(rows) : state.display === 'table' ? talentTable(rows, 'talents-complete') : talentListTable(rows)}`;
@@ -254,12 +257,13 @@
       .filter((r) => /^(excluid[oa]|removid[oa])/.test(M.norm(r.stage || r.status || '')))
       .sort(byRecency);
     const historySection = W.section('Histórico de excluídos e removidos',
-      historyRows.length ? R.selectionTable(state, historyRows, 'org-selection-history') : U.emptyState('Nenhum registro excluído ou removido', 'Os registros retirados do acompanhamento aparecerão aqui.'),
+      historyRows.length ? R.selectionTable(state, historyRows, 'talent-selection-history') : U.emptyState('Nenhum registro excluído ou removido', 'Os registros retirados do acompanhamento aparecerão aqui.'),
       U.badge(historyRows.length, historyRows.length ? 'info' : 'neutral'),
       'Fora do acompanhamento ativo; preservado somente para consulta.');
+    const sortedVisibleRows = [...visibleRows].sort(byRecency);
     const current = display === 'cards' && scope !== 'closed'
       ? R.selectionBoard(state, sortedActiveRows)
-      : R.selectionTable(state, visibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active');
+      : R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'talent-closed-selections' : 'talent-selection-active');
     // A Lista analítica mantém os resumos de trabalho e o registro completo.
     // O Quadro opcional mostra somente o Kanban; não replica esses painéis.
     const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';

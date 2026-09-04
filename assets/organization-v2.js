@@ -390,9 +390,10 @@
       historyRows.length ? R.selectionTable(state, historyRows, 'org-selection-history') : U.emptyState('Nenhum registro excluído ou removido', 'Os registros retirados do acompanhamento aparecerão aqui.'),
       U.badge(historyRows.length, historyRows.length ? 'info' : 'neutral'),
       'Fora do acompanhamento ativo; preservado somente para consulta.');
+    const sortedVisibleRows = [...visibleRows].sort(byRecency);
     const current = display === 'cards' && scope !== 'closed'
       ? R.selectionBoard(state, sortedActiveRows)
-      : R.selectionTable(state, visibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active');
+      : R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active');
     // A Lista analítica mantém os resumos de trabalho e o registro completo.
     // O Quadro opcional mostra somente o Kanban; não replica esses painéis.
     const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';

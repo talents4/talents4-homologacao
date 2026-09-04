@@ -180,7 +180,7 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
 .tw-presentation-sheet.is-empty { min-height:12rem; display:grid; place-items:center; }
 .tw-presentation-grid { display:grid; grid-template-columns:minmax(13rem,1.15fr) repeat(var(--tw-presentation-count),minmax(12rem,16rem)); width:max-content; min-width:100%; }
 .tw-presentation-grid > * { min-width:0; border-right:1px solid #dbe5eb; border-bottom:1px solid #e7eef2; }
-.tw-presentation-corner,.tw-presentation-person { position:sticky; top:var(--tw-presentation-sticky-top,0px); z-index:12; background:#edf4f8; box-shadow:0 2px 0 #b9cbd6; }
+.tw-presentation-corner,.tw-presentation-person { position:sticky; top:0; z-index:12; background:#edf4f8; box-shadow:0 2px 0 #b9cbd6; }
 .tw-presentation-corner { left:0; z-index:14; display:flex; flex-direction:column; justify-content:center; min-height:6.5rem; padding:.8rem; color:#22465f; }
 .tw-presentation-corner span { font-size:.8rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .tw-presentation-corner small { margin-top:.35rem; color:#6a7f90; font-size:.7rem; line-height:1.35; }
@@ -228,17 +228,27 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
   body[data-t4-module="talents"] .tw-presentation-person small,.tw-presentation-field-label small { font-size:6.5pt; }
   body[data-t4-module="talents"] .tw-presentation-value,.tw-presentation-field-label { min-height:2.4rem; padding:.25rem; }
 }
-/* A folha comparativa pode ser explorada como uma faixa: arraste ou use o scroll sobre ela. */
+/* A folha comparativa precisa rolar nos dois eixos ao mesmo tempo (arrastar
+   para os lados, descer pelos campos) sem perder os nomes de vista. O CSS não
+   permite overflow-x:auto com overflow-y:visible no MESMO elemento — o
+   navegador converte o eixo "visible" para auto silenciosamente — e um
+   overflow-y auto/hidden aqui vira a referência de position:sticky para o
+   cabeçalho; como este elemento nunca rolava sozinho (crescia junto com o
+   conteúdo, quem rolava era a página), o cabeçalho nunca ficava parado.
+   A solução: a folha vira um painel com altura limitada, fixo logo abaixo da
+   barra superior (position:sticky aqui, no próprio painel) e com rolagem
+   interna nos dois eixos — agora é ela mesma quem rola, então o cabeçalho
+   "top:0" realmente gruda no topo enquanto o conteúdo passa por baixo. */
 .tw-presentation-sheet-scroll {
-  position: relative;
+  position: sticky;
+  top: var(--tw-presentation-sticky-top, 0px);
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
+  max-height: calc(100vh - var(--tw-presentation-sticky-top, 0px) - 1.5rem);
+  overflow: auto;
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: #9db1c5 transparent;
 }

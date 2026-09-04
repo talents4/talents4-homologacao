@@ -327,7 +327,15 @@ test('Seleções separa os abertos por etapa na lista e reserva o Kanban para o 
   assert.match(historyHtml, /Excluído/);
   const tableStart = listHtml.indexOf('data-table="org-selection-active"');
   const tableHtml = listHtml.slice(tableStart, historyStart);
-  assert.ok(tableHtml.indexOf('Contratado') < tableHtml.indexOf('Apresentado'));
+  // Registro geral ordenado pela última movimentação (updated_at), não pela
+  // etapa: Proposta às 13h é a mais recente, seguida por Entrevista (12h),
+  // Apresentado (11h) e Em análise (10h); Contratado (9h) vem depois dessas
+  // e antes das relações antigas, todas na mesma data-base (01/09).
+  assert.ok(tableHtml.indexOf('Rafael Costa') < tableHtml.indexOf('Camila Santos'));
+  assert.ok(tableHtml.indexOf('Camila Santos') < tableHtml.indexOf('Lucas Vieira'));
+  assert.ok(tableHtml.indexOf('Lucas Vieira') < tableHtml.indexOf('Marina Duarte'));
+  assert.ok(tableHtml.indexOf('Marina Duarte') < tableHtml.indexOf('Contratado'));
+  assert.ok(tableHtml.indexOf('Contratado') < tableHtml.indexOf('Sofia Almeida'));
 
   await h.action('selection-display', 'cards');
   const cardHtml = h.html();

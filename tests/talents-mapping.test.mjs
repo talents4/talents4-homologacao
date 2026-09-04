@@ -12,10 +12,27 @@ test('contratos: 18 Nectanet, 16 acompanhamento, 12 resumo, 11 radar, 13 parceir
   const h=await boot();
   assert.deepEqual(Object.fromEntries(Object.entries(h.T.FIELDS).map(([k,v])=>[k,v.length])),{presentation:18,tracking:16,summary:12,radar:11,partners:13,companies:5});
   assert.deepEqual(Array.from(h.T.FIELDS.tracking,x=>x[1]),['Empresa','NectaNet?','Status','Aderência profissional','Viabilidade atual','Viabilidade projetada — B1 em 3 meses','Vaga / situação','Tipo / área','Por que se encaixa','Barreira / risco','Idioma / requisito','Anerkennung / Approbation','Local','Contato','Link direto / oficial','Verificado em']);
-  h.app.route('presentation');
-  const head=text(h).match(/<thead>([\s\S]*?)<\/thead>/)?.[1] || '';
-  let previous=-1;
-  for(const [,label] of h.T.FIELDS.presentation) {const at=head.indexOf(label);assert.ok(at>previous,`ordem ${label}`);previous=at;}
+  h.app.route('presentation'); await h.action('presentation-view','released');
+  // A folha comparativa A4 é um grid, não uma <table>: o nome vira coluna
+  // (cabeçalho de cada Talento) e cada campo vira uma linha identificada por
+  // data-presentation-field. Confere a ordem das linhas, não de um <thead>.
+  const html=text(h); let previous=-1;
+  for(const [key,label] of h.T.FIELDS.presentation) {
+    if (key==='nome_completo') continue;
+    const at=html.indexOf(`data-presentation-field="${key}"`);assert.ok(at>previous,`ordem ${label}`);previous=at;
+  }
+});
+test('folha de apresentação mantém a rolagem que fixa os nomes no topo',async()=>{
+  // O cabeçalho com os nomes só continua visível ao descer a página se o
+  // painel rolável (.tw-presentation-sheet-scroll) receber a variável de
+  // deslocamento — CSS var não sobe de um filho para o pai, então ela precisa
+  // estar no PRÓPRIO elemento que agora é sticky, não numa <section> interna.
+  const h=await boot(); h.app.route('presentation'); await h.action('presentation-view','released');
+  const html=text(h);
+  const scrollStart=html.indexOf('tw-presentation-sheet-scroll');
+  assert.ok(scrollStart>=0);
+  const scrollTagEnd=html.indexOf('>',scrollStart);
+  assert.match(html.slice(scrollStart,scrollTagEnd),/style="--tw-presentation-sticky-top:\d+px"/);
 });
 test('filtros: OU dentro da etapa, E com idioma; remover uma opção preserva as outras',async()=>{
   const h=await boot(); h.filter('stage',['Curso de Alemão','Análise']);
@@ -49,8 +66,13 @@ test('barra de filtros expõe o essencial e agrupa critérios avançados',async(
 });
 test('liberação e Lista Nectanet são independentes; selecionar pronto abre as 18 colunas',async()=>{
   const h=await boot(); await h.action('quick','ready');
-  assert.match(text(h),/Empresa alternativa 2/); assert.match(text(h),/Marina Duarte/); assert.doesNotMatch(text(h),/Lucas Vieira/);
-  await h.action('quick','all'); assert.match(text(h),/Lucas Vieira/); assert.doesNotMatch(text(h),/Empresa alternativa 2<\/button>/);
+  assert.match(text(h),/Empresa alternativa 2/); assert.match(text(h),/Marina Duarte/);
+  // Lucas Vieira pode aparecer no seletor manual (lista todos os Talentos
+  // ativos para inclusão manual), mas não deve estar na folha comparativa em
+  // si — só quem atende o recorte "liberado" (ou foi incluído manualmente).
+  const sheetHtml = text(h).slice(text(h).indexOf('data-tw-sheet="presentation-a4"'));
+  assert.match(sheetHtml,/Marina Duarte/); assert.doesNotMatch(sheetHtml,/Lucas Vieira/);
+  await h.action('quick','all'); assert.match(text(h),/Lucas Vieira/); assert.doesNotMatch(text(h),/tw-presentation-grid/);
   await h.action('readiness','DEMO-T2'); const result=await h.submit({pronto_para_employer:'true'}); assert.equal(result.error,'');
   assert.equal(h.fixture.db.candidatos.find(r=>r.id==='DEMO-T2').pronto_para_employer,true);
   assert.equal(h.fixture.writes.length,1); assert.equal(h.fixture.writes[0].table,'candidatos');
@@ -121,9 +143,9 @@ test('checkboxes reais do controlador adicionam e retiram opções sem gravar',a
   await toggle('Curso de Alemão',false);assert.doesNotMatch(text(h),/Lucas Vieira/);assert.match(text(h),/Sofia Almeida/);assert.equal(h.fixture.writes.length,0);
 });
 test('filtros múltiplos das seleções são independentes dos filtros da base',async()=>{
-  const h=await boot();h.filter('stage',['Análise']);h.app.route('processes');h.filter('selectionStage',['Apresentado','Entrevista']);
+  const h=await boot();h.filter('stage',['Análise']);h.app.route('processes');h.filter('status',['Apresentado','Entrevista']);
   assert.match(text(h),/Marina Duarte/);assert.match(text(h),/Lucas Vieira/);
-  h.filter('selectionEmployer',[h.id(101)]);assert.match(text(h),/Marina Duarte/);assert.doesNotMatch(text(h),/Lucas Vieira/);
+  h.filter('employer',[h.id(101)]);assert.match(text(h),/Marina Duarte/);assert.doesNotMatch(text(h),/Lucas Vieira/);
   h.app.route('talents');assert.match(text(h),/Sofia Almeida/);assert.doesNotMatch(text(h),/Marina Duarte/);
 });
 test('complementos podem ser preparados antes da liberação',async()=>{
