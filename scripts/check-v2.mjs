@@ -18,8 +18,9 @@ function walk(dir) {
 }
 const files = walk('');
 const pages = { 'index.html': 'talents', 'organizacional.html': 'organization', 'contatos.html': 'contacts', 'alemao.html': 'german' };
-const required = [...Object.keys(pages),
+const required = [...Object.keys(pages), 'documentacao.html',
   'assets/t4-tokens.css', 'assets/t4-components.css', 'assets/t4-v2.css', 'assets/t4-v2-core.js', 'assets/t4-v2-models.js', 'assets/t4-v2-data.js', 'assets/t4-v2-ui.js', 'assets/t4-v2-records.js', 'assets/t4-v2-pdf.js',
+  'assets/documentation-v2.js', 'assets/documentation-v2.css',
   ...['talents', 'organization', 'contacts', 'german'].map((name) => `assets/${name}-v2.js`),
   ...Object.keys(pages).map((file) => `demo/${file}`), 'tests/fixtures-supabase.js', 'tests/harness.mjs', 'tests/models.test.mjs', 'tests/data.test.mjs', 'tests/modules.test.mjs', 'tests/pdf.test.mjs',
   'assets/talents-mapping-models.js','assets/talents-mapping-ui.js','assets/talents-mapping.css','tests/fixtures-talents-mapping.js','tests/talents-mapping.test.mjs',
@@ -27,7 +28,8 @@ const required = [...Object.keys(pages),
   'assets/t4-v24.js','assets/t4-v24.css',
   'assets/t4-v25.js','assets/t4-v25.css','scripts/build-talents-v25.mjs',
   'assets/jszip.min.js','assets/t4-workbook.js','assets/t4-import-export.js','tests/import-export.test.mjs','tests/import-data.test.mjs','tests/export-roundtrip.test.mjs',
-  'tests/talents-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql','supabase/talents-v22/40_harden_anon_grants.sql',
+  'tests/talents-sql-contract.test.mjs','tests/documentation-sql-contract.test.mjs','supabase/talents-v22/30_frontend_schema_audit.sql','supabase/talents-v22/40_harden_anon_grants.sql',
+  'supabase/talents-v22/documentation/00_preflight.sql','supabase/talents-v22/documentation/10_additive.sql','supabase/talents-v22/documentation/20_verify.sql',
   'docs/mapeamento/CONTRATO_PLANILHAS.md','docs/mapeamento/CLASSIFICACAO_EMPRESAS.md','docs/mapeamento/MAPEAMENTO_SUPABASE.md','docs/mapeamento/IMPORTACAO_SQL.md','docs/mapeamento/EXPORTACAO.md',
   'supabase/talents-v22/import-planilhas/00_preflight.sql','supabase/talents-v22/import-planilhas/01_schema_additive.sql','supabase/talents-v22/import-planilhas/02_create_staging.sql',
   'supabase/talents-v22/import-planilhas/03_load_staging.sql','supabase/talents-v22/import-planilhas/04_apply_import.sql','supabase/talents-v22/import-planilhas/05_verify_import.sql','supabase/talents-v22/import-planilhas/06_rollback_batch.sql',
@@ -144,6 +146,7 @@ check(v25CSS.includes('.t4-table td.t4-selection-cell:first-child') && v25CSS.in
 check(v25CSS.includes('.t4-multi-options input[type="checkbox"]') && v25CSS.includes('.t4-sr-only'), 'filtro mantém busca larga e oculta apenas o rótulo auxiliar');
 check(v25CSS.includes('width: min(360px, calc(100vw - 32px))') && v25CSS.includes('text-overflow: ellipsis'), 'popover de filtro limita a largura e preserva nomes longos');
 const organizationCode = read('assets/organization-v2.js'), modelsCode = read('assets/t4-v2-models.js');
+const documentationCode = read('assets/documentation-v2.js'), documentationCSS = read('assets/documentation-v2.css'), documentationHTML = read('documentacao.html');
 check(organizationCode.includes('employer-classification') && organizationCode.includes('employerPriority'), 'classificação de empregadores pode ser filtrada e priorizada');
 check(organizationCode.includes("defaultView: 'employers'") && organizationCode.includes("employerClassification: 'partner'") && organizationCode.includes("employerDisplay: 'cards'"), 'Organizacional abre em Empregadores, parceiras e cartões');
 check(organizationCode.includes('org-ready-panel') && organizationCode.includes('org-open-tasks-panel') && organizationCode.includes('org-history-panel') && organizationCode.includes('historyRows') && organizationCode.includes('ATIVIDADES DO MÊS') && organizationCode.includes('PENDÊNCIAS ABERTAS') && organizationCode.includes('HISTÓRICO COMPLETO'), 'Planejamento e PO organizam prioridade, fila e histórico');
@@ -176,6 +179,9 @@ check(workbook.includes('readMany') && workbook.includes('freezeRows') && workbo
 check(talentsV25.includes('selectedTalents') && talentsV25.includes('data-talent-select') && talentsV25.includes('data-center'), 'Talentos possui seleção em massa e acesso ao Centro de dados');
 check(talentsV25.includes('archivedSearchNotice') && talentsV25.includes('também no arquivo') && talentsV25.includes('Selecione ao menos um Talento'), 'arquivo e exportação deixam estados ambíguos explícitos');
 check(talentsV25.includes('Todas as seleções em aberto') && talentsV25.includes('Contratações mais recentes') && talentsV25.includes('org-selection-stage-groups') && talentsV25.includes("const display = state.selectionDisplay === 'cards' ? 'cards' : 'list';") && organizationV25.includes('Todas as seleções em aberto'), 'Talentos → Seleções replica a estrutura de Organizacional → Seleções');
+check(documentationCode.includes('CHECKLIST_SECTIONS') && documentationCode.includes('Checklist Operacional') && documentationCode.includes('documentation-new-folder') && documentationCode.includes('documentation-new-link') && documentationCode.includes('documentation-new-checklist') && documentationCode.includes('documentation-delete') && documentationCode.includes('data-checklist-save') && documentationCode.includes('documentationNodes'), 'Documentação tem pastas, atalhos e Checklist Operacional editável');
+check(documentationCSS.includes('.t4-doc-layout') && documentationCSS.includes('.t4-doc-checklist-drawer') && documentationCSS.includes('.t4-doc-check-mark.complete'), 'Documentação possui superfície visual própria e estados do checklist');
+check(documentationHTML.includes('./assets/documentation-v2.js') && documentationHTML.includes('./assets/documentation-v2.css') && documentationHTML.includes('data-t4-module="documentation"'), 'entrada da Documentação está publicada');
 check(mappingUI.includes('PRESENTATION_VIEWS') && mappingUI.includes('Lista Nectanet = Sim') && mappingUI.includes('Sim — liberado para apresentação') && mappingUI.includes('Parcial — ainda em preparação') && mappingUI.includes('data-presentation-select') && mappingUI.includes('presentation-a4') && mappingUI.includes('filledFieldCount') && mappingUI.includes('data-presentation-search') && mappingUI.includes('data-presentation-scroll') && mappingUI.includes('pointerdown') && mappingUI.includes('event.deltaX || event.deltaY') && mappingUI.includes('tw-presentation-sticky-top') && mappingCSS.includes('.tw-presentation-grid') && mappingCSS.includes('.tw-presentation-value.is-missing') && mappingCSS.includes('@page { size:A4 landscape;') && mappingCSS.includes('.tw-presentation-sheet-scroll.is-dragging') && mappingCSS.includes('top:var(--tw-presentation-sticky-top,0px)'), 'Apresentações têm três recortes, seleção manual, ordenação por preenchimento e folha A4 arrastável');
 check(talentsV25.includes('M.selectionBucket(item) !== \'closed\'') && organizationV25.includes('Seleções em andamento'), 'histórico de seleções não compete com a fila ativa');
 check(read('manual-talentos.html').includes('./index.html?view=manual') && !/<script\b/i.test(read('manual-talentos.html')), 'endereço antigo do manual redireciona sem código legado');
