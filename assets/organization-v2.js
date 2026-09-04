@@ -524,7 +524,11 @@
     }).join('');
     return metrics + `<div class="mx-register" aria-label="Registro de seleções">${blocks}</div>`;
   }
-  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'danger' };
+  // 'critical', não 'danger': tom do .t4-funnel-seg (t4-components.css)
+  // é um vocabulário próprio (info/warning/success/critical), diferente
+  // do U.badge usado em outro lugar do app. Com 'danger' o segmento não
+  // batia com nenhuma classe CSS e caía no cinza neutro sem tom.
+  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'critical' };
   // As seleções misturam duas taxonomias (vagas modernas: Mapeado…Contratado;
   // vínculos anteriores: Aguardando envio…Removido). Um funil com etapas fixas
   // de uma só taxonomia esconde a outra inteira. Aqui o funil conta a etapa

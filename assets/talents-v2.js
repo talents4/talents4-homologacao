@@ -46,7 +46,14 @@
     const readyCount = state.talents.filter((row) => active(row) && M.isTalent(row) && T.yes(row.pronto_para_employer)).length;
     const archivedCount = state.talents.filter((row) => !active(row) && M.isTalent(row)).length;
     if (archived) return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">ARQUIVO PRESERVADO</span><strong>${archivedCount} registro${archivedCount === 1 ? '' : 's'} fora da fila ativa</strong><span>Inativos, excluídos, cancelados e arquivados aparecem somente aqui.</span></div><div class="v25-scope-actions">${W.button('Voltar à fila ativa', 'talent-scope', 'talento', { className: 'ghost sm', icon: 'users' })}</div></div>`;
-    return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">FILA OPERACIONAL</span><strong>${state.talentScope === 'balde' ? `${bucketCount} registro${bucketCount === 1 ? '' : 's'} no Balde` : `${talentsCount} Talento${talentsCount === 1 ? '' : 's'}`}</strong><span>${state.talentScope === 'balde' ? 'Cadastros gerais e contatos sem interesse operacional; ficam fora das filas de Talentos.' : 'Somente pessoas marcadas como Talento entram nas filas, seleções e apresentações.'}</span></div><div class="v25-scope-actions"><div class="v25-talent-scopes" role="tablist" aria-label="Classificação da base">${W.button(`Talentos · ${talentsCount}`, 'talent-scope', 'talento', { className: state.talentScope === 'talento' ? 'primary sm' : 'ghost sm', icon: 'users' })}${W.button(`Balde · ${bucketCount}`, 'talent-scope', 'balde', { className: state.talentScope === 'balde' ? 'primary sm' : 'ghost sm', icon: 'archive' })}</div>${W.button(`Abrir apresentações · ${readyCount}`, 'v24-view', 'ready', { className: 'ghost sm', icon: 'check' })}</div></div>`;
+    // v25-talent-scopes é um par de botões (Talentos/Balde), não um
+    // widget de abas de verdade (sem navegação por seta, sem
+    // aria-selected, sem tabpanel associado) — role="tablist" sem os
+    // filhos role="tab" que ele exige quebrava o axe-core (aria-
+    // required-children). O agrupamento com aria-label já basta, é o
+    // mesmo padrão usado em W.chips() para os outros trocadores de
+    // escopo do app.
+    return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">FILA OPERACIONAL</span><strong>${state.talentScope === 'balde' ? `${bucketCount} registro${bucketCount === 1 ? '' : 's'} no Balde` : `${talentsCount} Talento${talentsCount === 1 ? '' : 's'}`}</strong><span>${state.talentScope === 'balde' ? 'Cadastros gerais e contatos sem interesse operacional; ficam fora das filas de Talentos.' : 'Somente pessoas marcadas como Talento entram nas filas, seleções e apresentações.'}</span></div><div class="v25-scope-actions"><div class="v25-talent-scopes" aria-label="Classificação da base">${W.button(`Talentos · ${talentsCount}`, 'talent-scope', 'talento', { className: state.talentScope === 'talento' ? 'primary sm' : 'ghost sm', icon: 'users' })}${W.button(`Balde · ${bucketCount}`, 'talent-scope', 'balde', { className: state.talentScope === 'balde' ? 'primary sm' : 'ghost sm', icon: 'archive' })}</div>${W.button(`Abrir apresentações · ${readyCount}`, 'v24-view', 'ready', { className: 'ghost sm', icon: 'check' })}</div></div>`;
   }
   function selectionBar(rows) {
     const selected = state.selectedTalents instanceof Set ? state.selectedTalents.size : 0;
@@ -187,7 +194,11 @@
 
 
 
-  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'danger' };
+  // 'critical', não 'danger': tom do .t4-funnel-seg (t4-components.css)
+  // é um vocabulário próprio (info/warning/success/critical), diferente
+  // do U.badge usado em outro lugar do app. Com 'danger' o segmento não
+  // batia com nenhuma classe CSS e caía no cinza neutro sem tom.
+  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'critical' };
   // As seleções misturam duas taxonomias (vagas modernas: Mapeado…Contratado;
   // vínculos anteriores: Aguardando envio…Removido). Um funil com etapas fixas
   // de uma só taxonomia esconde a outra inteira. Aqui o funil conta a etapa

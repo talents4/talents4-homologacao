@@ -169,7 +169,16 @@
    Cor por tom semântico (não a mesma cor pintada N vezes) e a etapa com
    mais gente ganha um leve destaque (is-top), para responder "onde a
    maioria está" no primeiro relance, sem precisar comparar 10 números. */
-.t4-funnel-bar { display: flex; height: 34px; background: transparent; gap: 3px; }
+/* A barra ganhou uma "pista" (trilho) visível: antes os segmentos coloridos
+   iam direto do branco do card para a cor, sem nenhuma moldura — pedido
+   explícito para dar mais presença/vida ao componente. O trilho também cria
+   a margem que faltava entre o bloco colorido e a borda do card. */
+.t4-funnel-bar {
+  display: flex; height: 40px; gap: 4px; padding: 4px;
+  background: color-mix(in srgb, var(--t4-ink-faint) 10%, var(--t4-surface-sunken));
+  border-radius: 999px;
+  box-shadow: inset 0 1px 3px rgba(10, 20, 35, .09), inset 0 0 0 1px rgba(10, 20, 35, .04);
+}
 .t4-funnel-seg {
   /* flex-shrink 0 (era o padrão) somado a min-width:6px podia empurrar a
      barra para fora do container quando muitas etapas têm dados: a soma
@@ -178,18 +187,21 @@
      o piso de legibilidade dos menores — sem estourar o container
      (reproduzido e confirmado com 10 etapas em largura estreita). */
   display: block; height: 100%; min-width: 6px; flex: 1 1 var(--seg-width, 0%);
-  background: color-mix(in srgb, var(--t4-ink-faint) 55%, var(--t4-surface-sunken));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--t4-ink-faint) 60%, #fff), color-mix(in srgb, var(--t4-ink-faint) 88%, #000));
   border-radius: 999px;
-  box-shadow: 0 1px 2px rgba(10, 20, 35, .08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -5px 8px -4px rgba(10, 20, 35, .22), 0 2px 5px rgba(10, 20, 35, .14);
   animation: t4-funnel-grow var(--t4-duration-base) var(--t4-ease) backwards;
   animation-delay: calc(60ms + var(--i, 0) * 55ms);
   transition: flex-basis .35s var(--t4-ease), min-width .35s var(--t4-ease), opacity .25s var(--t4-ease), filter .15s var(--t4-ease), transform .15s var(--t4-ease), box-shadow .15s var(--t4-ease);
   transform-origin: center;
 }
-.t4-funnel-seg.info { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-info) 85%, #fff), color-mix(in srgb, var(--t4-info) 75%, transparent)); }
-.t4-funnel-seg.warning { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-warning) 90%, #fff), color-mix(in srgb, var(--t4-warning) 80%, transparent)); }
-.t4-funnel-seg.success { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-success) 90%, #fff), color-mix(in srgb, var(--t4-success) 80%, transparent)); }
-.t4-funnel-seg.critical { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-critical) 90%, #fff), color-mix(in srgb, var(--t4-critical) 80%, transparent)); }
+/* Tons semânticos: gradiente de claro (topo) para a cor cheia (base) no
+   lugar da antiga diluição em branco/transparente dos dois lados — bem
+   mais saturado, com a mesma luz/sombra internas do segmento neutro acima. */
+.t4-funnel-seg.info { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-info) 88%, #fff), var(--t4-info)); }
+.t4-funnel-seg.warning { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-warning) 88%, #fff), var(--t4-warning)); }
+.t4-funnel-seg.success { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-success) 88%, #fff), var(--t4-success)); }
+.t4-funnel-seg.critical { background: linear-gradient(180deg, color-mix(in srgb, var(--t4-critical) 88%, #fff), var(--t4-critical)); }
 .t4-funnel-seg.is-top { outline: 2px solid var(--t4-ink); outline-offset: -2px; }
 .t4-funnel-seg.is-hovered { filter: brightness(1.14) saturate(1.2); transform: scaleY(1.1); box-shadow: 0 3px 10px rgba(10, 20, 35, .22); position: relative; z-index: 1; cursor: default; }
 .t4-funnel-bar.is-active .t4-funnel-seg:not(.is-hovered) { opacity: .32; }
