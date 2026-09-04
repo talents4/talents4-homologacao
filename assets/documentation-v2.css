@@ -928,3 +928,309 @@
     transition: none;
   }
 }
+
+
+/* V2.1 · documentação compacta: prioridade para leitura operacional em notebook. */
+.t4-doc-page {
+  gap: 12px;
+  padding: 0 0 24px;
+}
+
+.t4-doc-page svg.t4-icon {
+  width: 18px !important;
+  height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+}
+
+.t4-doc-intro {
+  align-items: center;
+  gap: 14px;
+}
+
+.t4-doc-intro h1 {
+  margin: 3px 0 3px;
+  font-size: clamp(24px, 3vw, 30px);
+}
+
+.t4-doc-intro p {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.t4-doc-intro-meta {
+  min-width: 96px;
+  padding: 8px 11px;
+  border-radius: 10px;
+}
+
+.t4-doc-intro-meta strong {
+  font-size: 20px;
+}
+
+.t4-doc-intro-meta span {
+  font-size: 10px;
+}
+
+.t4-doc-area-tabs {
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+}
+
+.t4-doc-area-tab {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.t4-doc-area-tab small {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.t4-doc-toolbar {
+  min-height: 34px;
+  padding: 2px 0;
+}
+
+.t4-doc-breadcrumb {
+  gap: 4px;
+  font-size: 11px;
+}
+
+.t4-doc-breadcrumb button {
+  max-width: min(300px, 55vw);
+  padding: 3px 6px;
+  border-radius: 6px;
+}
+
+.t4-doc-breadcrumb .t4-icon {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.t4-doc-toolbar-actions,
+.t4-doc-browser-actions {
+  gap: 6px;
+}
+
+.t4-doc-layout {
+  grid-template-columns: 195px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.t4-doc-tree,
+.t4-doc-browser {
+  border-radius: 11px;
+  box-shadow: none;
+}
+
+.t4-doc-tree {
+  padding: 8px;
+}
+
+.t4-doc-tree-head {
+  padding: 2px 5px 7px;
+  font-size: 10px;
+}
+
+.t4-doc-tree-head strong {
+  font-size: 12px;
+}
+
+.t4-doc-tree-list,
+.t4-doc-tree-list ul {
+  gap: 1px;
+  margin-top: 6px;
+}
+
+.t4-doc-tree-list ul {
+  margin-left: 8px;
+}
+
+.t4-doc-tree-button {
+  grid-template-columns: 15px minmax(0, 1fr) auto;
+  gap: 5px;
+  min-height: 29px;
+  padding: 4px 5px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.t4-doc-tree-button .t4-icon {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.t4-doc-tree-button small {
+  font-size: 9px;
+}
+
+.t4-doc-tree-new {
+  min-height: 30px;
+  margin-top: 7px;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.t4-doc-browser-head {
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 10px;
+}
+
+.t4-doc-browser-head h2 {
+  margin: 3px 0;
+  font-size: 16px;
+}
+
+.t4-doc-browser-head p {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.t4-doc-query-note {
+  margin: 9px 14px 0;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+}
+
+.t4-doc-grid {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  align-items: start;
+  gap: 8px;
+  padding: 12px 14px 14px;
+}
+
+.t4-doc-card {
+  min-height: 76px;
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.t4-doc-card:hover {
+  box-shadow: 0 5px 12px rgba(14, 83, 137, .08);
+  transform: translateY(-1px);
+}
+
+.t4-doc-card-main {
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 10px 7px 10px 11px;
+}
+
+.t4-doc-card-icon {
+  width: 30px !important;
+  height: 30px !important;
+  min-width: 30px !important;
+  max-width: 30px !important;
+  min-height: 30px !important;
+  max-height: 30px !important;
+  border-radius: 8px;
+}
+
+.t4-doc-card-icon .t4-icon {
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+}
+
+.t4-doc-card-copy {
+  gap: 3px;
+}
+
+.t4-doc-card-copy strong {
+  font-size: 12px;
+}
+
+.t4-doc-card-copy small,
+.t4-doc-card-copy em {
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.t4-doc-card-actions {
+  gap: 1px;
+  padding: 6px 5px 0 0;
+}
+
+.t4-doc-icon-action {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+}
+
+.t4-doc-icon-action .t4-icon {
+  width: 14px !important;
+  height: 14px !important;
+}
+
+.t4-doc-link {
+  font-size: 10px;
+}
+
+.t4-doc-link .t4-icon {
+  width: 12px !important;
+  height: 12px !important;
+}
+
+.t4-doc-empty {
+  gap: 5px;
+  padding: 30px 16px 34px;
+}
+
+.t4-doc-empty h3 {
+  margin-top: 3px;
+  font-size: 15px;
+}
+
+.t4-doc-empty p {
+  font-size: 11px;
+}
+
+.t4-doc-empty-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.t4-doc-empty-icon .t4-icon {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+.t4-doc-migration-note {
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+
+.t4-doc-migration-note > .t4-icon {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.t4-doc-checklist-drawer {
+  width: min(1100px, 94vw) !important;
+  max-width: 1100px !important;
+}
+
+@media (max-width: 720px) {
+  .t4-doc-intro h1 {
+    font-size: 24px;
+  }
+
+  .t4-doc-area-tab {
+    padding: 8px 10px;
+  }
+
+  .t4-doc-layout {
+    gap: 8px;
+  }
+}
