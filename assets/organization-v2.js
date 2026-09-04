@@ -248,7 +248,10 @@
     const statusFilter = (r) => values(state.status).length ? matches(r.status, state.status) : true;
     const base = state.meetings.filter((r) => scoped(r) && matchQuery(r) && statusFilter(r));
     const monthRows = base.filter(inMonth).sort((x, y) => String(y.scheduled_at || '').localeCompare(String(x.scheduled_at || '')));
-    const allRows = base.slice().sort((x, y) => (M.isOpen(x.status) ? 0 : 1) - (M.isOpen(y.status) ? 0 : 1) || String(y.scheduled_at || '').localeCompare(String(x.scheduled_at || '')));
+    const historyMomentOf = (r) => String(r.completed_at || r.updated_at || r.created_at || r.scheduled_at || r.month_ref || '');
+    const historyDateOf = (r) => M.dateOnly(r.completed_at) || M.dateOnly(r.updated_at) || M.dateOnly(r.created_at) || M.dateOnly(r.scheduled_at) || M.dateOnly(r.month_ref);
+    const historySort = (left, right) => (M.isOpen(left.status) ? 0 : 1) - (M.isOpen(right.status) ? 0 : 1) || historyMomentOf(right).localeCompare(historyMomentOf(left), 'pt-BR', { numeric: true }) || M.norm(left.topic || left.title).localeCompare(M.norm(right.topic || right.title), 'pt-BR');
+    const allRows = base.slice().sort(historySort);
     const columns = [
       { key: 'topic', label: 'Reunião / pauta', required: true, render: (r) => `<button class="t4-row-link" data-action="meeting-detail" data-id="${a(r.id)}">${e(r.topic || r.title)}</button><span class="t4-cell-secondary">${e(employerOf(r))}</span>` },
       { key: 'scheduled_at', label: 'Data', render: (r) => e(U.formatDate(r.scheduled_at, true)) }, { key: 'week_label', label: 'Semana' },
@@ -256,7 +259,7 @@
       { key: 'pending_items', label: 'Pendências', render: (r) => `<span class="t4-clamp-3">${e(r.pending_items || '—')}</span>` }, { key: 'next_action', label: 'Próxima ação' }, { key: 'owner_name', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }
     ];
     const monthTable = W.table({ id: 'meetings-month', rows: monthRows, columns, empty: `Nenhuma reunião registrada em ${monthLabel(selectedMonth)}.` });
-    const allTable = W.table({ id: 'meetings-all', rows: allRows, columns, empty: 'Nenhuma reunião registrada ainda.' });
+    const allTable = W.table({ id: 'meetings-all', rows: allRows, pageSize: 20, columns, empty: 'Nenhuma reunião registrada ainda.' });
     return `<div class="org-workspace">${meetingsMonthStepper()}${toolbar(state.meetings, { noMonth: true })}${W.section('Histórico do mês', monthTable, can('meetings') ? W.button('Nova reunião', 'new-meeting', '', { className: 'primary sm', icon: 'plus' }) : '', `Todas as reuniões de ${monthLabel(selectedMonth)}, em qualquer situação.`)}${W.section('Histórico completo', allTable, '', 'Todos os registros de sempre: em andamento primeiro e, depois, do mais recente para o mais antigo.')}</div>`;
   }
   function meetingDetail(row) {
