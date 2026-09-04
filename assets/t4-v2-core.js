@@ -21,6 +21,7 @@
     columns: '<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/>',
     calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
     archive: '<path d="M3 6h18M5 6v15h14V6M9 10h6M4 3h16v3H4z"/>',
+    folder: '<path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/>',
     contact: '<rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="9" r="3"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0M8 3v18"/>',
     people: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M23 21v-2a4 4 0 0 0-3-3.87M17 3.13a4 4 0 0 1 0 7.75"/>',
     bell: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M14 21h-4"/>',
@@ -63,7 +64,8 @@
     { id: 'talents', label: 'Talentos', href: './index.html', icon: 'users' },
     { id: 'organization', label: 'Organizacional', href: './organizacional.html', icon: 'building' },
     { id: 'contacts', label: 'Contatos', href: './contatos.html', icon: 'contact' },
-    { id: 'german', label: 'Alemão', href: './alemao.html', icon: 'graduation' }
+    { id: 'german', label: 'Alemão', href: './alemao.html', icon: 'graduation' },
+    { id: 'documentation', label: 'Documentação', href: './documentacao.html', icon: 'folder' }
   ];
 
   function esc(value) {
