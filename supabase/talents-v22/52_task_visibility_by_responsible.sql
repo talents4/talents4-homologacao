@@ -53,7 +53,7 @@ as $fn$
   select exists (
     select 1
     from public.operational_tasks t
-    where t.id=task_key
+    where t.id::text=task_key
       and (
         exists (
           select 1
@@ -64,7 +64,7 @@ as $fn$
         or exists (
           select 1
           from public.operational_task_responsibles r
-          where r.task_id=t.id
+          where r.task_id=t.id::text
             and r.deleted_at is null
             and lower(r.username)=lower(public.current_username_from_auth())
         )
@@ -101,7 +101,11 @@ create policy t4_collab_task_responsibles_insert on public.operational_task_resp
   with check (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(task_id) and nullif(btrim(username),'') is not null);
 create policy t4_collab_task_responsibles_update on public.operational_task_responsibles as restrictive for update to authenticated
   using (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(task_id))
-  with check (public.t4_talents_v22_access(true) and nullif(btrim(username),'') is not null);
+  with check (
+    public.t4_talents_v22_access(true)
+    and nullif(btrim(username),'') is not null
+    and (deleted_at is not null or public.t4_collab_task_editable(task_id))
+  );
 
 -- Substitui somente as policies de escopo criadas na 50. As tabelas de
 -- operational_plans/operational_plan_members são mantidas para compatibilidade
@@ -116,7 +120,7 @@ create policy t4_collab_tasks_access on public.operational_tasks as permissive f
   using (public.t4_talents_v22_access(false))
   with check (public.t4_talents_v22_access(true));
 create policy t4_collab_tasks_read on public.operational_tasks as restrictive for select to authenticated
-  using (public.t4_talents_v22_access(false) and public.t4_collab_task_visible(id));
+  using (public.t4_talents_v22_access(false) and public.t4_collab_task_visible(id::text));
 create policy t4_collab_tasks_insert on public.operational_tasks as restrictive for insert to authenticated
   with check (
     public.t4_talents_v22_access(true)
@@ -128,10 +132,10 @@ create policy t4_collab_tasks_insert on public.operational_tasks as restrictive 
     )
   );
 create policy t4_collab_tasks_update on public.operational_tasks as restrictive for update to authenticated
-  using (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(id))
+  using (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(id::text))
   with check (public.t4_talents_v22_access(true));
 create policy t4_collab_tasks_delete on public.operational_tasks as restrictive for delete to authenticated
-  using (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(id));
+  using (public.t4_talents_v22_access(true) and public.t4_collab_task_editable(id::text));
 
 -- Notifica o responsável principal e cada responsável adicional. A trigger
 -- de tarefa roda antes das associações adicionais; a trigger da tabela nova
@@ -151,7 +155,7 @@ begin
     union
     select r.username
     from public.operational_task_responsibles r
-    where r.task_id=new.id and r.deleted_at is null
+    where r.task_id=new.id::text and r.deleted_at is null
   loop
     perform public.t4_collab_add_notification(recipient,'po','Nova pendência no P.O.',task_title,'operational_task',new.id::text,'po-task:'||new.id::text||':'||recipient);
   end loop;
@@ -166,7 +170,7 @@ declare task_title text;
 begin
   if new.deleted_at is not null then return new; end if;
   if tg_op='UPDATE' and old.deleted_at is not distinct from new.deleted_at and old.username is not distinct from new.username then return new; end if;
-  select title into task_title from public.operational_tasks where id=new.task_id;
+  select title into task_title from public.operational_tasks where id::text=new.task_id;
   perform public.t4_collab_add_notification(new.username,'po','Você foi marcado como responsável',coalesce(task_title,'Uma tarefa operacional foi compartilhada com você.'),'operational_task',new.task_id,'po-responsible:'||new.task_id||':'||new.username);
   return new;
 end;
