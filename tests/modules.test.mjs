@@ -283,35 +283,48 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.ok(h.fixture.db.operational_tasks[0].completed_at);
   assert.equal((h.html().match(/data-ready-task=/g) || []).length, 0);
 });
-test('Seleções mantém painéis na lista analítica e reserva o Kanban para o quadro e histórico', async () => {
+test('Seleções separa os abertos por etapa na lista e reserva o Kanban para o quadro e histórico', async () => {
   const h = makeHarness();
   h.fixture.db.talent_opportunity_matches.push({ ...h.fixture.db.talent_opportunity_matches[0], id: h.id(310), talent_id: 'DEMO-T1', stage: 'Contratado', status: 'Ativo', updated_at: '2026-09-03T09:00:00.000Z', next_action: null, next_action_at: null });
   h.fixture.db.candidate_employer_matches.push(
     { id: h.id(313), candidato_id: 'DEMO-T5', empregador_id: h.id(102), status_vinculo: 'Não gostou', elegivel: true, prioridade: 2, proxima_acao: 'Registrar retorno', created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' },
     { id: h.id(314), candidato_id: 'DEMO-T4', empregador_id: h.id(102), status_vinculo: 'Removido', prioridade: 3, proxima_acao: null, created_at: '2026-09-01T11:00:00.000Z', updated_at: '2026-09-02T10:00:00.000Z' },
-    { id: h.id(315), candidato_id: 'DEMO-T3', empregador_id: h.id(101), status_vinculo: 'Excluído', prioridade: 4, proxima_acao: null, created_at: '2026-09-01T12:00:00.000Z', updated_at: '2026-09-02T11:00:00.000Z' }
+    { id: h.id(315), candidato_id: 'DEMO-T3', empregador_id: h.id(101), status_vinculo: 'Excluído', prioridade: 4, proxima_acao: null, created_at: '2026-09-01T12:00:00.000Z', updated_at: '2026-09-02T11:00:00.000Z' },
+    { id: h.id(316), candidato_id: 'DEMO-T1', empregador_id: h.id(101), status_vinculo: 'Em análise', elegivel: true, prioridade: 1, proxima_acao: 'Avaliar perfil', proximo_followup_em: '2026-09-12T10:00:00.000Z', created_at: '2026-09-01T13:00:00.000Z', updated_at: '2026-09-03T10:00:00.000Z' },
+    { id: h.id(317), candidato_id: 'DEMO-T2', empregador_id: h.id(101), status_vinculo: 'Apresentado', elegivel: true, prioridade: 1, proxima_acao: 'Aguardar retorno', proximo_followup_em: '2026-09-11T10:00:00.000Z', created_at: '2026-09-01T14:00:00.000Z', updated_at: '2026-09-03T11:00:00.000Z' },
+    { id: h.id(318), candidato_id: 'DEMO-T3', empregador_id: h.id(102), status_vinculo: 'Entrevista', elegivel: true, prioridade: 1, proxima_acao: 'Confirmar horário', proximo_followup_em: '2026-09-10T10:00:00.000Z', created_at: '2026-09-01T15:00:00.000Z', updated_at: '2026-09-03T12:00:00.000Z' },
+    { id: h.id(319), candidato_id: 'DEMO-T4', empregador_id: h.id(102), status_vinculo: 'Proposta', elegivel: true, prioridade: 1, proxima_acao: 'Enviar proposta', proximo_followup_em: '2026-09-09T10:00:00.000Z', created_at: '2026-09-01T16:00:00.000Z', updated_at: '2026-09-03T13:00:00.000Z' }
   );
   await h.load('organization'); h.app.route('pipeline');
   const listHtml = h.html();
 
   assert.match(listHtml, /Distribuição por etapa do vínculo geral/);
-  assert.match(listHtml, /Não gostou/);
   assert.match(listHtml, /Todas as seleções em aberto/);
   assert.match(listHtml, /Contratações mais recentes/);
   assert.match(listHtml, /Histórico de excluídos e removidos/);
+  assert.match(listHtml, /Não gostou/);
 
   const openStart = listHtml.indexOf('SELEÇÕES EM ABERTO');
   const hiredStart = listHtml.indexOf('CONTRATADOS');
   const historyStart = listHtml.indexOf('Histórico de excluídos e removidos');
   assert.ok(openStart >= 0 && hiredStart > openStart && historyStart > hiredStart);
   const openHtml = listHtml.slice(openStart, hiredStart);
-  assert.match(openHtml, /Não gostou/);
+  assert.equal((openHtml.match(/data-selection-stage-group="/g) || []).length, 4);
+  const groupKeys = ['review', 'sent', 'interview', 'offer'];
+  const groupPositions = groupKeys.map((id) => openHtml.indexOf('data-selection-stage-group="' + id + '"'));
+  assert.ok(groupPositions.every((position) => position >= 0));
+  assert.deepEqual([...groupPositions].sort((a, b) => a - b), groupPositions);
+  assert.match(openHtml.slice(groupPositions[0], groupPositions[1]), /data-ready-selection=/);
+  assert.match(openHtml.slice(groupPositions[1], groupPositions[2]), /Apresentado/);
+  assert.match(openHtml.slice(groupPositions[2], groupPositions[3]), /Entrevista/);
+  assert.match(openHtml.slice(groupPositions[3]), /Proposta/);
+  assert.match(openHtml.slice(groupPositions[1], groupPositions[2]), /Não gostou/);
   assert.doesNotMatch(openHtml, /Removido/);
   assert.doesNotMatch(openHtml, /Excluído/);
+
   const historyHtml = listHtml.slice(historyStart);
   assert.match(historyHtml, /Removido/);
   assert.match(historyHtml, /Excluído/);
-
   const tableStart = listHtml.indexOf('data-table="org-selection-active"');
   const tableHtml = listHtml.slice(tableStart, historyStart);
   assert.ok(tableHtml.indexOf('Contratado') < tableHtml.indexOf('Apresentado'));
@@ -320,13 +333,13 @@ test('Seleções mantém painéis na lista analítica e reserva o Kanban para o 
   const cardHtml = h.html();
   assert.doesNotMatch(cardHtml, /Todas as seleções em aberto/);
   assert.doesNotMatch(cardHtml, /Contratações mais recentes/);
+  assert.doesNotMatch(cardHtml, /data-selection-stage-group=/);
   assert.match(cardHtml, /class="t4-board"/);
   assert.match(cardHtml, /Histórico de excluídos e removidos/);
   assert.match(cardHtml, /Não gostou/);
   assert.doesNotMatch(cardHtml, /data-ready-selection=/);
   assert.equal(h.fixture.writes.length, 0);
-});
-test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
+});test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
   const h = makeHarness();
   h.fixture.db.talent_opportunity_matches.push({ id: h.id(305), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z', talent_id: 'DEMO-T2', opening_id: h.id(201), employer_id: h.id(101), stage: 'Encerrado', status: 'Encerrado', priority: 3, owner_username: 'demo', next_action: null, next_action_at: null, viability: 'Baixa', overall_score: null, reasons: null, barriers: null, sent_at: null, responded_at: null });
   await h.load('organization');
