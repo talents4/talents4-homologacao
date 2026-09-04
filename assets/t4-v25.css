@@ -122,15 +122,26 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .t4-mobile-menu { display: none; }
 .t4-topbar-heading { min-width: 235px; }
 .t4-eyebrow { color: #8a98aa; font-size: 10px; letter-spacing: .02em; }
-.t4-page-title { color: var(--v25-ink); font-size: 25px; font-weight: 760; letter-spacing: -.06em; }
-.t4-page-subtitle { display: block; max-width: 520px; margin: 3px 0 0; color: #8090a4; font-size: 11px; line-height: 1.35; }
+/* 25px era um número isolado, maior que o próprio --t4-text-display
+   (21px) já usado nos banners de abertura de página (Etapa 2A.2) — ao
+   vivo, título fixo da topbar (sempre presente) acabava mais pesado que
+   o título de destaque (só em algumas páginas), e essa altura extra
+   empurrava a topbar acima de 76px em 1366px (subtítulo virava 2
+   linhas). Reaproveita o mesmo token de "maior título do produto" em
+   vez de criar um terceiro tamanho — os dois nunca aparecem lado a
+   lado, então não há conflito visual em unificar o valor. */
+.t4-page-title { color: var(--v25-ink); font-size: var(--t4-text-display); font-weight: 760; letter-spacing: -.06em; }
+/* Trunca numa linha: sem isto, o subtítulo quebrava para 2 linhas em
+   1366px (menos espaço sobrando ao lado da busca/Command Palette),
+   empurrando a topbar de ~76px para ~108px — mais que o dobro do
+   min-height pretendido, só nessa largura específica. */
+.t4-page-subtitle { display: block; max-width: 520px; margin: 3px 0 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #8090a4; font-size: 11px; line-height: 1.35; }
 .t4-global-search { width: min(380px, 30vw); min-height: 41px; border-radius: 13px; background: rgba(247,249,252,.82); border-color: #d9e2ec; }
 .t4-global-search:hover { background: #fff; border-color: #c5d6e8; }
 .t4-global-search:focus-within { background: #fff; border-color: #86b5f0; box-shadow: 0 0 0 4px rgba(22,119,255,.11), 0 6px 18px rgba(17,61,112,.06); }
 .t4-global-search input { font-size: 12px; }
 .t4-keycap { min-width: 19px; text-align: center; color: #8c9caf; border-color: #d7e1ec; border-radius: 6px; background: #fff; }
 .t4-command-trigger { min-height: 40px; border-color: #d7e1ec; border-radius: 12px; background: rgba(255,255,255,.78); }
-.t4-command-trigger:hover { transform: translateY(-1px); }
 .t4-sync { color: #8291a4; }
 .t4-environment { min-height: 28px; padding: 6px 30px; color: #756749; background: rgba(255,250,237,.82); border-bottom-color: #eee3c7; }
 .t4-content { padding: 28px 30px 58px; }
@@ -352,7 +363,6 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 @media (max-width: 680px) {
   .t4-topbar { gap: 9px; padding: 12px 14px; }
   .t4-topbar-heading { min-width: 0; }
-  .t4-page-title { font-size: 21px; }
   .t4-global-search { width: 42px; min-width: 42px; padding: 9px; }
   .t4-global-search input, .t4-global-search .t4-keycap { display: none; }
   .t4-command-trigger { width: 40px; padding: 8px; }
