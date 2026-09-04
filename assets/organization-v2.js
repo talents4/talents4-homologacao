@@ -358,14 +358,19 @@
     // acompanhamento abertos.
     const recencyOf = (r) => String(r.updated_at || r.responded_at || r.sent_at || r.created_at || '');
     const byRecency = (left, right) => recencyOf(right).localeCompare(recencyOf(left), 'pt-BR', { numeric: true });
-    const sortedActiveRows = [...activeRows].sort(byRecency);
     const generalRows = rows.filter(isGeneralLink);
-    const openPipelineRows = generalRows.filter((r) => M.selectionBucket(r) !== 'closed' && M.selectionBucket(r) !== 'hired')
+    // SELEÇÕES EM ABERTO e CONTRATADOS precisam de todo mundo (vagas
+    // modernas e vínculos gerais), não só generalRows — diferente de
+    // stagePulse logo abaixo, que é deliberadamente só sobre o vínculo
+    // geral. Sem isto, uma seleção nova de vaga moderna não aparecia em
+    // nenhum dos dois painéis (achado que motivou remover os painéis por
+    // engano em vez de alargar a fonte).
+    const openPipelineRows = rows.filter((r) => M.selectionBucket(r) !== 'closed' && M.selectionBucket(r) !== 'hired')
       .sort((left, right) => generalLinkStageRank(left) - generalLinkStageRank(right)
         || compareSelectionDateDesc(left, right, 'next_action_at')
         || byRecency(left, right)
         || M.norm(R.talentName(state, left.talent_id)).localeCompare(M.norm(R.talentName(state, right.talent_id)), 'pt-BR'));
-    const hiredRows = generalRows.filter((r) => M.selectionBucket(r) === 'hired').sort(byRecency);
+    const hiredRows = rows.filter((r) => M.selectionBucket(r) === 'hired').sort(byRecency);
     const selectionCard = (r, index) => {
       const opening = W.find(state.openings, r.opening_id), overdue = M.overdue(r.next_action_at, r.status);
       return `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${overdue ? 'is-overdue' : ''}" data-ready-selection="${a(r.key)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${W.status(r.stage)}<span class="org-ready-card-deadline ${overdue ? 'is-overdue' : r.next_action_at ? 'is-scheduled' : 'is-no-date'}">${U.icon('calendar')}${e(r.next_action_at ? U.formatDate(r.next_action_at) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="selection-detail" data-id="${a(r.key)}">${e(R.talentName(state, r.talent_id))}</button></h3><p class="org-ready-card-context">${e([employerOf(r), opening?.title || 'Vínculo geral · anterior à V2'].join(' · '))}</p><p class="org-ready-card-description">${e(r.next_action || 'Definir próxima ação')}</p><footer class="org-ready-card-footer"><span>${e(r.owner_username || 'Sem responsável')}</span><div>${W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' })}</div></footer></article>`;
@@ -383,7 +388,7 @@
     const openPanel = `<section class="t4-panel org-open-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">SELEÇÕES EM ABERTO</span><h2>Todas as seleções em aberto</h2><p>Separadas por etapa do vínculo; dentro de cada grupo, pela data da próxima ação mais recente.</p></div><strong class="org-panel-count">${openPipelineRows.length} abertas</strong></div><div class="t4-panel-body"><div class="org-selection-stage-groups" aria-label="Seleções abertas separadas por etapa">${openSelectionSections}</div></div></section>`;
     const hiredPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONTRATADOS</span><h2>Contratações mais recentes</h2><p>Seleções na etapa Contratado, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${hiredRows.length} contratada${hiredRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body"><div class="org-ready-list">${hiredRows.map(selectionCard).join('') || U.emptyState('Nenhuma contratação registrada ainda', 'Assim que uma seleção avançar para Contratado, ela aparece aqui.')}</div></div></section>`;
 
-    const historyRows = generalRows
+    const historyRows = rows
       .filter((r) => /^(excluid[oa]|removid[oa])/.test(M.norm(r.stage || r.status || '')))
       .sort(byRecency);
     const historySection = W.section('Histórico de excluídos e removidos',
@@ -394,9 +399,11 @@
     const current = display === 'cards' && scope !== 'closed'
       ? R.selectionBoard(state, sortedVisibleRows)
       : W.section('Lista analítica · todas as seleções', R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active'), U.badge(sortedVisibleRows.length, 'info'), 'A mesma coleção usada no quadro, exibida em linhas para localizar, filtrar e editar registros com escala.');
-    // Lista analítica e Quadro opcional usam a mesma coleção canônica.
-    // A lista é uma tabela única para não esconder vínculos novos em painéis paralelos.
-    const analyticalPanels = '';
+    // Lista analítica mantém os painéis de trabalho (abertas por etapa +
+    // contratados); Quadro opcional mostra só o Kanban. Painéis e tabela
+    // agora vêm da mesma coleção (rows) — o problema que motivou removê-los
+    // era a fonte restrita a generalRows, já corrigido acima.
+    const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';
     const scopeBar = W.chips([
       { id: 'active', label: 'Em andamento', count: activeRows.length, icon: 'columns' },
       { id: 'all', label: 'Todas as relações', count: rows.length, icon: 'list' },

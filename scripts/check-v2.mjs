@@ -74,7 +74,10 @@ for (const [name, module] of Object.entries(pages)) {
     const scriptRefs = [...html.matchAll(/<script\b([^>]*?)src="([^"]+)"[^>]*>/g)].map((m) => m[2]);
     for (const ref of [...scriptRefs, ...[...html.matchAll(/<link[^>]*href="([^"]+)"/g)].map((m) => m[1])]) {
       if (/^https:/.test(ref)) continue;
-      const resolved = path.resolve(root, path.dirname(file), ref);
+      // Cache-busting (?v=...) e âncoras (#...) não fazem parte do caminho do
+      // arquivo — só da URL. Sem isto, todo cache-buster reprova a checagem.
+      const filePath = ref.replace(/[?#].*$/, '');
+      const resolved = path.resolve(root, path.dirname(file), filePath);
       check(resolved.startsWith(root + path.sep) && fs.existsSync(resolved), `${file}: referência local ${ref}`);
     }
     const core = scriptRefs.findIndex((r) => r.endsWith('t4-v2-core.js'));
