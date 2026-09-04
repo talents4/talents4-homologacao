@@ -131,7 +131,7 @@
     const raw = row ? row.sources?.[0]?.row || row : { ...context, stage: 'Mapeado', status: 'Ativo', priority: 100, viability: 'A validar', owner_username: D.profile.username };
     return W.recordForm({ title: row ? 'Editar seleção' : 'Nova seleção', subtitle: 'Talento + vaga. Um talento pode participar de mais de uma seleção.', row: raw, table: D.TABLES.matches,
       fields: [
-        { name: 'talent_id', label: 'Talento', type: 'select', options: choices(state.talents, 'nome_completo'), required: true, readonly: !!row, wide: true },
+        { name: 'talent_id', label: 'Talento', type: 'select', options: choices((state.talents || []).filter((talent) => M.isTalent(talent)), 'nome_completo'), required: true, readonly: !!row, wide: true },
         { name: 'opening_id', label: 'Vaga / empregador', type: 'select', options: state.openings.map((r) => ({ value: r.id, label: `${employerName(state, r.employer_id)} · ${r.title}` })), required: true, readonly: !!row, wide: true },
         { name: 'stage', label: 'Etapa da seleção', type: 'select', options: STAGES, required: true, placeholder: null },
         { name: 'status', label: 'Situação do vínculo', type: 'select', options: ['Ativo', 'Encerrado'], required: true, placeholder: null },
@@ -155,7 +155,7 @@
         }
       }, after });
   }
-  function selectionTable(state, rows, id = 'selections') {
+  function selectionTable(state, rows, id = 'selections', options = {}) {
     return W.table({ id, rows, columns: [
       { key: 'talent_id', label: 'Talento', required: true, value: (r) => talentName(state, r.talent_id), render: (r) => { const talent = W.find(state.talents, r.talent_id); const meta = [talent?.profissao_principal || talent?.area_profissional, talent && !M.activeRecord(talent) ? 'Arquivado' : ''].filter(Boolean).join(' · '); return W.person(talentName(state, r.talent_id), meta, '', 'selection-detail', r.key); } },
       { key: 'employer_id', label: 'Empregador / vaga', value: (r) => employerName(state, r.employer_id), render: (r) => { const employer = W.find(state.employers, r.employer_id); const name = window.T4Modern?.employer ? window.T4Modern.employer(employer || { nome: employerName(state, r.employer_id), id: r.employer_id }) : e(employerName(state, r.employer_id)); return W.stackHtml(name, r.opening_id ? W.find(state.openings, r.opening_id)?.title || 'Vaga não encontrada' : 'Vínculo geral · anterior à V2'); } },
@@ -163,7 +163,32 @@
       { key: 'next_action', label: 'Próxima ação', render: (r) => W.stack(r.next_action, M.dateOnly(r.next_action_at) ? U.formatDate(r.next_action_at) : '') },
       { key: 'owner_username', label: 'Responsável' },
       { key: 'actions', label: '', sort: false, render: (r) => W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' }) }
-    ] });
+    ], pageSize: options.pageSize || 25, groupBy: options.groupBy || null });
+  }
+  function selectionAnalytics(state, rows, options = {}) {
+    const scope = options.scope || 'active';
+    const open = rows.filter((row) => ['review', 'sent', 'interview', 'offer'].includes(M.selectionBucket(row)));
+    const hired = rows.filter((row) => M.selectionBucket(row) === 'hired');
+    const closed = rows.filter((row) => M.selectionBucket(row) === 'closed');
+    const rank = new Map(M.SELECTION_COLUMNS.map((column, index) => [column.id, index]));
+    const recency = (row) => String(row.updated_at || row.responded_at || row.sent_at || row.created_at || '');
+    const sorted = (list) => [...list].sort((left, right) => rank.get(M.selectionBucket(left)) - rank.get(M.selectionBucket(right))
+      || String(right.next_action_at || '').localeCompare(String(left.next_action_at || ''), 'pt-BR', { numeric: true })
+      || recency(right).localeCompare(recency(left), 'pt-BR', { numeric: true })
+      || M.norm(talentName(state, left.talent_id)).localeCompare(M.norm(talentName(state, right.talent_id)), 'pt-BR'));
+    const groupLabel = (row) => M.SELECTION_COLUMNS.find((column) => column.id === M.selectionBucket(row))?.name || 'Sem etapa';
+    const prefix = options.idPrefix || 'selection-analytics';
+    const tableSection = (title, description, list, id, empty) => `<section class="t4-selection-analytics-group"><header><div><span class="t4-selection-analytics-kicker">REGISTRO OPERACIONAL</span><h3>${e(title)}</h3><p>${e(description)}</p></div><strong>${list.length}</strong></header>${list.length ? selectionTable(state, sorted(list), id, { pageSize: 25, groupBy: title === 'Seleções em aberto' ? groupLabel : null }) : U.emptyState(title === 'Contratados' ? 'Nenhuma contratação registrada' : empty, 'Altere o filtro ou crie uma nova relação para preencher este bloco.')}</section>`;
+    const summary = `<div class="t4-selection-analytics-summary" aria-label="Resumo das seleções"><span><strong>${open.length}</strong> em aberto</span><span><strong>${hired.length}</strong> contratada${hired.length === 1 ? '' : 's'}</span><span><strong>${closed.length}</strong> no histórico</span></div>`;
+    const groups = [];
+    if (scope !== 'closed') {
+      groups.push(tableSection('Seleções em aberto', 'Em análise, apresentadas, entrevistas e propostas em uma única tabela paginada.', open, `${prefix}-open`, 'Nenhuma seleção em aberto'));
+      groups.push(tableSection('Contratados', 'Relações concluídas com contratação, separadas da fila de acompanhamento.', hired, `${prefix}-hired`, 'Nenhum contratado neste recorte'));
+    }
+    if (scope === 'all' || scope === 'closed') {
+      groups.push(tableSection('Histórico de encerrados', 'Excluídos, removidos e demais relações fechadas ficam disponíveis somente para consulta.', closed, `${prefix}-closed`, 'Nenhum registro encerrado'));
+    }
+    return `<div class="t4-selection-analytics">${summary}${groups.join('')}</div>`;
   }
   function selectionDrawer(state, row) {
     if (!row) return;
@@ -195,6 +220,6 @@
     }).join('')}</div></details>`;
   }
   window.T4Records = Object.freeze({ LEVELS, PRIORITIES, STAGES, fields, choices, talentName, employerName, editFollowup, editActivity,
-    finishActivity, activityTable, editSelection, selectionTable, selectionDrawer, selectionBoard, storedFields,
+    finishActivity, activityTable, editSelection, selectionTable, selectionAnalytics, selectionDrawer, selectionBoard, storedFields,
     employerClassificationBadges, employerClassificationHtml, employerClassificationMatches, classificationKeys });
 })();

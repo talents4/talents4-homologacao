@@ -15,7 +15,7 @@
     { id: 'manual', label: 'Manual de uso', title: 'Manual de uso', subtitle: 'Como decidir, acompanhar e apresentar sem duplicar informações.', icon: 'note', primary: false },
     { id: 'archived', label: 'Arquivo de Talentos', title: 'Arquivo de Talentos', subtitle: 'Histórico de inativos, excluídos e arquivados, sem mistura com a fila ativa.', icon: 'archive', primary: false }
   ] });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], replacements: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', status: '', month: '', quick: [], selectedTalents: new Set(), board: 'list', selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], replacements: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', status: '', month: '', quick: [], talentScope: 'talento', selectedTalents: new Set(), board: 'list', selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
   const sources = {
     talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
     employers: { label: 'Empregadores', load: () => D.loadEmployers({ activeOnly: false }) },
@@ -38,13 +38,15 @@
   const attention = (r) => T.attentionReasons(state, r).length > 0;
   const match = (values) => !state.query || M.norm(values.filter(M.present).join(' ')).includes(M.norm(state.query));
   function filtered(archived = false) {
-    return workspace.filtered({ archived });
+    return workspace.filtered({ archived, scope: archived ? 'talento' : state.talentScope });
   }
   function talentViews(archived = false) {
-    const activeCount = state.talents.filter(active).length;
-    const readyCount = state.talents.filter((r) => active(r) && T.yes(r.pronto_para_employer)).length;
-    const archivedCount = state.talents.filter((r) => !active(r)).length;
-    return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">${archived ? 'ARQUIVO PRESERVADO' : 'FILA OPERACIONAL'}</span><strong>${archived ? `${archivedCount} registro${archivedCount === 1 ? '' : 's'} fora da fila ativa` : `${activeCount} talento${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}`}</strong><span>${archived ? 'Inativos, excluídos, cancelados e arquivados aparecem somente aqui.' : 'A fila ativa mostra somente Talentos disponíveis para trabalho.'}</span></div><div class="v25-scope-actions">${archived ? W.button('Voltar à fila ativa', 'v24-view', 'all', { className: 'ghost sm', icon: 'users' }) : W.button(`Abrir apresentações · ${readyCount}`, 'v24-view', 'ready', { className: 'ghost sm', icon: 'check' })}</div></div>`;
+    const talentsCount = state.talents.filter((row) => active(row) && M.isTalent(row)).length;
+    const bucketCount = state.talents.filter((row) => active(row) && !M.isTalent(row)).length;
+    const readyCount = state.talents.filter((row) => active(row) && M.isTalent(row) && T.yes(row.pronto_para_employer)).length;
+    const archivedCount = state.talents.filter((row) => !active(row) && M.isTalent(row)).length;
+    if (archived) return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">ARQUIVO PRESERVADO</span><strong>${archivedCount} registro${archivedCount === 1 ? '' : 's'} fora da fila ativa</strong><span>Inativos, excluídos, cancelados e arquivados aparecem somente aqui.</span></div><div class="v25-scope-actions">${W.button('Voltar à fila ativa', 'talent-scope', 'talento', { className: 'ghost sm', icon: 'users' })}</div></div>`;
+    return `<div class="v25-scope-strip"><div><span class="mx-eyebrow">FILA OPERACIONAL</span><strong>${state.talentScope === 'balde' ? `${bucketCount} registro${bucketCount === 1 ? '' : 's'} no Balde` : `${talentsCount} Talento${talentsCount === 1 ? '' : 's'}`}</strong><span>${state.talentScope === 'balde' ? 'Cadastros gerais e contatos sem interesse operacional; ficam fora das filas de Talentos.' : 'Somente pessoas marcadas como Talento entram nas filas, seleções e apresentações.'}</span></div><div class="v25-scope-actions"><div class="v25-talent-scopes" role="tablist" aria-label="Classificação da base">${W.button(`Talentos · ${talentsCount}`, 'talent-scope', 'talento', { className: state.talentScope === 'talento' ? 'primary sm' : 'ghost sm', icon: 'users' })}${W.button(`Balde · ${bucketCount}`, 'talent-scope', 'balde', { className: state.talentScope === 'balde' ? 'primary sm' : 'ghost sm', icon: 'archive' })}</div>${W.button(`Abrir apresentações · ${readyCount}`, 'v24-view', 'ready', { className: 'ghost sm', icon: 'check' })}</div></div>`;
   }
   function selectionBar(rows) {
     const selected = state.selectedTalents instanceof Set ? state.selectedTalents.size : 0;
@@ -75,7 +77,7 @@
     const selectionView = app.view === 'processes' || app.view === 'opportunities';
     const mappingView = app.view === 'mapping';
     app.setPrimaryAction(selectionView ? 'Nova seleção' : app.view === 'agenda' ? 'Nova atividade' : mappingView ? 'Nova linha' : 'Novo talento', D.canEdit() && (!selectionView || state.selections.modern) && (!mappingView || workspace.available('mappingItems') && filtered().length) ? () => selectionView ? R.editSelection(state, null, {}, load) : app.view === 'agenda' ? R.editActivity(state, null, {}, load) : mappingView ? workspace.action('mapping-new', state.mappingTalent || filtered()[0]?.id) : editTalent() : null);
-    app.setCounts({ talents: state.talents.filter(active).length, archived: state.talents.filter((r) => !active(r)).length, processes: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length, agenda: state.activities.filter((r) => M.isOpen(r.status)).length });
+    app.setCounts({ talents: state.talents.filter((r) => active(r) && M.isTalent(r)).length, archived: state.talents.filter((r) => !active(r) && M.isTalent(r)).length, processes: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length, agenda: state.activities.filter((r) => M.isOpen(r.status)).length });
     const html = ({ overview, talents: () => directory(false), archived: () => directory(true), mapping: workspace.tracking, presentation: workspace.presentation, 'mapping-summary': workspace.summary, 'mapping-radar': workspace.radar, processes: selectionsView, opportunities: opportunitiesView, agenda: agendaView, manual: () => window.T4Modern?.manual() || W.note('Manual indisponível.') }[app.view] || overview)();
     app.pageRoot.innerHTML = W.sourceAlerts(state) + html;
     W.bindSearchableSelects?.(app.pageRoot);
@@ -93,7 +95,7 @@
     return W.funnelChart('Onde cada Talento está agora', 'LEITURA RÁPIDA', `${list.length} ativo${list.length === 1 ? '' : 's'}`, buckets);
   }
   function overview() {
-    const list = state.talents.filter(active), day = M.today();
+    const list = state.talents.filter((row) => active(row) && M.isTalent(row)), day = M.today();
     const actions = state.activities.filter((r) => M.isOpen(r.status) && (!r.due_at || M.dateOnly(r.due_at) <= day) && match([r.title, R.talentName(state, r.talent_id), r.notes]));
     const selected = list.filter(attention);
     return `<div class="t4-work-intro"><div><span class="t4-overline">SEU ESPAÇO DE TRABALHO</span><h2>Informação clara. Próximo passo definido.</h2><p>Bom trabalho, ${e(D.profile?.nome || 'equipe')}. Aqui está o que precisa avançar.</p></div><span class="t4-date-chip">${U.icon('calendar')}${e(new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' }))}</span></div>
@@ -122,14 +124,16 @@
     if (!archived && state.quick.includes('ready')) { state.presentationView = 'released'; return workspace.presentation(); }
     const rows = filtered(archived);
     const mode = `<div class="mx-toolbar"><div><span class="mx-eyebrow">${archived ? 'HISTÓRICO PRESERVADO' : 'FICHA ÚNICA DE CADA TALENTO'}</span><p class="t4-muted">${rows.length} registro(s) neste recorte</p></div><div class="mx-segment" role="group" aria-label="Visualização da base"><button type="button" data-action="talent-display" data-id="cards" data-selected="${state.display === 'cards'}">Cartões</button><button type="button" data-action="talent-display" data-id="list" data-selected="${state.display === 'list'}">Lista</button><button type="button" data-action="talent-display" data-id="table" data-selected="${state.display === 'table'}">Tabela completa</button></div></div>`;
-    return `${talentViews(archived)}${archived ? '' : workspace.quickFilters()}${workspace.toolbar({archived})}${archived ? '' : archivedSearchNotice()}${selectionBar(rows)}${mode}${state.display === 'cards' ? talentCards(rows) : state.display === 'table' ? talentTable(rows, 'talents-complete') : talentListTable(rows)}`;
+    return `${talentViews(archived)}${archived || state.talentScope === 'balde' ? '' : workspace.quickFilters()}${workspace.toolbar({archived})}${archived ? '' : archivedSearchNotice()}${selectionBar(rows)}${mode}${state.display === 'cards' ? talentCards(rows) : state.display === 'table' ? talentTable(rows, 'talents-complete') : talentListTable(rows)}`;
   }
   function talentCards(list) {
     return `<div class="mx-cards">${list.map((r) => {
       const p = T.profileFor(state, r.id), links = [...new Set(T.mappingRows(state).filter((x) => M.same(x.talent_id, r.id) && x._employer).map((x) => x._employer))];
       const actions = window.T4Modern?.nextActions(state, r.id) || [], first = actions[0];
       const ready = T.yes(r.pronto_para_employer), radar = T.mappingRows(state).some((x) => M.same(x.talent_id, r.id) && T.yes(x.nectanet));
-      return `<article class="mx-card ${state.selectedTalents.has(String(r.id)) ? 'is-selected' : ''}"><div class="mx-person-header" style="padding:0;border:0;margin:0;background:transparent"><div><label class="t4-card-select"><input type="checkbox" data-talent-select data-id="${a(r.id)}" ${state.selectedTalents.has(String(r.id)) ? 'checked' : ''}><span>Selecionar</span></label><span class="mx-eyebrow">${e(r.status_pipeline || 'Sem etapa')}</span><h3>${e(r.nome_completo || 'Sem nome')}</h3><p class="mx-meta">${e([r.profissao_principal || r.area_profissional, r.cidade_atual, r.responsavel_interno].filter(Boolean).join(' · ') || 'Dados principais não informados')}</p></div>${W.button('Abrir ficha','talent-detail',r.id,{className:'sm ghost',icon:'chevron'})}</div><div class="t4-chip-row">${U.badge(r.nivel_alemao || 'Alemão não informado','info')}${ready ? U.badge('Liberado para apresentação','success') : U.badge('Em preparação')}${radar ? U.badge('Radar NectaNet','info') : ''}</div><div class="mx-fact"><h3>Próximo passo</h3><p class="mx-next">${e(first?.text || 'Definir uma próxima ação')}</p><small class="mx-meta">${e([first?.source, first?.due ? U.formatDate(first.due) : '', first?.owner].filter(Boolean).join(' · ') || 'Sem prazo ou responsável')}</small></div>${links.length ? `<div class="t4-chip-row">${links.slice(0,4).map(window.T4Modern?.employer || ((x)=>e(x.nome))).join('')}</div>` : '<p class="mx-meta">Sem empregador ou vaga vinculada.</p>'}<footer>${W.button('Acompanhar','mapping-for',r.id,{className:'sm',icon:'list'})}${D.canEdit() ? W.button(ready ? 'Revisar liberação' : 'Preparar apresentação','readiness',r.id,{className:'sm ghost'}) : ''}</footer></article>`;
+      const talentActions = M.isTalent(r) ? `${W.button('Acompanhar','mapping-for',r.id,{className:'sm',icon:'list'})}${D.canEdit() ? W.button(ready ? 'Revisar liberação' : 'Preparar apresentação','readiness',r.id,{className:'sm ghost'}) : ''}` : '';
+      const scopeAction = D.canEdit() ? W.button(M.isTalent(r) ? 'Mover para Balde' : 'Marcar como Talento','set-talent-scope',`${r.id}|${M.isTalent(r) ? 'balde' : 'talento'}`,{className:'sm ghost'}) : '';
+      return `<article class="mx-card ${state.selectedTalents.has(String(r.id)) ? 'is-selected' : ''}"><div class="mx-person-header" style="padding:0;border:0;margin:0;background:transparent"><div><label class="t4-card-select"><input type="checkbox" data-talent-select data-id="${a(r.id)}" ${state.selectedTalents.has(String(r.id)) ? 'checked' : ''}><span>Selecionar</span></label><span class="mx-eyebrow">${e(r.status_pipeline || 'Sem etapa')}</span><h3>${e(r.nome_completo || 'Sem nome')}</h3><p class="mx-meta">${e([r.profissao_principal || r.area_profissional, r.cidade_atual, r.responsavel_interno].filter(Boolean).join(' · ') || 'Dados principais não informados')}</p></div>${W.button('Abrir ficha','talent-detail',r.id,{className:'sm ghost',icon:'chevron'})}</div><div class="t4-chip-row">${U.badge(M.scopeLabel(r), M.isTalent(r) ? 'success' : '')}${U.badge(r.nivel_alemao || 'Alemão não informado','info')}${ready ? U.badge('Liberado para apresentação','success') : U.badge('Em preparação')}${radar ? U.badge('Radar NectaNet','info') : ''}</div><div class="mx-fact"><h3>Próximo passo</h3><p class="mx-next">${e(first?.text || 'Definir uma próxima ação')}</p><small class="mx-meta">${e([first?.source, first?.due ? U.formatDate(first.due) : '', first?.owner].filter(Boolean).join(' · ') || 'Sem prazo ou responsável')}</small></div>${links.length ? `<div class="t4-chip-row">${links.slice(0,4).map(window.T4Modern?.employer || ((x)=>e(x.nome))).join('')}</div>` : '<p class="mx-meta">Sem empregador ou vaga vinculada.</p>'}<footer>${talentActions}${scopeAction}</footer></article>`;
     }).join('') || U.emptyState('Nenhum Talento neste filtro','Ajuste a busca ou limpe os filtros para continuar.')}</div>`;
   }
   function talentTable(list, id = 'talents') {
@@ -137,26 +141,26 @@
       { key: 'selected', label: '', required: true, sort: false, className: 't4-selection-cell', render: (r) => `<input type="checkbox" data-talent-select data-id="${a(r.id)}" aria-label="Selecionar ${a(r.nome_completo || 'Talento')}" ${state.selectedTalents.has(String(r.id)) ? 'checked' : ''}>` },
       { key: 'nome_completo', label: 'Talento', required: true, render: (r) => W.person(r.nome_completo || 'Sem nome', r.cidade_atual || r.id, '', 'talent-detail', r.id) },
       { key: 'profissao_principal', label: 'Profissão / área', render: (r) => W.stack(r.profissao_principal || r.area_profissional, r.profissao_principal ? r.area_profissional : '') },
-      { key: 'status_pipeline', label: 'Acompanhamento', render: (r) => W.status(U.term(r.status_pipeline || 'Sem etapa')) },
+      { key: 'status_pipeline', label: 'Acompanhamento', render: (r) => `<div class="t4-chip-row">${U.badge(M.scopeLabel(r), M.isTalent(r) ? 'success' : '')}${W.status(U.term(r.status_pipeline || 'Sem etapa'))}</div>` },
       { key: 'nivel_alemao', label: 'Alemão', render: (r) => { const course = inCourse(r.id); return `<div class="t4-chip-row">${U.badge(course[0]?.current_level || r.nivel_alemao || 'Não informado', 'info')}</div><small class="t4-cell-secondary">${course.length ? `${course.length} matrícula(s) · dados do curso` : 'Informado no perfil'}</small>`; } },
       { key: 'documentacao_completa', label: 'Documentação', render: (r) => U.badge(yes(r.documentacao_completa) ? 'Completa' : M.present(r.documentacao_completa) ? 'Em preparação' : 'Não avaliada', yes(r.documentacao_completa) ? 'success' : '') },
       { key: 'employer', label: 'Empregadores', render: (r) => { const names = [...new Set(selectionsFor(r.id).filter((s) => M.selectionBucket(s) !== 'closed').map((s) => R.employerName(state, s.employer_id)))]; return names.length ? `<span class="t4-clamp-3">${e(names.join(' · '))}</span>` : '<span class="t4-muted">Sem seleção vinculada</span>'; } },
       { key: 'responsavel_interno', label: 'Responsável' },
-      { key: 'pronto_para_employer', label: 'Apresentação', render: (r) => `<div class="t4-chip-row">${U.badge(yes(r.pronto_para_employer) ? 'Liberado' : M.present(r.pronto_para_employer) ? 'Em preparação' : 'Não revisado', yes(r.pronto_para_employer) ? 'success' : '')}${D.canEdit() ? W.button('Revisar', 'readiness', r.id, {className:'ghost sm'}) : ''}</div>` },
+      { key: 'pronto_para_employer', label: 'Apresentação', render: (r) => `<div class="t4-chip-row">${U.badge(yes(r.pronto_para_employer) ? 'Liberado' : M.present(r.pronto_para_employer) ? 'Em preparação' : 'Não revisado', yes(r.pronto_para_employer) ? 'success' : '')}${M.isTalent(r) && D.canEdit() ? W.button('Revisar', 'readiness', r.id, {className:'ghost sm'}) : ''}</div>` },
       { key: 'attention', label: 'Atenção', render: (r) => `<span class="t4-cell-secondary">${e(T.attentionReasons(state,r).join(' · ') || 'Sem alertas neste recorte')}</span>` },
-      { key: 'actions', label: '', sort: false, render: (r) => `<div class="t4-chip-row">${W.button('Acompanhar', 'mapping-for', r.id, { className: 'sm', icon: 'list' })}${W.button('Ficha', 'talent-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</div>` }
+      { key: 'actions', label: '', sort: false, render: (r) => `<div class="t4-chip-row">${M.isTalent(r) ? W.button('Acompanhar', 'mapping-for', r.id, { className: 'sm', icon: 'list' }) : ''}${W.button(M.isTalent(r) ? 'Balde' : 'Talento', 'set-talent-scope', `${r.id}|${M.isTalent(r) ? 'balde' : 'talento'}`, { className: 'sm ghost' })}${W.button('Ficha', 'talent-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</div>` }
     ] });
   }
   function talentListTable(list, id = 'talents-list') {
     return W.table({ id, rows: list, empty: 'Ajuste a busca ou os filtros para continuar.', columns: [
       { key: 'selected', label: '', required: true, sort: false, className: 't4-selection-cell', render: (r) => `<input type="checkbox" data-talent-select data-id="${a(r.id)}" aria-label="Selecionar ${a(r.nome_completo || 'Talento')}" ${state.selectedTalents.has(String(r.id)) ? 'checked' : ''}>` },
       { key: 'nome_completo', label: 'Talento', required: true, render: (r) => W.person(r.nome_completo || 'Sem nome', [r.profissao_principal || r.area_profissional, r.cidade_atual].filter(Boolean).join(' · ') || 'Perfil ainda incompleto', '', 'talent-detail', r.id) },
-      { key: 'status_pipeline', label: 'Etapa do perfil', render: (r) => W.status(U.term(r.status_pipeline || 'Sem etapa')) },
+      { key: 'status_pipeline', label: 'Etapa do perfil', render: (r) => `<div class="t4-chip-row">${U.badge(M.scopeLabel(r), M.isTalent(r) ? 'success' : '')}${W.status(U.term(r.status_pipeline || 'Sem etapa'))}</div>` },
       { key: 'next_action', label: 'Próximo passo', value: (r) => window.T4Modern?.nextActions(state, r.id)?.[0]?.text || '', render: (r) => { const next = window.T4Modern?.nextActions(state, r.id)?.[0]; return W.stack(next?.text || 'Definir ação', next ? [next.source, next.due ? U.formatDate(next.due) : '', next.owner].filter(Boolean).join(' · ') : 'Nenhuma ação registrada'); } },
       { key: 'nivel_alemao', label: 'Alemão', render: (r) => { const course = inCourse(r.id); return W.stack(course[0]?.current_level || r.nivel_alemao || 'Não informado', course.length ? `${course.length} matrícula(s) em acompanhamento` : 'Somente perfil'); } },
-      { key: 'pronto_para_employer', label: 'Apresentação', render: (r) => U.badge(yes(r.pronto_para_employer) ? 'Liberado' : M.present(r.pronto_para_employer) ? 'Em preparação' : 'Não revisado', yes(r.pronto_para_employer) ? 'success' : '') },
+      { key: 'pronto_para_employer', label: 'Apresentação', render: (r) => `<div class="t4-chip-row">${U.badge(yes(r.pronto_para_employer) ? 'Liberado' : M.present(r.pronto_para_employer) ? 'Em preparação' : 'Não revisado', yes(r.pronto_para_employer) ? 'success' : '')}${M.isTalent(r) && D.canEdit() ? W.button('Revisar', 'readiness', r.id, {className:'ghost sm'}) : ''}</div>` },
       { key: 'attention', label: 'Atenção', value: (r) => T.attentionReasons(state, r).length, render: (r) => { const reasons = T.attentionReasons(state, r); return reasons.length ? `<span class="v25-attention-copy">${e(reasons.join(' · '))}</span>` : '<span class="t4-muted">Nenhum alerta</span>'; } },
-      { key: 'actions', label: '', sort: false, render: (r) => `<div class="t4-chip-row">${W.button('Acompanhar', 'mapping-for', r.id, { className: 'sm', icon: 'list' })}${W.button('Ficha', 'talent-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</div>` }
+      { key: 'actions', label: '', sort: false, render: (r) => `<div class="t4-chip-row">${M.isTalent(r) ? W.button('Acompanhar', 'mapping-for', r.id, { className: 'sm', icon: 'list' }) : ''}${W.button(M.isTalent(r) ? 'Balde' : 'Talento', 'set-talent-scope', `${r.id}|${M.isTalent(r) ? 'balde' : 'talento'}`, { className: 'sm ghost' })}${W.button('Ficha', 'talent-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</div>` }
     ] });
   }
   const employerOf = (r) => W.find(state.employers, r.employer_id)?.nome || r.employer_name_snapshot || r.group_name || 'Talents 4 · interno';
@@ -217,7 +221,10 @@
   };
 
   function selectionsView() {
-    const rows = state.selections.rows.filter((r) => scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && matches(r.stage, state.status));
+    const rows = state.selections.rows.filter((r) => {
+      const talent = W.find(state.talents, r.talent_id);
+      return M.isTalent(talent || {}) && scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && matches(r.stage, state.status);
+    });
     const activeRows = rows.filter((r) => M.selectionBucket(r) !== 'closed');
     const closedRows = rows.filter((r) => M.selectionBucket(r) === 'closed');
     const scope = ['active', 'all', 'closed'].includes(state.selectionScope) ? state.selectionScope : 'active';
@@ -268,7 +275,7 @@
     const sortedVisibleRows = [...visibleRows].sort(byRecency);
     const current = display === 'cards' && scope !== 'closed'
       ? R.selectionBoard(state, sortedVisibleRows)
-      : W.section('Lista analítica · todas as seleções', R.selectionTable(state, sortedVisibleRows, scope === 'closed' ? 'talent-closed-selections' : 'talent-selection-active'), U.badge(sortedVisibleRows.length, 'info'), 'A mesma coleção usada no quadro, exibida em linhas para localizar, filtrar e editar registros com escala.');
+      : R.selectionAnalytics(state, visibleRows, { scope, idPrefix: 'talent-selection' });
     // Lista analítica mantém os painéis de trabalho (abertas por etapa +
     // contratados); Quadro opcional mostra só o Kanban. Painéis e tabela
     // agora vêm da mesma coleção (rows) — o problema que motivou removê-los
@@ -283,7 +290,7 @@
       { id: 'list', label: 'Lista analítica', icon: 'list' },
       { id: 'cards', label: 'Quadro opcional', icon: 'columns' }
     ], display, 'selection-display');
-    return '' + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Acompanhe cada vínculo por etapa.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + scopeBar + displayBar + selectionToolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(generalRows) + analyticalPanels + current + (scope === 'closed' ? '' : historySection) +
+    return '' + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Acompanhe cada vínculo por etapa.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + scopeBar + displayBar + selectionToolbar(rows.map((r) => ({ status: r.stage })), { noMonth: true }) + current +
       W.section('Reposições', replacementTable(state.replacements.filter(scoped)), D.canEdit() && workspace.available('replacements') ? W.button('Nova reposição', 'new-replacement', '', { className: 'sm', icon: 'plus' }) : '');
   }
 
@@ -323,7 +330,7 @@
   // Perfil/Alemão/Documentos/Histórico — a própria causa da ficha parecer
   // uma planilha crua nessa aba.
   const DETAIL_SHOWN_FIELDS = [
-    'id', 'nome_completo', 'ativo', 'profissao_principal', 'area_profissional', 'cidade_atual', 'pais_de_origem', 'status_pipeline',
+    'id', 'nome_completo', 'ativo', 'crm_scope', 'profissao_principal', 'area_profissional', 'cidade_atual', 'pais_de_origem', 'status_pipeline',
     'email', 'telefone', 'idade', 'responsavel_interno', 'prioridade_comercial', 'disponibilidade_mudanca', 'pronto_para_employer',
     'perfil_profissional_para_apresentacao', 'resumo_profissional', 'resumo_rh_curto', 'relato_sobre_a_experiencia_profissional',
     'curso_de_graduacao', 'universidade', 'posgraduacao', 'experiencia_profissional_tempo',
@@ -340,9 +347,10 @@
     const activeRelationships = selectionsFor(r.id).filter((item) => M.selectionBucket(item) !== 'closed');
     const lifecycle = active(r) ? 'Talento ativo' : activeRelationships.length ? `Arquivado · ${activeRelationships.length} seleção${activeRelationships.length === 1 ? '' : 'ões'} em andamento` : 'Arquivado';
     const lifecycleNotice = !active(r) && activeRelationships.length ? W.note(`Este cadastro está arquivado, mas mantém ${activeRelationships.length} seleção${activeRelationships.length === 1 ? '' : 'ões'} em andamento. A ficha fica fora da fila ativa de Talentos; o vínculo continua em Seleções.`, 'warning') : '';
-    const detailActions = `${D.canEdit() ? W.button('Editar ficha', 'edit-talent', r.id, { className: 'primary sm', icon: 'edit' }) + W.button('Nova atividade', 'activity-for', r.id, { className: 'sm', icon: 'plus' }) + W.button('Preparar Nectanet', 'presentation-profile', r.id, {className:'sm',disabled:!workspace.available('mappingProfiles')}) + W.button('Revisar liberação', 'readiness', r.id, {className:'sm'}) : ''}${W.button('Acompanhamento', 'mapping-for', r.id, {className:'sm',icon:'list'})}${W.button('Preparar PDF', 'pdf', r.id, { className: 'sm', icon: 'download' })}${W.link('Contato', `./contatos.html?talent=${encodeURIComponent(r.id)}`, 'contact')}`;
+    const operationalActions = M.isTalent(r) ? W.button('Acompanhamento', 'mapping-for', r.id, {className:'sm',icon:'list'}) + W.button('Preparar Nectanet', 'presentation-profile', r.id, {className:'sm',disabled:!workspace.available('mappingProfiles')}) + W.button('Revisar liberação', 'readiness', r.id, {className:'sm'}) : '';
+    const detailActions = `${D.canEdit() ? W.button('Editar ficha', 'edit-talent', r.id, { className: 'primary sm', icon: 'edit' }) + W.button('Nova atividade', 'activity-for', r.id, { className: 'sm', icon: 'plus' }) + operationalActions + W.button(M.isTalent(r) ? 'Mover para Balde' : 'Marcar como Talento', 'set-talent-scope', `${r.id}|${M.isTalent(r) ? 'balde' : 'talento'}`, {className:'sm'}) : ''}${!D.canEdit() ? operationalActions : ''}${W.button('Preparar PDF', 'pdf', r.id, { className: 'sm', icon: 'download' })}${W.link('Contato', `./contatos.html?talent=${encodeURIComponent(r.id)}`, 'contact')}`;
     let html = '';
-    if (state.detailTab === 'profile') html = `${lifecycleNotice}<div class="t4-profile-lead"><span class="t4-avatar large">${e(U.initials(r.nome_completo))}</span><div><h3>${e(r.profissao_principal || r.area_profissional || 'Profissão não informada')}</h3><p>${e([r.cidade_atual, r.pais_de_origem].filter(Boolean).join(' · '))}</p>${W.status(U.term(r.status_pipeline))}</div></div><div class="t4-detail-grid">${U.field('E-mail', r.email)}${U.field('Telefone', r.telefone)}${U.field('Idade', r.idade)}${U.field('Responsável', r.responsavel_interno)}${U.field('Prioridade', r.prioridade_comercial)}${U.field('Área profissional', r.area_profissional)}${U.field('Disponibilidade de mudança', r.disponibilidade_mudanca)}${U.field('Pronto para o empregador', r.pronto_para_employer)}</div>${W.section('Perfil profissional', `<p class="t4-preserve">${e(r.perfil_profissional_para_apresentacao || r.resumo_profissional || r.resumo_rh_curto || 'Não informado')}</p><div class="t4-detail-grid">${U.field('Formação', r.curso_de_graduacao)}${U.field('Instituição', r.universidade)}${U.field('Pós-graduação', r.posgraduacao)}${U.field('Experiência', r.experiencia_profissional_tempo)}</div><p class="t4-preserve">${e(r.relato_sobre_a_experiencia_profissional || '')}</p>`)}${W.section('Contexto interno', `<p class="t4-preserve">${e(r.observacoes_internas || r.observacao || 'Sem observações internas.')}</p>`)}${D.canEdit() ? W.button(active(r) ? 'Arquivar talento' : 'Reativar talento', 'archive-talent', r.id, { className: 'sm', icon: 'archive' }) : ''}`;
+    if (state.detailTab === 'profile') html = `${lifecycleNotice}<div class="t4-profile-lead"><span class="t4-avatar large">${e(U.initials(r.nome_completo))}</span><div><h3>${e(r.profissao_principal || r.area_profissional || 'Profissão não informada')}</h3><p>${e([r.cidade_atual, r.pais_de_origem].filter(Boolean).join(' · '))}</p><div class="t4-chip-row">${U.badge(M.scopeLabel(r), M.isTalent(r) ? 'success' : '')}${W.status(U.term(r.status_pipeline))}</div></div></div><div class="t4-detail-grid">${U.field('E-mail', r.email)}${U.field('Telefone', r.telefone)}${U.field('Idade', r.idade)}${U.field('Responsável', r.responsavel_interno)}${U.field('Prioridade', r.prioridade_comercial)}${U.field('Área profissional', r.area_profissional)}${U.field('Disponibilidade de mudança', r.disponibilidade_mudanca)}${U.field('Pronto para o empregador', r.pronto_para_employer)}</div>${W.section('Perfil profissional', `<p class="t4-preserve">${e(r.perfil_profissional_para_apresentacao || r.resumo_profissional || r.resumo_rh_curto || 'Não informado')}</p><div class="t4-detail-grid">${U.field('Formação', r.curso_de_graduacao)}${U.field('Instituição', r.universidade)}${U.field('Pós-graduação', r.posgraduacao)}${U.field('Experiência', r.experiencia_profissional_tempo)}</div><p class="t4-preserve">${e(r.relato_sobre_a_experiencia_profissional || '')}</p>`)}${W.section('Contexto interno', `<p class="t4-preserve">${e(r.observacoes_internas || r.observacao || 'Sem observações internas.')}</p>`)}${D.canEdit() ? W.button(active(r) ? 'Arquivar registro' : 'Reativar registro', 'archive-talent', r.id, { className: 'sm', icon: 'archive' }) : ''}`;
     else if (state.detailTab === 'selections') {
       const relationships = selectionsFor(r.id), activeRelationships = relationships.filter((item) => M.selectionBucket(item) !== 'closed'), archivedRelationships = relationships.filter((item) => M.selectionBucket(item) === 'closed');
       html = `<div class="v25-inline-help">A fila mostra relações em andamento. Encerradas permanecem preservadas no histórico e só aparecem abaixo, em uma seção separada.</div>${R.selectionTable(state, activeRelationships, 'talent-selections')}${archivedRelationships.length ? W.section('Histórico de seleções encerradas', R.selectionTable(state, archivedRelationships, 'talent-closed-selections'), U.badge(`${archivedRelationships.length} preservada(s)`, 'info')) : ''}${D.canEdit() && state.selections.modern ? W.button('Nova seleção', 'selection-for-talent', r.id, { className: 'primary', icon: 'plus' }) : ''}`;
@@ -362,6 +370,7 @@
     { name: 'nivel_alemao', label: 'Nível de alemão (perfil)', type: 'select', options: R.LEVELS },
     ...R.fields([['lingua_estrangeira', 'Outro idioma'], ['nivel_lingua_estrangeira', 'Nível do outro idioma'], ['instituicao_ensino', 'Instituição anterior'], ['nivel_alvo', 'Nível-alvo do perfil', 'select', R.LEVELS], ['previsao_termino_alemao', 'Previsão de término', 'date'], ['resultado_da_prova', 'Resultado de prova registrado no perfil'], ['bolsa_concedida', 'Bolsa concedida'], ['bolsa_percentual', 'Bolsa (%)', 'number']]),
     { section: 'Acompanhamento interno' },
+    { name: 'crm_scope', label: 'Classificação na base', type: 'select', options: [{ value: 'talento', label: 'Talento · entra nas filas operacionais' }, { value: 'balde', label: 'Balde · cadastro geral' }], required: true, placeholder: null },
     { name: 'status_pipeline', label: 'Etapa de acompanhamento', type: 'select', options: ['Novo candidato', 'Triagem', 'Pré-seleção', 'Entrevista', 'Análise', 'Curso de Alemão', 'Documentação', 'Pronto para employer', 'Enviado ao employer', 'Contratado'], required: true, placeholder: null },
     { name: 'responsavel_interno', label: 'Responsável interno' }, { name: 'prioridade_comercial', label: 'Prioridade', type: 'select', options: R.PRIORITIES },
     ...R.fields([['disponibilidade_mudanca', 'Disponibilidade de mudança'], ['data_prevista_mudanca', 'Previsão de mudança', 'date'], ['observacoes_internas', 'Observações internas', 'textarea'], ['observacao', 'Outras observações', 'textarea']]),
@@ -371,8 +380,8 @@
   async function editTalent(row) {
     if (!D.canEdit()) return;
     const original = row?.id ? await D.one(D.TABLES.candidates, row.id) : null;
-    const data = original || { status_pipeline: 'Novo candidato', prioridade_comercial: 'Normal', responsavel_interno: D.profile.nome };
-    const createNames = ['nome_completo', 'email', 'telefone', 'cidade_atual', 'pais_de_origem', 'profissao_principal', 'area_profissional', 'nivel_alemao', 'status_pipeline', 'responsavel_interno', 'prioridade_comercial', 'resumo_rh_curto'];
+    const data = original || { crm_scope: 'balde', status_pipeline: 'Novo candidato', prioridade_comercial: 'Normal', responsavel_interno: D.profile.nome };
+    const createNames = ['nome_completo', 'email', 'telefone', 'cidade_atual', 'pais_de_origem', 'profissao_principal', 'area_profissional', 'nivel_alemao', 'crm_scope', 'status_pipeline', 'responsavel_interno', 'prioridade_comercial', 'resumo_rh_curto'];
     const definitions = BASIC_FIELDS.filter((f) => f.section || (original ? f.name in original : createNames.includes(f.name)));
     // Retira títulos de seções que não têm campos disponíveis neste cadastro.
     const shown = definitions.filter((f, i) => !f.section || definitions[i + 1] && !definitions[i + 1].section);
@@ -391,12 +400,22 @@
         } else {
           const repeated = values.email && state.talents.find((r) => M.norm(r.email) === M.norm(values.email));
           if (repeated) throw new Error('Já existe um talento com este e-mail. Confira a ficha existente antes de criar outra.');
-          await D.insert(D.TABLES.candidates, { ...values, id: newId, ativo: true, data_da_candidatura: M.today(), ultima_atualizacao: new Date().toISOString() });
+          await D.insert(D.TABLES.candidates, { ...values, crm_scope: values.crm_scope || 'balde', id: newId, ativo: true, data_da_candidatura: M.today(), ultima_atualizacao: new Date().toISOString() });
         }
         U.toast('Ficha salva no cadastro único de talentos.', 'success');
         await load();
         if (original && state.detail?.id === original.id) { state.detail = await D.one(D.TABLES.candidates, original.id); renderDetail(); }
       } });
+  }
+  async function setTalentScope(id, requestedScope) {
+    if (!D.canEdit()) return;
+    const row = await D.one(D.TABLES.candidates, id);
+    const scope = requestedScope === 'talento' ? 'talento' : 'balde';
+    if (M.talentScope(row) === scope) return;
+    await D.update(D.TABLES.candidates, id, { crm_scope: scope, ultima_atualizacao: new Date().toISOString() }, row.ultima_atualizacao ? { expectedUpdatedAt: row.ultima_atualizacao, expectedColumn: 'ultima_atualizacao' } : {});
+    U.toast(scope === 'talento' ? 'Registro marcado como Talento e incluído nas filas operacionais.' : 'Registro movido para o Balde; histórico e vínculos foram preservados.', 'success');
+    U.closeDrawer();
+    await load();
   }
   async function archiveTalent(row) {
     if (!D.canEdit()) return;
@@ -418,11 +437,13 @@
     if (action === 'go') return app.route(id);
     if (action === 'v24-view') {
       if (id === 'archived') { state.quick = []; app.route('archived'); return; }
-      if (id === 'ready') { state.quick = ['ready']; app.route('presentation'); return; }
+      if (id === 'ready') { state.talentScope = 'talento'; state.quick = ['ready']; state.presentationView = 'released'; app.route('presentation'); return; }
       state.quick = id === 'all' ? [] : [id];
       app.route('talents');
       return;
     }
+    if (action === 'talent-scope') { state.talentScope = id === 'balde' ? 'balde' : 'talento'; state.quick = []; if (app.view !== 'talents') app.route('talents'); else render(); return; }
+    if (action === 'set-talent-scope') { const [talentId, scope] = String(id).split('|'); return setTalentScope(talentId, scope); }
     if (action === 'talent-display') { state.display = ['cards','list','table'].includes(id) ? id : 'list'; render(); return; }
     if (action === 'select-visible' || action === 'deselect-visible') {
       const rows = filtered(app.view === 'archived');
@@ -435,7 +456,7 @@
       if (!window.T4ImportExport?.open) return U.toast('A exportação ainda está carregando. Atualize a página e tente novamente.', 'error');
       return window.T4ImportExport.open({ state, load });
     }
-    if (action === 'clear') { state.stage = ''; state.german = ''; state.employer = []; state.owner = ''; state.status = []; state.month = ''; state.filters = {}; state.workFilters = {}; state.quick = []; state.selectionScope = 'active'; state.selectionShowClosed = false; state.opportunityScope = 'open'; state.mappingStatus = []; state.multiSearch = {}; state.query = ''; app.resetSearch(); render(); return; }
+    if (action === 'clear') { state.stage = ''; state.german = ''; state.employer = []; state.owner = ''; state.status = []; state.month = ''; state.filters = {}; state.workFilters = {}; state.quick = []; state.talentScope = 'talento'; state.selectionScope = 'active'; state.selectionShowClosed = false; state.opportunityScope = 'open'; state.mappingStatus = []; state.multiSearch = {}; state.query = ''; app.resetSearch(); render(); return; }
     if (await workspace.action(action,id)) return;
     if (action === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
     if (action === 'board') { state.board = id; state.selectionDisplay = id === 'board' ? 'cards' : 'list'; render(); return; }
@@ -463,7 +484,7 @@
     else state.selectedTalents.delete(id);
     render();
   });
-  app.onRoute(() => { state.multiOpen = ''; if (app.view === 'archived') state.quick = []; if (app.view === 'talents') state.quick = state.quick.filter((v) => v !== 'ready'); render(); });
+  app.onRoute(() => { state.multiOpen = ''; if (app.view === 'archived') { state.quick = []; state.talentScope = 'talento'; } if (app.view === 'presentation') state.talentScope = 'talento'; if (app.view === 'talents') state.quick = state.quick.filter((v) => v !== 'ready'); render(); });
   W.start(app, async () => {
     await load();
     const id = new URLSearchParams(location.search).get('talent');

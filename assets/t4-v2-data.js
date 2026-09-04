@@ -31,7 +31,13 @@
     classes: 'german_course_classes',
     enrollments: 'german_course_enrollments',
     courseUpdates: 'german_course_updates',
-    users: 'usuarios'
+    users: 'usuarios',
+    poPlans: 'operational_plans',
+    poMembers: 'operational_plan_members',
+    notifications: 'crm_notifications',
+    chatConversations: 'crm_chat_conversations',
+    chatParticipants: 'crm_chat_participants',
+    chatMessages: 'crm_chat_messages'
   });
 
   const SELECTS = Object.freeze({
@@ -44,7 +50,7 @@
       'pendencia_documental_critica', 'elegivel_para_employer', 'pronto_para_employer',
       'readiness_internacional', 'risco_desistencia', 'disponibilidade_mudanca', 'status_employer',
       'retorno_employer', 'data_envio_employer', 'motivo_inativacao', 'data_inativacao', 'reativavel',
-      'tipo_de_candidato', 'tipo_vaga_preferido', 'cv_drive_web_link', 'cv_drive_file_name'
+      'tipo_de_candidato', 'tipo_vaga_preferido', 'cv_drive_web_link', 'cv_drive_file_name', 'crm_scope'
     ].join(','),
     employers: [
       'id', 'nome', 'nome_normalizado', 'ativo', 'tipo', 'status', 'area_atuacao', 'subsetor', 'cidade', 'pais',
@@ -81,7 +87,8 @@
     followups: '*',
     classes: '*',
     enrollments: '*',
-    courseUpdates: '*'
+    courseUpdates: '*',
+    users: 'username,nome,role,ativo'
   });
 
   let client = null;
@@ -177,6 +184,9 @@
     profile = await loadProfile(session);
     app.setUser({ name: profile.nome, role: roleLabel(profile.role) });
     app.setSync('ok', 'Supabase conectado');
+    if (typeof document?.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      document.dispatchEvent(new CustomEvent('t4:ready', { detail: { profile } }));
+    }
 
     authSubscription?.unsubscribe?.();
     const listener = client.auth.onAuthStateChange((event, nextSession) => {
