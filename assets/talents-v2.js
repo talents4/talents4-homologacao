@@ -15,7 +15,7 @@
     { id: 'manual', label: 'Manual de uso', title: 'Manual de uso', subtitle: 'Como decidir, acompanhar e apresentar sem duplicar informações.', icon: 'note', primary: false },
     { id: 'archived', label: 'Arquivo de Talentos', title: 'Arquivo de Talentos', subtitle: 'Histórico de inativos, excluídos e arquivados, sem mistura com a fila ativa.', icon: 'archive', primary: false }
   ] });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', quick: [], selectedTalents: new Set(), board: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], enrollments: [], classes: [], mappingProfiles: [], mappingItems: [], mappingPartners: [], replacements: [], presentationDetails: [], filters: {}, query: '', stage: '', german: '', employer: '', owner: '', status: '', month: '', quick: [], selectedTalents: new Set(), board: 'list', selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', display: 'list', loaded: false, detail: null, detailTab: 'profile', detailVersion: 0 };
   const sources = {
     talents: { label: 'Talentos', load: () => D.loadCandidates({ activeOnly: false }) },
     employers: { label: 'Empregadores', load: () => D.loadEmployers({ activeOnly: false }) },
@@ -27,6 +27,7 @@
     mappingProfiles: { label: 'Contexto e apresentação do mapeamento', load: () => D.optionalAll(T.TABLES.profiles) },
     mappingItems: { label: 'Linhas do acompanhamento', load: () => D.optionalAll(T.TABLES.items) },
     mappingPartners: { label: 'Complementos Nectanet Partner', load: () => D.optionalAll(T.TABLES.partners) },
+    replacements: { label: 'Reposições', load: () => D.optionalAll(D.TABLES.replacements, '*', (q) => q.is('deleted_at', null)) },
     presentationDetails: { label: 'Campos profissionais da apresentação', load: loadPresentationFields }
   };
   const load = W.loader(app, state, sources, render);
@@ -155,14 +156,126 @@
       { key: 'actions', label: '', sort: false, render: (r) => `<div class="t4-chip-row">${W.button('Acompanhar', 'mapping-for', r.id, { className: 'sm', icon: 'list' })}${W.button('Ficha', 'talent-detail', r.id, { className: 'sm ghost', icon: 'chevron' })}</div>` }
     ] });
   }
-  function selectionsView() {
-    const all = state.selections.rows.filter((r) => T.matches(state.workFilters.selectionStage,r.stage) && T.matches(state.workFilters.selectionEmployer,r.employer_id) && T.matches(state.workFilters.selectionOwner,r.owner_username) && match([R.talentName(state, r.talent_id), R.employerName(state, r.employer_id), W.find(state.openings, r.opening_id)?.title, r.next_action]));
-    const activeRows = all.filter((r) => M.selectionBucket(r) !== 'closed'), closed = all.filter((r) => M.selectionBucket(r) === 'closed');
-    const scope = state.selectionScope || 'active', visible = scope === 'closed' ? closed : scope === 'all' ? all : activeRows;
-    const scopeBar = W.chips([{ id: 'active', label: 'Em andamento', count: activeRows.length, icon: 'columns' }, { id: 'all', label: 'Todas as relações', count: all.length, icon: 'list' }, { id: 'closed', label: 'Encerradas', count: closed.length, icon: 'archive' }], scope, 'selection-scope');
-    const view = state.board === 'list' || scope === 'closed' ? R.selectionTable(state, visible, scope === 'closed' ? 'talent-closed-selections' : 'talent-selections') : R.selectionBoard(state, activeRows);
-    return `<div class="v25-page-intro"><div><span class="mx-eyebrow">SELEÇÕES</span><h2>Relações de trabalho por Talento.</h2><p>Seleção = Talento + empregador + vaga + etapa. Encerrados ficam separados para não competir com a fila diária.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>${scopeBar}<div class="t4-view-context"><p>O <strong>registro analítico</strong> é a visão principal para prazos, responsáveis e decisões. O quadro é opcional e não substitui a ficha do Talento.</p>${W.chips([{ id: 'list', label: 'Lista analítica', icon: 'list' }, { id: 'board', label: 'Quadro opcional', icon: 'columns' }], state.board, 'board')}</div>${workspace.workToolbar('selections')}${view}${scope !== 'closed' && closed.length ? `<div class="v25-archive-callout"><div><strong>${closed.length} rela${closed.length === 1 ? 'ção' : 'ções'} encerrada${closed.length === 1 ? '' : 's'} e separada${closed.length === 1 ? '' : 's'} da fila.</strong><span>Abra o filtro “Encerradas” quando precisar consultar o histórico.</span></div>${W.button('Abrir histórico', 'selection-scope', 'closed', { className: 'ghost sm', icon: 'archive' })}</div>` : ''}`;
+  const employerOf = (r) => W.find(state.employers, r.employer_id)?.nome || r.employer_name_snapshot || r.group_name || 'Talents 4 · interno';
+  const values = (value) => Array.isArray(value) ? value.filter(M.present).map(String) : M.present(value) ? [String(value)] : [];
+  const firstValue = (value) => values(value)[0] || '';
+  const matches = (value, selected) => { const wanted = values(selected); return !wanted.length || wanted.some((item) => M.same(item, value) || M.norm(item) === M.norm(value)); };
+  const scoped = (r) => matches(r.employer_id, state.employer) || (!r.employer_id && values(state.employer).some((id) => M.norm(r.employer_name_snapshot) === M.norm(W.find(state.employers, id)?.nome)));
+  const matchQuery = (r) => !state.query || M.norm(Object.values(r).filter((v) => typeof v !== 'object').join(' ')).includes(M.norm(state.query));
+
+
+  const GENERAL_LINK_STAGE_ORDER = Object.freeze(['Aguardando retorno', 'Aguardando envio', 'Aguardando resposta', 'Reunião marcada', 'Em processo', 'Gostou', 'Não gostou', 'Contratado', 'Removido', 'Excluído', 'Sem etapa']);
+  const GENERAL_LINK_STAGE_RANK = new Map(GENERAL_LINK_STAGE_ORDER.map((stage, index) => [M.norm(stage), index]));
+  const generalLinkStageRank = (row) => GENERAL_LINK_STAGE_RANK.get(M.norm(row?.stage)) ?? GENERAL_LINK_STAGE_ORDER.length;
+  const isGeneralLink = (row) => row?.modern === false;
+  const compareSelectionDateDesc = (left, right, field) => {
+    const leftTime = Date.parse(String(left?.[field] || ''));
+    const rightTime = Date.parse(String(right?.[field] || ''));
+    const leftHasDate = Number.isFinite(leftTime), rightHasDate = Number.isFinite(rightTime);
+    if (leftHasDate && !rightHasDate) return -1;
+    if (!leftHasDate && rightHasDate) return 1;
+    if (leftHasDate && rightHasDate && leftTime !== rightTime) return rightTime - leftTime;
+    return 0;
+  };
+
+
+
+  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'danger' };
+  // As seleções misturam duas taxonomias (vagas modernas: Mapeado…Contratado;
+  // vínculos anteriores: Aguardando envio…Removido). Um funil com etapas fixas
+  // de uma só taxonomia esconde a outra inteira. Aqui o funil conta a etapa
+  // real de cada linha (campo "Etapa do vínculo") e só usa M.selectionBucket
+  // — a mesma classificação do quadro Kanban — para ordenar e colorir.
+  function stagePulse(rows) {
+    const counts = new Map();
+    rows.filter(isGeneralLink).forEach((r) => { const stage = r.stage || 'Sem etapa'; counts.set(stage, (counts.get(stage) || 0) + 1); });
+    const bucketOf = (stage) => M.selectionBucket({ stage, status: '' });
+    const buckets = [...counts.entries()]
+      .sort((left, right) => generalLinkStageRank({ stage: left[0] }) - generalLinkStageRank({ stage: right[0] }) || right[1] - left[1] || left[0].localeCompare(right[0], 'pt-BR'))
+      .map(([stage, count]) => ({ label: stage, tone: SELECTION_BUCKET_TONE[bucketOf(stage)] || '', count }));
+    return W.funnelChart('Distribuição por etapa do vínculo geral', 'LEITURA RÁPIDA', `${rows.length} vínculo${rows.length === 1 ? '' : 's'} gerais`, buckets);
   }
+
+
+  const actions = (row, kind) => D.canEdit() ? W.button('Editar', `edit-${kind}`, row.id, { className: 'sm ghost', icon: 'edit' }) : '';
+
+
+  function replacementTable(rows) {
+    return W.table({ id: 'replacements', rows, columns: [
+      { key: 'profile_needed', label: 'Perfil procurado', required: true }, { key: 'employer', label: 'Empregador', value: employerOf, render: (r) => e(employerOf(r)) }, { key: 'replaces_candidate_name_snapshot', label: 'Substitui' }, { key: 'priority', label: 'Prioridade' }, { key: 'search_status', label: 'Situação', render: (r) => W.status(r.search_status) }, { key: 'edit', label: '', sort: false, render: (r) => actions(r, 'replacement') }
+    ] });
+  }
+
+  const selectionFilterLabels = { employer: 'Empregador', status: 'Situação' };
+  const selectionFilterValueLabel = (key, value) => key === 'employer' ? R.employerName(state, value) : value;
+  const selectionToolbar = (rows = []) => {
+    const keys = ['employer', 'status'];
+    return `<div class="t4-toolbar">${W.multiFilter('employer', 'Empregadores', R.choices(state.employers, 'nome'), state.employer)}${W.multiFilter('status', 'Situações', W.unique(rows, 'status'), state.status)}<span class="t4-toolbar-spacer"></span>${W.button('Limpar', 'clear', '', { className: 'ghost sm' })}${W.button('Atualizar', 'reload', '', { className: 'sm', icon: 'refresh' })}</div>${W.activeFiltersBar(state, keys, selectionFilterLabels, selectionFilterValueLabel)}`;
+  };
+
+  function selectionsView() {
+    const rows = state.selections.rows.filter((r) => scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && matches(r.stage, state.status));
+    const activeRows = rows.filter((r) => M.selectionBucket(r) !== 'closed');
+    const closedRows = rows.filter((r) => M.selectionBucket(r) === 'closed');
+    const scope = ['active', 'all', 'closed'].includes(state.selectionScope) ? state.selectionScope : 'active';
+    const visibleRows = scope === 'closed' ? closedRows : scope === 'all' ? rows : activeRows;
+    const display = state.selectionDisplay === 'cards' ? 'cards' : 'list';
+    // "Mais recente" considera a última movimentação registrada no vínculo;
+    // a próxima ação continua sendo usada apenas para ordenar os painéis de
+    // acompanhamento abertos.
+    const recencyOf = (r) => String(r.updated_at || r.responded_at || r.sent_at || r.created_at || '');
+    const byRecency = (left, right) => recencyOf(right).localeCompare(recencyOf(left), 'pt-BR', { numeric: true });
+    const sortedActiveRows = [...activeRows].sort(byRecency);
+    const generalRows = rows.filter(isGeneralLink);
+    const openPipelineRows = generalRows.filter((r) => M.selectionBucket(r) !== 'closed' && M.selectionBucket(r) !== 'hired')
+      .sort((left, right) => generalLinkStageRank(left) - generalLinkStageRank(right)
+        || compareSelectionDateDesc(left, right, 'next_action_at')
+        || byRecency(left, right)
+        || M.norm(R.talentName(state, left.talent_id)).localeCompare(M.norm(R.talentName(state, right.talent_id)), 'pt-BR'));
+    const hiredRows = generalRows.filter((r) => M.selectionBucket(r) === 'hired').sort(byRecency);
+    const selectionCard = (r, index) => {
+      const opening = W.find(state.openings, r.opening_id), overdue = M.overdue(r.next_action_at, r.status);
+      return `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${overdue ? 'is-overdue' : ''}" data-ready-selection="${a(r.key)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${W.status(r.stage)}<span class="org-ready-card-deadline ${overdue ? 'is-overdue' : r.next_action_at ? 'is-scheduled' : 'is-no-date'}">${U.icon('calendar')}${e(r.next_action_at ? U.formatDate(r.next_action_at) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="selection-detail" data-id="${a(r.key)}">${e(R.talentName(state, r.talent_id))}</button></h3><p class="org-ready-card-context">${e([employerOf(r), opening?.title || 'Vínculo geral · anterior à V2'].join(' · '))}</p><p class="org-ready-card-description">${e(r.next_action || 'Definir próxima ação')}</p><footer class="org-ready-card-footer"><span>${e(r.owner_username || 'Sem responsável')}</span><div>${W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' })}</div></footer></article>`;
+    };
+    const openSelectionGroups = [
+      { id: 'review', label: 'Em análise', description: 'Triagem e avaliação inicial.' },
+      { id: 'sent', label: 'Apresentados', description: 'Relações já enviadas ou em acompanhamento de retorno.' },
+      { id: 'interview', label: 'Entrevistas', description: 'Reuniões e entrevistas marcadas ou em andamento.' },
+      { id: 'offer', label: 'Propostas', description: 'Retorno positivo e propostas em negociação.' }
+    ];
+    const openSelectionSections = openSelectionGroups.map((group) => {
+      const groupRows = openPipelineRows.filter((r) => M.selectionBucket(r) === group.id);
+      return `<section class="org-selection-stage-group is-${group.id}" data-selection-stage-group="${group.id}"><header class="org-selection-stage-group-head"><div><span class="org-selection-stage-kicker">ETAPA DO VÍNCULO</span><h3>${e(group.label)}</h3><p>${e(group.description)}</p></div><strong class="org-selection-stage-count">${groupRows.length}</strong></header><div class="org-ready-list org-selection-stage-cards">${groupRows.map(selectionCard).join('') || U.emptyState('Nenhuma seleção nesta etapa', 'Novas relações aparecerão aqui quando chegarem a esta fase.')}</div></section>`;
+    }).join('');
+    const openPanel = `<section class="t4-panel org-open-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">SELEÇÕES EM ABERTO</span><h2>Todas as seleções em aberto</h2><p>Separadas por etapa do vínculo; dentro de cada grupo, pela data da próxima ação mais recente.</p></div><strong class="org-panel-count">${openPipelineRows.length} abertas</strong></div><div class="t4-panel-body"><div class="org-selection-stage-groups" aria-label="Seleções abertas separadas por etapa">${openSelectionSections}</div></div></section>`;
+    const hiredPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONTRATADOS</span><h2>Contratações mais recentes</h2><p>Seleções na etapa Contratado, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${hiredRows.length} contratada${hiredRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body"><div class="org-ready-list">${hiredRows.map(selectionCard).join('') || U.emptyState('Nenhuma contratação registrada ainda', 'Assim que uma seleção avançar para Contratado, ela aparece aqui.')}</div></div></section>`;
+
+    const historyRows = generalRows
+      .filter((r) => /^(excluid[oa]|removid[oa])/.test(M.norm(r.stage || r.status || '')))
+      .sort(byRecency);
+    const historySection = W.section('Histórico de excluídos e removidos',
+      historyRows.length ? R.selectionTable(state, historyRows, 'org-selection-history') : U.emptyState('Nenhum registro excluído ou removido', 'Os registros retirados do acompanhamento aparecerão aqui.'),
+      U.badge(historyRows.length, historyRows.length ? 'info' : 'neutral'),
+      'Fora do acompanhamento ativo; preservado somente para consulta.');
+    const current = display === 'cards' && scope !== 'closed'
+      ? R.selectionBoard(state, sortedActiveRows)
+      : R.selectionTable(state, visibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active');
+    // A Lista analítica mantém os resumos de trabalho e o registro completo.
+    // O Quadro opcional mostra somente o Kanban; não replica esses painéis.
+    const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';
+    const scopeBar = W.chips([
+      { id: 'active', label: 'Em andamento', count: activeRows.length, icon: 'columns' },
+      { id: 'all', label: 'Todas as relações', count: rows.length, icon: 'list' },
+      { id: 'closed', label: 'Encerradas', count: closedRows.length, icon: 'archive' }
+    ], scope, 'selection-scope');
+    const displayBar = W.chips([
+      { id: 'list', label: 'Lista analítica', icon: 'list' },
+      { id: 'cards', label: 'Quadro opcional', icon: 'columns' }
+    ], display, 'selection-display');
+    return '' + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Acompanhe cada vínculo por etapa.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + scopeBar + displayBar + selectionToolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(generalRows) + analyticalPanels + current + (scope === 'closed' ? '' : historySection) +
+      W.section('Reposições', replacementTable(state.replacements.filter(scoped)), D.canEdit() && workspace.available('replacements') ? W.button('Nova reposição', 'new-replacement', '', { className: 'sm', icon: 'plus' }) : '');
+  }
+
   function opportunitiesView() {
     const closed = (r) => /fechad|cancel|arquiv|removid|encerr/i.test(M.norm(r.status || '')) || !!r.deleted_at;
     const scope = state.opportunityScope || 'open';
@@ -289,7 +402,7 @@
         U.closeDrawer(); await load();
       } });
   }
-  W.bind(app, { change(key, value) { if (workspace.change(key,value)) return; state[key] = value; render(); }, async action(action, id) {
+  W.bind(app, { change(key, value) { if (app.view === 'processes' && (key === 'employer' || key === 'status')) { state[key] = value; render(); return; } if (workspace.change(key,value)) return; state[key] = value; render(); }, async action(action, id) {
     if (action === 'reload') return D.session ? load() : location.reload();
     if (action === 'go') return app.route(id);
     if (action === 'v24-view') {
@@ -311,9 +424,10 @@
       if (!window.T4ImportExport?.open) return U.toast('A exportação ainda está carregando. Atualize a página e tente novamente.', 'error');
       return window.T4ImportExport.open({ state, load });
     }
-    if (action === 'clear') { state.stage = ''; state.german = ''; state.employer = ''; state.owner = ''; state.filters = {}; state.workFilters = {}; state.quick = []; state.selectionScope = 'active'; state.selectionShowClosed = false; state.opportunityScope = 'open'; state.mappingStatus = []; state.multiSearch = {}; state.query = ''; app.resetSearch(); render(); return; }
+    if (action === 'clear') { state.stage = ''; state.german = ''; state.employer = []; state.owner = ''; state.status = []; state.month = ''; state.filters = {}; state.workFilters = {}; state.quick = []; state.selectionScope = 'active'; state.selectionShowClosed = false; state.opportunityScope = 'open'; state.mappingStatus = []; state.multiSearch = {}; state.query = ''; app.resetSearch(); render(); return; }
     if (await workspace.action(action,id)) return;
-    if (action === 'board') { state.board = id; render(); return; }
+    if (action === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
+    if (action === 'board') { state.board = id; state.selectionDisplay = id === 'board' ? 'cards' : 'list'; render(); return; }
     if (action === 'selection-scope') { state.selectionScope = ['active', 'all', 'closed'].includes(id) ? id : 'active'; render(); return; }
     if (action === 'opportunity-scope') { state.opportunityScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; render(); return; }
     if (action === 'talent-detail') return talentDetail(id);
