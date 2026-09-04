@@ -81,10 +81,12 @@
     const names = [profile?.nome, profile?.username].filter(M.present).map(M.norm);
     return M.present(row.responsavel_interno) && names.includes(M.norm(row.responsavel_interno));
   }
-  function filterTalents(state, { archived = false, ignore = '', profile = null } = {}) {
+  function filterTalents(state, { archived = false, ignore = '', profile = null, scope = null } = {}) {
     const f = state.filters || {}, quick = list(state.quick).filter((v) => v !== 'all');
     return (state.talents || []).filter((r) => {
       if (active(r) === archived) return false;
+      const requestedScope = scope || state.talentScope || 'talento';
+      if (requestedScope !== 'all' && M.talentScope(r) !== requestedScope) return false;
       const extra = profileFor(state, r.id), selections = (state.selections?.rows || []).filter((s) => M.same(s.talent_id, r.id));
       const mappingItems = (state.mappingItems || []).filter((x) => !x.archived_at && M.same(x.talent_id, r.id));
       const employerIds = [...selections.map((s) => s.employer_id), extra.employer_primary_id, extra.employer_alt1_id, extra.employer_alt2_id, ...mappingItems.map((x) => x.employer_id)].filter(M.present);

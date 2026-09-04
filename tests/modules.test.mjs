@@ -311,7 +311,7 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.ok(h.fixture.db.operational_tasks[0].completed_at);
   assert.equal((h.html().match(/data-ready-task=/g) || []).length, 0);
 });
-test('Seleções separa os abertos por etapa na lista e reserva o Kanban para o quadro e histórico', async () => {
+test('Seleções separa os abertos da lista analítica e reserva o Kanban para o quadro', async () => {
   const h = makeHarness();
   h.fixture.db.talent_opportunity_matches.push({ ...h.fixture.db.talent_opportunity_matches[0], id: h.id(310), talent_id: 'DEMO-T1', stage: 'Contratado', status: 'Ativo', updated_at: '2026-09-03T09:00:00.000Z', next_action: null, next_action_at: null });
   h.fixture.db.candidate_employer_matches.push(
@@ -326,54 +326,47 @@ test('Seleções separa os abertos por etapa na lista e reserva o Kanban para o 
   await h.load('organization'); h.app.route('pipeline');
   const listHtml = h.html();
 
-  assert.match(listHtml, /Distribuição por etapa do vínculo geral/);
-  assert.match(listHtml, /Todas as seleções em aberto/);
-  assert.match(listHtml, /Contratações mais recentes/);
-  assert.match(listHtml, /Histórico de excluídos e removidos/);
+  assert.match(listHtml, /Lista analítica/);
+  assert.match(listHtml, /Quadro opcional/);
+  assert.match(listHtml, /Seleções em aberto/);
+  assert.match(listHtml, /Contratados/);
   assert.match(listHtml, /Não gostou/);
 
-  const openStart = listHtml.indexOf('SELEÇÕES EM ABERTO');
-  const hiredStart = listHtml.indexOf('CONTRATADOS');
-  const historyStart = listHtml.indexOf('Histórico de excluídos e removidos');
-  assert.ok(openStart >= 0 && hiredStart > openStart && historyStart > hiredStart);
+  const openStart = listHtml.indexOf('Seleções em aberto');
+  const hiredStart = listHtml.indexOf('Contratados');
+  assert.ok(openStart >= 0 && hiredStart > openStart);
   const openHtml = listHtml.slice(openStart, hiredStart);
-  assert.equal((openHtml.match(/data-selection-stage-group="/g) || []).length, 4);
-  const groupKeys = ['review', 'sent', 'interview', 'offer'];
-  const groupPositions = groupKeys.map((id) => openHtml.indexOf('data-selection-stage-group="' + id + '"'));
-  assert.ok(groupPositions.every((position) => position >= 0));
-  assert.deepEqual([...groupPositions].sort((a, b) => a - b), groupPositions);
-  assert.match(openHtml.slice(groupPositions[0], groupPositions[1]), /data-ready-selection=/);
-  assert.match(openHtml.slice(groupPositions[1], groupPositions[2]), /Apresentado/);
-  assert.match(openHtml.slice(groupPositions[2], groupPositions[3]), /Entrevista/);
-  assert.match(openHtml.slice(groupPositions[3]), /Proposta/);
-  assert.match(openHtml.slice(groupPositions[1], groupPositions[2]), /Não gostou/);
+  assert.match(openHtml, /Em análise/);
+  assert.match(openHtml, /Apresentados/);
+  assert.match(openHtml, /Entrevistas/);
+  assert.match(openHtml, /Propostas/);
+  assert.match(openHtml, /Não gostou/);
   assert.doesNotMatch(openHtml, /Removido/);
   assert.doesNotMatch(openHtml, /Excluído/);
 
-  const historyHtml = listHtml.slice(historyStart);
-  assert.match(historyHtml, /Removido/);
-  assert.match(historyHtml, /Excluído/);
-  const tableStart = listHtml.indexOf('data-table="org-selection-active"');
-  const tableHtml = listHtml.slice(tableStart, historyStart);
-  // Registro geral ordenado pela última movimentação (updated_at), não pela
-  // etapa: Proposta às 13h é a mais recente, seguida por Entrevista (12h),
-  // Apresentado (11h) e Em análise (10h); Contratado (9h) vem depois dessas
-  // e antes das relações antigas, todas na mesma data-base (01/09).
-  assert.ok(tableHtml.indexOf('Rafael Costa') < tableHtml.indexOf('Camila Santos'));
-  assert.ok(tableHtml.indexOf('Camila Santos') < tableHtml.indexOf('Lucas Vieira'));
-  assert.ok(tableHtml.indexOf('Lucas Vieira') < tableHtml.indexOf('Marina Duarte'));
-  assert.ok(tableHtml.indexOf('Marina Duarte') < tableHtml.indexOf('Contratado'));
-  assert.ok(tableHtml.indexOf('Contratado') < tableHtml.indexOf('Sofia Almeida'));
+  assert.match(listHtml, /data-table="org-selection-open"/);
+  const tableStart = listHtml.indexOf('data-table="org-selection-open"');
+  const historyHtml = listHtml.slice(tableStart);
+  assert.match(historyHtml, /Rafael Costa/);
+  assert.match(historyHtml, /Camila Santos/);
+  assert.match(historyHtml, /Lucas Vieira/);
+  assert.match(historyHtml, /Marina Duarte/);
 
+  await h.action('selection-scope', 'all');
+  const allHtml = h.html();
+  const allHistoryStart = allHtml.indexOf('Histórico de encerrados');
+  assert.ok(allHistoryStart >= 0);
+  const allHistoryHtml = allHtml.slice(allHistoryStart);
+  assert.match(allHistoryHtml, /Removido/);
+  assert.match(allHistoryHtml, /Excluído/);
+
+  await h.action('selection-scope', 'active');
   await h.action('selection-display', 'cards');
   const cardHtml = h.html();
-  assert.doesNotMatch(cardHtml, /Todas as seleções em aberto/);
-  assert.doesNotMatch(cardHtml, /Contratações mais recentes/);
-  assert.doesNotMatch(cardHtml, /data-selection-stage-group=/);
+  assert.doesNotMatch(cardHtml, /data-table="org-selection-open"/);
   assert.match(cardHtml, /class="t4-board"/);
-  assert.match(cardHtml, /Histórico de excluídos e removidos/);
+  assert.doesNotMatch(cardHtml, /Histórico de encerrados/);
   assert.match(cardHtml, /Não gostou/);
-  assert.doesNotMatch(cardHtml, /data-ready-selection=/);
   assert.equal(h.fixture.writes.length, 0);
 });
 test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
@@ -544,8 +537,9 @@ test('Seleções em Empregadores usam os mesmos escopos de Talentos e isolam o q
   assert.match(listHtml, /Lista analítica/);
   assert.match(listHtml, /Quadro opcional/);
   await h.action('selection-scope', 'closed');
-  assert.match(h.html(), /data-table="org-selection-closed"/);
-  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  assert.match(h.html(), /Histórico de encerrados/);
+  assert.match(h.html(), /Nenhum registro encerrado/);
+  assert.doesNotMatch(h.html(), /data-table="org-selection-open"/);
   await h.action('selection-scope', 'active');
   await h.action('selection-display', 'cards');
   assert.match(h.html(), /class="t4-board"/);
@@ -567,31 +561,36 @@ test('Talentos e Organizacional usam a mesma superfície de Seleções', async (
   );
   await h.load('talents'); h.app.route('processes');
   const listHtml = h.html();
-  assert.match(listHtml, /Todas as seleções em aberto/);
-  assert.match(listHtml, /Contratações mais recentes/);
-  assert.match(listHtml, /Histórico de excluídos e removidos/);
+  assert.match(listHtml, /Lista analítica/);
+  assert.match(listHtml, /Quadro opcional/);
+  assert.match(listHtml, /Seleções em aberto/);
+  assert.match(listHtml, /Contratados/);
   assert.match(listHtml, /data-multi-filter="employer"/);
   assert.match(listHtml, /data-multi-filter="status"/);
 
-  const openStart = listHtml.indexOf('SELEÇÕES EM ABERTO');
-  const hiredStart = listHtml.indexOf('CONTRATADOS');
-  const historyStart = listHtml.indexOf('Histórico de excluídos e removidos');
-  assert.ok(openStart >= 0 && hiredStart > openStart && historyStart > hiredStart);
+  const openStart = listHtml.indexOf('Seleções em aberto');
+  const hiredStart = listHtml.indexOf('Contratados');
+  assert.ok(openStart >= 0 && hiredStart > openStart);
   const openHtml = listHtml.slice(openStart, hiredStart);
-  assert.equal((openHtml.match(/data-selection-stage-group="/g) || []).length, 4);
-  for (const label of ['Em análise', 'Apresentado', 'Entrevista', 'Proposta', 'Não gostou']) assert.match(openHtml, new RegExp(label));
+  for (const label of ['Em análise', 'Apresentados', 'Entrevistas', 'Propostas', 'Não gostou']) assert.match(openHtml, new RegExp(label));
   assert.doesNotMatch(openHtml, /Removido|Excluído/);
-  assert.match(listHtml.slice(historyStart), /Removido/);
-  assert.match(listHtml.slice(historyStart), /Excluído/);
+  assert.match(listHtml, /data-table="talent-selection-open"/);
 
+  await h.action('selection-scope', 'all');
+  const allHtml = h.html();
+  const historyStart = allHtml.indexOf('Histórico de encerrados');
+  assert.ok(historyStart >= 0);
+  assert.match(allHtml, /data-table="talent-selection-closed"/);
+  assert.match(allHtml.slice(historyStart), /Removido/);
+  assert.match(allHtml.slice(historyStart), /Excluído/);
   await h.action('selection-scope', 'closed');
-  assert.match(h.html(), /data-table="talent-closed-selections"/);
-  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  assert.match(h.html(), /data-table="talent-selection-closed"/);
+  assert.doesNotMatch(h.html(), /Seleções em aberto/);
   await h.action('selection-scope', 'active');
   await h.action('selection-display', 'cards');
   assert.match(h.html(), /class="t4-board"/);
-  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
-  assert.doesNotMatch(h.html(), /Contratações mais recentes/);
+  assert.doesNotMatch(h.html(), /Seleções em aberto/);
+  assert.doesNotMatch(h.html(), /t4-selection-analytics/);
   assert.equal(h.fixture.writes.length, 0);
 });
 test('Apresentações usa três recortes, seleção manual e folha A4 vertical de campos', async () => {
