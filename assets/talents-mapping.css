@@ -180,8 +180,8 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
 .tw-presentation-sheet.is-empty { min-height:12rem; display:grid; place-items:center; }
 .tw-presentation-grid { display:grid; grid-template-columns:minmax(13rem,1.15fr) repeat(var(--tw-presentation-count),minmax(12rem,16rem)); width:max-content; min-width:100%; }
 .tw-presentation-grid > * { min-width:0; border-right:1px solid #dbe5eb; border-bottom:1px solid #e7eef2; }
-.tw-presentation-corner,.tw-presentation-person { position:sticky; top:0; z-index:5; background:#edf4f8; }
-.tw-presentation-corner { left:0; display:flex; flex-direction:column; justify-content:center; min-height:6.5rem; padding:.8rem; color:#22465f; }
+.tw-presentation-corner,.tw-presentation-person { position:sticky; top:var(--tw-presentation-sticky-top,0px); z-index:12; background:#edf4f8; box-shadow:0 2px 0 #b9cbd6; }
+.tw-presentation-corner { left:0; z-index:14; display:flex; flex-direction:column; justify-content:center; min-height:6.5rem; padding:.8rem; color:#22465f; }
 .tw-presentation-corner span { font-size:.8rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .tw-presentation-corner small { margin-top:.35rem; color:#6a7f90; font-size:.7rem; line-height:1.35; }
 .tw-presentation-person { display:flex; flex-direction:column; align-items:flex-start; gap:.35rem; min-height:6.5rem; padding:.7rem; border-top:0; border-left:0; color:var(--tw-ink); text-align:left; cursor:pointer; font:inherit; }
@@ -223,6 +223,7 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
   body[data-t4-module="talents"] .tw-presentation-sheet-scroll { overflow:visible; padding:0; }
   body[data-t4-module="talents"] .tw-presentation-sheet { border:1px solid #8fa5b4; box-shadow:none; border-radius:0; }
   body[data-t4-module="talents"] .tw-presentation-grid { width:100%; grid-template-columns:minmax(3.2cm,1.15fr) repeat(var(--tw-presentation-count),minmax(2.4cm,1fr)); }
+  body[data-t4-module="talents"] .tw-presentation-corner, body[data-t4-module="talents"] .tw-presentation-person { position:static; }
   body[data-t4-module="talents"] .tw-presentation-person strong { font-size:7pt; }
   body[data-t4-module="talents"] .tw-presentation-person small,.tw-presentation-field-label small { font-size:6.5pt; }
   body[data-t4-module="talents"] .tw-presentation-value,.tw-presentation-field-label { min-height:2.4rem; padding:.25rem; }
