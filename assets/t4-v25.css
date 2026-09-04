@@ -280,7 +280,7 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 
 /* Detalhe no painel lateral, com aparência de inspector do macOS. */
 .t4-drawer-backdrop, .t4-modal-backdrop { background: rgba(18, 35, 56, .28); backdrop-filter: blur(12px) saturate(125%); -webkit-backdrop-filter: blur(12px) saturate(125%); }
-.t4-drawer { width: min(760px, 94vw); border-left-color: rgba(25,55,89,.13); background: rgba(250,251,253,.96); box-shadow: -28px 0 90px rgba(12,35,62,.18); animation: v25-drawer-in .28s var(--v25-ease); }
+.t4-drawer { width: min(760px, 94vw); border-left-color: rgba(25,55,89,.13); background: rgba(250,251,253,.96); box-shadow: -28px 0 90px rgba(12,35,62,.18); animation: v25-drawer-in var(--t4-duration-panel) var(--v25-ease); }
 .t4-drawer-head { padding: 24px 28px 18px; background: rgba(255,255,255,.86); border-bottom-color: var(--v25-line); backdrop-filter: blur(18px); }
 .t4-drawer-heading h2 { color: var(--v25-ink); font-size: 24px; letter-spacing: -.055em; }
 .t4-drawer-actions { padding: 12px 28px; background: rgba(244,248,253,.9); border-bottom-color: var(--v25-line); }
