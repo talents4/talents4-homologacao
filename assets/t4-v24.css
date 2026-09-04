@@ -9,7 +9,6 @@
   --v24-line: #dce5ef;
   --v24-surface: #ffffff;
   --v24-canvas: #f4f7fb;
-  --v24-sidebar: 270px;
   --v24-radius: 16px;
   --v24-shadow: 0 1px 2px rgba(16,36,62,.04), 0 14px 34px rgba(16,36,62,.06);
   --v24-shadow-hover: 0 2px 4px rgba(16,36,62,.06), 0 18px 44px rgba(16,36,62,.1);
@@ -22,9 +21,8 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
   letter-spacing: -.006em;
 }
-.t4-main { margin-left: var(--v24-sidebar); }
+/* width e margin-left vêm só de t4-v25.css — mesma situação de t4-v2.css. */
 .t4-sidebar {
-  width: var(--v24-sidebar);
   background: rgba(250,252,255,.9);
   border-right: 1px solid rgba(203,216,231,.85);
   box-shadow: 10px 0 35px rgba(29,61,93,.04);
@@ -194,8 +192,6 @@ body {
 .v24-command-item kbd { color: #8598ad; font-size: 10px; text-align: center; }
 
 @media (max-width: 1260px) {
-  :root { --v24-sidebar: 242px; }
-  .t4-main { margin-left: var(--v24-sidebar); }
   .t4-topbar { padding-left: 25px; padding-right: 25px; }
   .t4-content { padding-left: 25px; padding-right: 25px; }
   .t4-environment { padding-left: 25px; padding-right: 25px; }

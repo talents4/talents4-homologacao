@@ -109,8 +109,11 @@
   --t4-z-toast: 100;
 
   /* ---------- Layout ---------- */
-  --t4-sidebar-width: 248px;
-  --t4-sidebar-width-collapsed: 64px;
+  /* Valores comprovados por getComputedStyle (Etapa 2B.1) como os que
+     realmente renderizam em todos os módulos hoje — não os 248px/64px
+     "de catálogo" que nunca chegaram a ser consumidos por .t4-sidebar. */
+  --t4-sidebar-width: 252px;
+  --t4-sidebar-width-collapsed: 76px;
 
   color-scheme: light;
 }

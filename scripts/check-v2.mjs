@@ -139,7 +139,10 @@ check(v24.includes('t4-table tbody tr') && v24.includes('trigger.click'), 'workb
 check(v24CSS.includes('--v24-blue') && v24CSS.includes('backdrop-filter') && v24CSS.includes('v24-command-list'), 'workbench V2.4 possui superfícies macOS e ações rápidas');
 check(v24CSS.includes('@media (max-width: 680px)') && v24CSS.includes('prefers-reduced-motion'), 'workbench V2.4 permanece responsivo e respeita movimento reduzido');
 const v25 = read('assets/t4-v25.js'), v25CSS = read('assets/t4-v25.css');
-check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collapsed') && v25CSS.includes('body.t4-sidebar-collapsed { --v25-sidebar: 76px; }'), 'menu lateral possui recolhimento funcional compatível com a largura visual V2.5');
+const tokensCSS = read('assets/t4-tokens.css');
+check(core.includes('data-sidebar-collapse') && core.includes('t4-sidebar-collapsed')
+  && v25CSS.includes('body.t4-sidebar-collapsed { --v25-sidebar: var(--t4-sidebar-width-collapsed); }')
+  && tokensCSS.includes('--t4-sidebar-width-collapsed: 76px;'), 'menu lateral possui recolhimento funcional compatível com a largura visual V2.5 (fonte única em --t4-sidebar-width-collapsed)');
 check(core.includes("const SIDEBAR_STATE_KEY = 't4.sidebar.collapsed'") && core.includes('document.body.classList.toggle(\'t4-sidebar-collapsed\', sidebarCollapsed)'), 'sidebar preserva a preferência visual entre módulos');
 check(core.includes('aria-label="Mais espaços"') && v25CSS.includes('t4-nav-more[open] > div'), 'Mais espaços permanece acessível como flyout no menu recolhido');
 check(v25CSS.includes('.t4-table td.t4-selection-cell:first-child') && v25CSS.includes('max-width: 42px'), 'coluna de seleção não ocupa a largura da primeira coluna');

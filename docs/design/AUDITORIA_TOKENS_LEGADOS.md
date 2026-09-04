@@ -32,8 +32,16 @@ vale hoje — a de `t4-tokens.css` já está sombreada para estes 5 nomes:
 
 Nenhum bug visível hoje (valores idênticos), mas a alegação de "fonte
 única" do cabeçalho de t4-tokens.css não é literalmente verdadeira para
-estes 5 nomes. Qualquer etapa futura que edite um destes precisa editar
-**os dois arquivos** ou aceitar que a edição em t4-tokens.css é inerte.
+estes 5 nomes.
+
+**Correção de orientação (feita após a Etapa 2A.2):** a solução de longo
+prazo para um destes NÃO é editar os dois arquivos toda vez que o valor
+mudar — isso perpetua a duplicidade indefinidamente. Quando uma etapa
+futura tocar efetivamente um componente que consome um destes nomes e
+comprovar (via computedStyle) que a equivalência continua valendo, o
+caminho correto é remover a redeclaração redundante em t4-v2.css naquele
+escopo específico, deixando t4-tokens.css como fonte real — não fazer
+limpeza em massa dos 5 de uma vez, só no que for efetivamente tocado.
 
 ## 2. Duplicata de VALOR, nome diferente (candidatos seguros para preferir `--t4-*` ao tocar o componente)
 
