@@ -15,7 +15,7 @@
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
   const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'employers' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', meetingsMonth: M.today().slice(0, 7), selectionDisplay: 'list', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', meetingsMonth: M.today().slice(0, 7), selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -345,13 +345,17 @@
     if (leftHasDate && rightHasDate && leftTime !== rightTime) return rightTime - leftTime;
     return 0;
   };
+
   function pipelineView() {
     const rows = state.selections.rows.filter((r) => scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && matches(r.stage, state.status));
     const activeRows = rows.filter((r) => M.selectionBucket(r) !== 'closed');
-    const display = state.selectionDisplay || 'list';
-    // "Mais recente" para uma seleção é quando ela foi tocada pela última vez
-    // (retorno do empregador, atualização, envio ou criação) — não a próxima
-    // ação, que é uma data futura e ordenaria errado misturada com estas.
+    const closedRows = rows.filter((r) => M.selectionBucket(r) === 'closed');
+    const scope = ['active', 'all', 'closed'].includes(state.selectionScope) ? state.selectionScope : 'active';
+    const visibleRows = scope === 'closed' ? closedRows : scope === 'all' ? rows : activeRows;
+    const display = state.selectionDisplay === 'cards' ? 'cards' : 'list';
+    // "Mais recente" considera a última movimentação registrada no vínculo;
+    // a próxima ação continua sendo usada apenas para ordenar os painéis de
+    // acompanhamento abertos.
     const recencyOf = (r) => String(r.updated_at || r.responded_at || r.sent_at || r.created_at || '');
     const byRecency = (left, right) => recencyOf(right).localeCompare(recencyOf(left), 'pt-BR', { numeric: true });
     const sortedActiveRows = [...activeRows].sort(byRecency);
@@ -364,7 +368,7 @@
     const hiredRows = generalRows.filter((r) => M.selectionBucket(r) === 'hired').sort(byRecency);
     const selectionCard = (r, index) => {
       const opening = W.find(state.openings, r.opening_id), overdue = M.overdue(r.next_action_at, r.status);
-      return `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${overdue ? 'is-overdue' : ''}" data-ready-selection="${a(r.key)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${W.status(r.stage)}<span class="org-ready-card-deadline ${overdue ? 'is-overdue' : r.next_action_at ? 'is-scheduled' : 'is-no-date'}">${U.icon('calendar')}${e(r.next_action_at ? U.formatDate(r.next_action_at) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="selection-detail" data-id="${a(r.key)}">${e(R.talentName(state, r.talent_id))}</button></h3><p class="org-ready-card-context">${e([employerOf(r), opening?.title || 'Vínculo geral · anterior à V2'].join(' · '))}</p><p class="org-ready-card-description">${e(r.next_action || 'Definir próxima ação')}</p><footer class="org-ready-card-footer"><span>${e(r.owner_username || 'Sem responsável')}</span><div>${W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' })}</div></footer></article>`;
+      return `<article class="org-ready-card ${{index === 0 ? 'is-next' : ''} ${{overdue ? 'is-overdue' : ''}" data-ready-selection="${{a(r.key)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${{String(index + 1).padStart(2, '0')}</span>${{W.status(r.stage)}<span class="org-ready-card-deadline ${{overdue ? 'is-overdue' : r.next_action_at ? 'is-scheduled' : 'is-no-date'}">${{U.icon('calendar')}${{e(r.next_action_at ? U.formatDate(r.next_action_at) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="selection-detail" data-id="${{a(r.key)}">${{e(R.talentName(state, r.talent_id))}</button></h3><p class="org-ready-card-context">${{e([employerOf(r), opening?.title || 'Vínculo geral · anterior à V2'].join(' · '))}</p><p class="org-ready-card-description">${{e(r.next_action || 'Definir próxima ação')}</p><footer class="org-ready-card-footer"><span>${{e(r.owner_username || 'Sem responsável')}</span><div>${{W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' })}</div></footer></article>`;
     };
     const openSelectionGroups = [
       { id: 'review', label: 'Em análise', description: 'Triagem e avaliação inicial.' },
@@ -374,10 +378,10 @@
     ];
     const openSelectionSections = openSelectionGroups.map((group) => {
       const groupRows = openPipelineRows.filter((r) => M.selectionBucket(r) === group.id);
-      return `<section class="org-selection-stage-group is-${group.id}" data-selection-stage-group="${group.id}"><header class="org-selection-stage-group-head"><div><span class="org-selection-stage-kicker">ETAPA DO VÍNCULO</span><h3>${e(group.label)}</h3><p>${e(group.description)}</p></div><strong class="org-selection-stage-count">${groupRows.length}</strong></header><div class="org-ready-list org-selection-stage-cards">${groupRows.map(selectionCard).join('') || U.emptyState('Nenhuma seleção nesta etapa', 'Novas relações aparecerão aqui quando chegarem a esta fase.')}</div></section>`;
+      return `<section class="org-selection-stage-group is-${{group.id}" data-selection-stage-group="${{group.id}"><header class="org-selection-stage-group-head"><div><span class="org-selection-stage-kicker">ETAPA DO VÍNCULO</span><h3>${{e(group.label)}</h3><p>${{e(group.description)}</p></div><strong class="org-selection-stage-count">${{groupRows.length}</strong></header><div class="org-ready-list org-selection-stage-cards">${{groupRows.map(selectionCard).join('') || U.emptyState('Nenhuma seleção nesta etapa', 'Novas relações aparecerão aqui quando chegarem a esta fase.')}</div></section>`;
     }).join('');
-    const openPanel = `<section class="t4-panel org-open-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">SELEÇÕES EM ABERTO</span><h2>Todas as seleções em aberto</h2><p>Separadas por etapa do vínculo; dentro de cada grupo, pela data da próxima ação mais recente.</p></div><strong class="org-panel-count">${openPipelineRows.length} abertas</strong></div><div class="t4-panel-body"><div class="org-selection-stage-groups" aria-label="Seleções abertas separadas por etapa">${openSelectionSections}</div></div></section>`;
-    const hiredPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONTRATADOS</span><h2>Contratações mais recentes</h2><p>Seleções na etapa Contratado, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${hiredRows.length} contratada${hiredRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body"><div class="org-ready-list">${hiredRows.map(selectionCard).join('') || U.emptyState('Nenhuma contratação registrada ainda', 'Assim que uma seleção avançar para Contratado, ela aparece aqui.')}</div></div></section>`;
+    const openPanel = `<section class="t4-panel org-open-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">SELEÇÕES EM ABERTO</span><h2>Todas as seleções em aberto</h2><p>Separadas por etapa do vínculo; dentro de cada grupo, pela data da próxima ação mais recente.</p></div><strong class="org-panel-count">${{openPipelineRows.length} abertas</strong></div><div class="t4-panel-body"><div class="org-selection-stage-groups" aria-label="Seleções abertas separadas por etapa">${{openSelectionSections}</div></div></section>`;
+    const hiredPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONTRATADOS</span><h2>Contratações mais recentes</h2><p>Seleções na etapa Contratado, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${{hiredRows.length} contratada${{hiredRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body"><div class="org-ready-list">${{hiredRows.map(selectionCard).join('') || U.emptyState('Nenhuma contratação registrada ainda', 'Assim que uma seleção avançar para Contratado, ela aparece aqui.')}</div></div></section>`;
 
     const historyRows = generalRows
       .filter((r) => /^(excluid[oa]|removid[oa])/.test(M.norm(r.stage || r.status || '')))
@@ -386,9 +390,22 @@
       historyRows.length ? R.selectionTable(state, historyRows, 'org-selection-history') : U.emptyState('Nenhum registro excluído ou removido', 'Os registros retirados do acompanhamento aparecerão aqui.'),
       U.badge(historyRows.length, historyRows.length ? 'info' : 'neutral'),
       'Fora do acompanhamento ativo; preservado somente para consulta.');
-    const current = display === 'cards' ? R.selectionBoard(state, sortedActiveRows) : R.selectionTable(state, sortedActiveRows, 'org-selection-active');
-    const analyticalPanels = display === 'list' ? openPanel + hiredPanel : '';
-    return workViews('pipeline') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Acompanhe cada vínculo por etapa.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + W.chips([{ id: 'list', label: 'Lista analítica', icon: 'list' }, { id: 'cards', label: 'Kanban', icon: 'columns' }], display, 'selection-display') + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(generalRows) + analyticalPanels + current + historySection +
+    const current = display === 'cards' && scope !== 'closed'
+      ? R.selectionBoard(state, sortedActiveRows)
+      : R.selectionTable(state, visibleRows, scope === 'closed' ? 'org-selection-closed' : 'org-selection-active');
+    // A Lista analítica mantém os resumos de trabalho e o registro completo.
+    // O Quadro opcional mostra somente o Kanban; não replica esses painéis.
+    const analyticalPanels = display === 'list' && scope !== 'closed' ? openPanel + hiredPanel : '';
+    const scopeBar = W.chips([
+      { id: 'active', label: 'Em andamento', count: activeRows.length, icon: 'columns' },
+      { id: 'all', label: 'Todas as relações', count: rows.length, icon: 'list' },
+      { id: 'closed', label: 'Encerradas', count: closedRows.length, icon: 'archive' }
+    ], scope, 'selection-scope');
+    const displayBar = W.chips([
+      { id: 'list', label: 'Lista analítica', icon: 'list' },
+      { id: 'cards', label: 'Quadro opcional', icon: 'columns' }
+    ], display, 'selection-display');
+    return workViews('pipeline') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Acompanhe cada vínculo por etapa.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${{activeRows.length} ativa${{activeRows.length === 1 ? '' : 's'}</span></div>` + scopeBar + displayBar + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(generalRows) + analyticalPanels + current + (scope === 'closed' ? '' : historySection) +
       W.section('Reposições', replacementTable(state.replacements.filter(scoped)), can('replacements') ? W.button('Nova reposição', 'new-replacement', '', { className: 'sm', icon: 'plus' }) : '');
   }
   function selectionRegister(rows, closed = false) {
