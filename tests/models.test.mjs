@@ -18,7 +18,8 @@ test('risco acadêmico considera prazo, avaliação e presença, sem inventar no
 });
 test('quadro trata encerramento, rejeição e contratação corretamente', () => {
   const { M } = makeHarness();
-  for (const label of ['Encerrado', 'Rejeitado', 'Não gostou', 'Removido', 'Cancelada']) assert.equal(M.selectionBucket({ stage: label, status: 'Ativo' }), 'closed');
+  for (const label of ['Encerrado', 'Rejeitado', 'Removido', 'Excluído', 'Cancelada']) assert.equal(M.selectionBucket({ stage: label, status: 'Ativo' }), 'closed');
+  assert.equal(M.selectionBucket({ stage: 'Não gostou', status: 'Ativo' }), 'sent');
   assert.equal(M.selectionBucket({ stage: 'Entrevista', status: 'Encerrado' }), 'closed');
   assert.equal(M.selectionBucket({ stage: 'Contratado', status: 'Ativo' }), 'hired');
   assert.equal(M.selectionBucket({ stage: 'Aguardando resposta', status: 'Ativo' }), 'sent');
