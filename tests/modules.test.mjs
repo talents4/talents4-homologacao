@@ -517,6 +517,47 @@ test('Seleções em Empregadores usam os mesmos escopos de Talentos e isolam o q
   assert.doesNotMatch(h.html(), /Contratações mais recentes/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('Talentos e Organizacional usam a mesma superfície de Seleções', async () => {
+  const h = makeHarness();
+  h.fixture.db.candidate_employer_matches.push(
+    { id: h.id(413), candidato_id: 'DEMO-T1', empregador_id: h.id(101), status_vinculo: 'Em análise', prioridade: 1, proxima_acao: 'Avaliar perfil', proximo_followup_em: '2026-09-12T10:00:00.000Z', created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-03T10:00:00.000Z' },
+    { id: h.id(414), candidato_id: 'DEMO-T2', empregador_id: h.id(101), status_vinculo: 'Apresentado', prioridade: 1, proxima_acao: 'Aguardar retorno', proximo_followup_em: '2026-09-11T10:00:00.000Z', created_at: '2026-09-01T11:00:00.000Z', updated_at: '2026-09-03T11:00:00.000Z' },
+    { id: h.id(415), candidato_id: 'DEMO-T3', empregador_id: h.id(102), status_vinculo: 'Não gostou', prioridade: 2, proxima_acao: 'Registrar retorno', proximo_followup_em: '2026-09-10T10:00:00.000Z', created_at: '2026-09-01T12:00:00.000Z', updated_at: '2026-09-03T12:00:00.000Z' },
+    { id: h.id(416), candidato_id: 'DEMO-T4', empregador_id: h.id(102), status_vinculo: 'Entrevista', prioridade: 1, proxima_acao: 'Confirmar horário', proximo_followup_em: '2026-09-09T10:00:00.000Z', created_at: '2026-09-01T13:00:00.000Z', updated_at: '2026-09-03T13:00:00.000Z' },
+    { id: h.id(417), candidato_id: 'DEMO-T5', empregador_id: h.id(102), status_vinculo: 'Proposta', prioridade: 1, proxima_acao: 'Enviar proposta', proximo_followup_em: '2026-09-08T10:00:00.000Z', created_at: '2026-09-01T14:00:00.000Z', updated_at: '2026-09-03T14:00:00.000Z' },
+    { id: h.id(418), candidato_id: 'DEMO-T1', empregador_id: h.id(101), status_vinculo: 'Contratado', prioridade: 1, created_at: '2026-09-01T15:00:00.000Z', updated_at: '2026-09-03T15:00:00.000Z' },
+    { id: h.id(419), candidato_id: 'DEMO-T2', empregador_id: h.id(102), status_vinculo: 'Removido', prioridade: 3, created_at: '2026-09-01T16:00:00.000Z', updated_at: '2026-09-03T16:00:00.000Z' },
+    { id: h.id(420), candidato_id: 'DEMO-T3', empregador_id: h.id(101), status_vinculo: 'Excluído', prioridade: 4, created_at: '2026-09-01T17:00:00.000Z', updated_at: '2026-09-03T17:00:00.000Z' }
+  );
+  await h.load('talents'); h.app.route('processes');
+  const listHtml = h.html();
+  assert.match(listHtml, /Todas as seleções em aberto/);
+  assert.match(listHtml, /Contratações mais recentes/);
+  assert.match(listHtml, /Histórico de excluídos e removidos/);
+  assert.match(listHtml, /data-multi-filter="employer"/);
+  assert.match(listHtml, /data-multi-filter="status"/);
+
+  const openStart = listHtml.indexOf('SELEÇÕES EM ABERTO');
+  const hiredStart = listHtml.indexOf('CONTRATADOS');
+  const historyStart = listHtml.indexOf('Histórico de excluídos e removidos');
+  assert.ok(openStart >= 0 && hiredStart > openStart && historyStart > hiredStart);
+  const openHtml = listHtml.slice(openStart, hiredStart);
+  assert.equal((openHtml.match(/data-selection-stage-group="/g) || []).length, 4);
+  for (const label of ['Em análise', 'Apresentado', 'Entrevista', 'Proposta', 'Não gostou']) assert.match(openHtml, new RegExp(label));
+  assert.doesNotMatch(openHtml, /Removido|Excluído/);
+  assert.match(listHtml.slice(historyStart), /Removido/);
+  assert.match(listHtml.slice(historyStart), /Excluído/);
+
+  await h.action('selection-scope', 'closed');
+  assert.match(h.html(), /data-table="talent-closed-selections"/);
+  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  await h.action('selection-scope', 'active');
+  await h.action('selection-display', 'cards');
+  assert.match(h.html(), /class="t4-board"/);
+  assert.doesNotMatch(h.html(), /Todas as seleções em aberto/);
+  assert.doesNotMatch(h.html(), /Contratações mais recentes/);
+  assert.equal(h.fixture.writes.length, 0);
+});
 test('Apresentações usa três recortes, seleção manual e folha A4 vertical de campos', async () => {
   const h = makeHarness();
   h.fixture.db.talent_mapping_profiles = [
