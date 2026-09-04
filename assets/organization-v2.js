@@ -613,9 +613,10 @@
     if (name === 'employer-classification') { state.employerClassification = ['all', 'partner', 'nectanet', 'general', 'pending'].includes(id) ? id : 'all'; render(); return; }
     if (name === 'opportunity-scope') { state.opportunityScope = ['open', 'all', 'closed'].includes(id) ? id : 'open'; state.status = []; render(); return; }
     if (name === 'selection-display') { state.selectionDisplay = id === 'cards' ? 'cards' : 'list'; render(); return; }
+    if (name === 'selection-scope') { state.selectionScope = ['active', 'all', 'closed'].includes(id) ? id : 'active'; state.status = []; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.meetingsMonth = M.today().slice(0, 7); state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.meetingsMonth = M.today().slice(0, 7); state.selectionScope = 'active'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name === 'planning-month-prev' || name === 'planning-month-next' || name === 'planning-month-today' || name === 'operations-month-prev' || name === 'operations-month-next' || name === 'operations-month-today' || name === 'meetings-month-prev' || name === 'meetings-month-next' || name === 'meetings-month-today') {
       const key = name.startsWith('planning-') ? 'planningMonth' : name.startsWith('operations-') ? 'operationsMonth' : 'meetingsMonth', current = M.today().slice(0, 7);
       state[key] = name.endsWith('-today') ? current : shiftMonth(state[key] || current, name.endsWith('-prev') ? -1 : 1);
