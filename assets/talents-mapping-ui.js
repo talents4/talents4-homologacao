@@ -119,7 +119,11 @@
       }
       const selectedIds = state.presentationSelections[selectedView];
       const qualifyingRows = allRows.filter(criteria);
-      const selectedRows = allRows.filter((row) => selectedIds.has(String(row.id))).sort((left, right) => M.norm(left.nome_completo).localeCompare(M.norm(right.nome_completo), 'pt-BR'));
+      // Perfis mais completos ocupam as primeiras colunas para facilitar a comparação.
+      const filledFieldCount = (row) => fields.reduce((count, [key]) => count + (hasValue(row[key]) ? 1 : 0), 0);
+      const selectedRows = allRows.filter((row) => selectedIds.has(String(row.id))).sort((left, right) =>
+        filledFieldCount(right) - filledFieldCount(left) || M.norm(left.nome_completo).localeCompare(M.norm(right.nome_completo), 'pt-BR')
+      );
       const manualRows = selectedRows.filter((row) => !criteria(row));
       const meta = PRESENTATION_VIEWS.find((item) => item.id === selectedView);
       const pickerSearch = state.presentationPickerSearch[selectedView] || '';
