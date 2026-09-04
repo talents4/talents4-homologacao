@@ -20,6 +20,7 @@
     tasks: 'operational_tasks',
     metrics: 'operational_metrics',
     archive: 'org_ui_state_snapshots',
+    documentationNodes: 'documentation_nodes',
     activities: 'crm_activities',
     contacts: 'contact_records',
     categories: 'contact_categories',
