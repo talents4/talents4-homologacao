@@ -178,7 +178,9 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
   from { opacity: 0; transform: translateY(7px); }
   to { opacity: 1; transform: translateY(0); }
 }
-.t4-kpi:hover { transform: translateY(-2px); box-shadow: var(--v25-shadow-hover); }
+/* .t4-kpi é um bloco informativo puro (sem data-action, botão ou link) —
+   o hover-lift usado nos cartões clicáveis (.mx-card, .t4-company-card)
+   aqui seria uma affordance falsa, convidando um clique que não faz nada. */
 .t4-kpi-label { color: #79899e; font-size: 10px; letter-spacing: .07em; }
 .t4-kpi-value { font-size: 34px; }
 .t4-panel, .t4-data-grid { border-color: var(--v25-line); border-radius: var(--v25-radius); box-shadow: var(--v25-shadow); }
@@ -282,10 +284,27 @@ button, a, input, select, textarea, summary { transition: color .16s var(--v25-e
 .t4-company-card {
   position: relative; overflow: hidden; padding: 21px 21px 18px 24px; border-radius: 18px;
   border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.9);
+  transition: transform .18s var(--v25-ease), box-shadow .18s var(--v25-ease);
 }
 .t4-company-card::before { content: ''; position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--employer-color, #7d91a8); }
 .t4-company-card:hover { transform: translateY(-3px); box-shadow: var(--v25-shadow-hover); }
 .t4-company-avatar { width: 41px; height: 41px; border-radius: 13px; color: var(--employer-color, #315a7e); background: color-mix(in srgb, var(--employer-color, #315a7e) 13%, white); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--employer-color, #315a7e) 22%, transparent); }
+/* .t4-course-card (Alemão) compartilhava a regra-base com .t4-company-card
+   em t4-v2.css mas nunca recebeu a elevação da revisão V2.5.2 abaixo —
+   ficava com sombra quase invisível (--t4-shadow, ~2% de opacidade) e
+   cantos mais retos que o resto dos cartões de registro do sistema. */
+.t4-course-card {
+  border-radius: 18px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.9);
+  transition: transform .18s var(--v25-ease), box-shadow .18s var(--v25-ease);
+}
+.t4-course-card:hover { transform: translateY(-3px); box-shadow: var(--v25-shadow-hover); }
+/* Cartão do quadro Kanban de Seleções: mesma família de elevação dos
+   cartões de registro, num raio proporcional ao tamanho menor do cartão. */
+.t4-selection-card {
+  border-radius: 14px; border-color: var(--v25-line); box-shadow: var(--v25-shadow); background: rgba(255,255,255,.94);
+  transition: transform .18s var(--v25-ease), box-shadow .18s var(--v25-ease);
+}
+.t4-selection-card:hover { transform: translateY(-2px); box-shadow: var(--v25-shadow-hover); }
 .t4-card-title { color: var(--v25-ink); font-size: var(--t4-text-subtitle); letter-spacing: -.035em; }
 .t4-card-title:hover { color: #0a5ec5; }
 .t4-company-card .t4-card-location { color: var(--v25-muted); }
@@ -813,7 +832,8 @@ body {
 /* .mx-card (t4-modern.css) nascia sem sombra e sem estado de hover — um
    cartão sem nenhuma resposta ao passar o mouse lê como estático/morto,
    achado real ao revisar a visão em cartões com o usuário. Mesmo padrão
-   de elevação já usado em .t4-kpi:hover, para ficar consistente. */
+   de elevação já usado em .t4-company-card:hover, para ficar consistente
+   (reservado a cartões com conteúdo clicável dentro — .t4-kpi não tem). */
 .mx-card { box-shadow: var(--v25-shadow); transition: transform var(--t4-duration-base, .18s) var(--t4-ease, ease), box-shadow var(--t4-duration-base, .18s) var(--t4-ease, ease); }
 .mx-card:hover { transform: translateY(-2px); box-shadow: var(--v25-shadow-hover); border-color: #c3d4e2; }
 .mx-card.is-selected:hover { box-shadow: 0 0 0 3px rgba(11, 99, 206, .12), var(--v25-shadow-hover); }
