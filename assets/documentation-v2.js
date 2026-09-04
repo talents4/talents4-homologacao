@@ -689,10 +689,11 @@
       if (trail.has(String(folder.id))) return '';
       const nextTrail = new Set(trail);
       nextTrail.add(String(folder.id));
+      const nested = treeBranch(folder.id, depth + 1, nextTrail);
       return '<li><button type="button" class="t4-doc-tree-button ' + (same(folder.id, state.folderId) ? 'is-current' : '')
         + '" style="--tree-depth:' + depth + '" data-action="documentation-open-folder" data-id="' + a(folder.id) + '">'
         + U.icon('folder', '') + '<span>' + e(folder.name) + '</span><small>' + countChildren(folder.id) + '</small></button>'
-        + (treeBranch(folder.id, depth + 1, nextTrail) ? '<ul>' + treeBranch(folder.id, depth + 1, nextTrail) + '</ul>' : '')
+        + (nested ? '<ul>' + nested + '</ul>' : '')
         + '</li>';
     }).join('');
   }
