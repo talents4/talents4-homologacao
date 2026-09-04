@@ -325,7 +325,8 @@ test('Seleções mantém painéis na lista analítica e reserva o Kanban para o 
   assert.match(cardHtml, /Não gostou/);
   assert.doesNotMatch(cardHtml, /data-ready-selection=/);
   assert.equal(h.fixture.writes.length, 0);
-});test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
+});
+test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
   const h = makeHarness();
   h.fixture.db.talent_opportunity_matches.push({ id: h.id(305), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z', talent_id: 'DEMO-T2', opening_id: h.id(201), employer_id: h.id(101), stage: 'Encerrado', status: 'Encerrado', priority: 3, owner_username: 'demo', next_action: null, next_action_at: null, viability: 'Baixa', overall_score: null, reasons: null, barriers: null, sent_at: null, responded_at: null });
   await h.load('organization');
