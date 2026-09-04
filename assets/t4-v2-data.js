@@ -34,6 +34,7 @@
     users: 'usuarios',
     poPlans: 'operational_plans',
     poMembers: 'operational_plan_members',
+    taskResponsibles: 'operational_task_responsibles',
     notifications: 'crm_notifications',
     chatConversations: 'crm_chat_conversations',
     chatParticipants: 'crm_chat_participants',
