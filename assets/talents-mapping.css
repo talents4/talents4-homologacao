@@ -183,7 +183,7 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
 .tw-presentation-corner,.tw-presentation-person { position:sticky; top:0; z-index:12; background:#edf4f8; box-shadow:0 2px 0 #b9cbd6; }
 .tw-presentation-corner { left:0; z-index:14; display:flex; flex-direction:column; justify-content:center; min-height:6.5rem; padding:.8rem; color:#22465f; }
 .tw-presentation-corner span { font-size:.8rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
-.tw-presentation-corner small { margin-top:.35rem; color:#6a7f90; font-size:.7rem; line-height:1.35; }
+.tw-presentation-corner small { margin-top:.35rem; color:#4a5e73; font-size:.7rem; line-height:1.35; }
 .tw-presentation-person { display:flex; flex-direction:column; align-items:flex-start; gap:.35rem; min-height:6.5rem; padding:.7rem; border-top:0; border-left:0; color:var(--tw-ink); text-align:left; cursor:pointer; font:inherit; }
 .tw-presentation-person:hover,.tw-presentation-person:focus-visible { background:#e4f1f7; }
 .tw-presentation-person strong { display:-webkit-box; max-width:100%; overflow:hidden; color:#075a87; font-size:.82rem; line-height:1.25; overflow-wrap:anywhere; -webkit-box-orient:vertical; -webkit-line-clamp:2; }

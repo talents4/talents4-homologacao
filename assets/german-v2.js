@@ -88,7 +88,7 @@
       { key: 'next_action', label: 'Próximo passo', render: (r) => W.stack(r.next_action, r.next_action_due ? U.formatDate(r.next_action_due) : '') },
       { key: 'owner_name', label: 'Responsável' },
       { key: 'risk', label: 'Atenção', value: (r) => M.riskReasons(r).length, render: (r) => M.riskReasons(r).length ? `<span class="t4-risk-reasons">${M.riskReasons(r).map((reason) => e(reason)).join('<br>')}</span>` : W.status(r.status) },
-      { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() ? W.button('Registrar', 'new-update', r.id, { className: 'sm', icon: 'plus' }) : '' }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() ? W.button('Registrar', 'new-update', r.id, { className: 'sm', icon: 'plus' }) : '' }
     ] });
   }
   function historyTable(list, id = 'german-history') {
@@ -97,7 +97,7 @@
       { key: 'enrollment_id', label: 'Talento', required: true, render: (r) => e(name(W.find(state.enrollments, r.enrollment_id)?.candidate_id)) },
       { key: 'kind', label: 'Tipo', render: (r) => U.badge(r.kind, r.kind === 'Alerta' ? 'warning' : 'info') }, { key: 'attendance_status', label: 'Presença' },
       { key: 'score', label: 'Nota' }, { key: 'level_after', label: 'Nível após registro' }, { key: 'note', label: 'Observação', render: (r) => `<span class="t4-clamp-3">${e(r.note || '—')}</span>` },
-      { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() ? W.button('Editar', 'edit-update', r.id, { className: 'ghost sm', icon: 'edit' }) : '' }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() ? W.button('Editar', 'edit-update', r.id, { className: 'ghost sm', icon: 'edit' }) : '' }
     ] });
   }
   function historyView() {

@@ -41,8 +41,12 @@
   --t4-surface-elevated: #ffffff;
   --t4-surface-interactive: color-mix(in srgb, var(--t4-ink) 4%, var(--t4-surface));
   --t4-ink: #1b2a3e;
-  --t4-ink-soft: #64748b;
-  --t4-ink-faint: #94a3b8;
+  /* ink-soft/ink-faint escurecidos (auditoria axe-core, WCAG AA 4.5:1):
+     os valores anteriores (#64748b / #94a3b8) ficavam entre 2.5:1 e 4.2:1
+     sobre os fundos claros reais da aplicação (branco a #edf2f6). Mantém a
+     hierarquia relativa (faint mais claro que soft), ambos agora ≥4.6:1. */
+  --t4-ink-soft: #4a5e73;
+  --t4-ink-faint: #546b80;
   --t4-line: #e2e8f0;
   --t4-line-strong: #cbd5e1;
   --t4-accent: var(--t4-color-navy);

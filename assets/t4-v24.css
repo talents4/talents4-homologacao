@@ -66,7 +66,9 @@ body {
 .t4-global-search { width: min(390px, 31vw); min-height: 41px; padding: 9px 13px; border-radius: 13px; background: rgba(248,251,255,.95); border-color: #d5e1ed; box-shadow: inset 0 1px 2px rgba(16,36,62,.02); }
 .t4-global-search:focus-within { background: #fff; border-color: #8fb9f2; box-shadow: 0 0 0 4px rgba(22,119,255,.1); }
 .t4-global-search input { font-size: 12px; }
-.t4-keycap, .t4-command-trigger kbd { color: #7890a9; border-color: #d6e2ee; border-radius: 6px; background: #fff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+/* Cores de texto secundário nesta seção escurecidas para WCAG AA 4.5:1
+   (auditoria axe-core); tom azul-acinzentado preservado. */
+.t4-keycap, .t4-command-trigger kbd { color: #4a5e73; border-color: #d6e2ee; border-radius: 6px; background: #fff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .t4-command-trigger {
   min-height: 40px; display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px;
   border: 1px solid #d5e1ed; border-radius: 12px; color: #526b86; background: rgba(255,255,255,.85);
@@ -108,7 +110,7 @@ body {
   min-height: 56px; padding: 10px 12px; gap: 8px; border-radius: 15px; border-color: #d7e3ef; background: rgba(255,255,255,.88); box-shadow: var(--v24-shadow);
 }
 .t4-toolbar { align-items: center; }
-.t4-filter > span { color: #8a9caf; letter-spacing: .08em; }
+.t4-filter > span { color: #4a5e73; letter-spacing: .08em; }
 .t4-filter select { min-height: 37px; border-radius: 10px; border-color: #d4e0ec; background: #fbfdff; }
 .t4-quickfilters, [data-t4-module="talents"] .tw-quickfilters { gap: 7px; margin: 0 0 13px; }
 .t4-quickfilter, [data-t4-module="talents"] .tw-quick { min-height: 38px; padding: 7px 12px; border-radius: 99px; color: #617a95; }
@@ -131,7 +133,7 @@ body {
 
 /* A base de seleção usa o registro analítico. O quadro continua opcional. */
 .mx-toolbar { align-items: flex-start; padding: 4px 0 9px; margin: 0; }
-.mx-toolbar .mx-eyebrow { color: #8a9caf; }
+.mx-toolbar .mx-eyebrow { color: #4a5e73; }
 .mx-toolbar .mx-segment { border: 1px solid #d7e3ef; background: #edf3f9; border-radius: 12px; }
 .mx-segment button[data-selected="true"], .mx-segment button[aria-current="page"] { color: #0b5dc7; box-shadow: 0 2px 7px rgba(16,36,62,.08); }
 .mx-metric-strip { gap: 10px; margin: 9px 0 15px; }
