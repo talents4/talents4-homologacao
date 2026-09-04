@@ -461,7 +461,15 @@
       { name: 'employer_id', label: 'Empregador', type: 'select', options: R.choices(state.employers, 'nome'), required: true }, { name: 'title', label: 'Nome da oportunidade', required: true },
       { name: 'quantity', label: 'Quantidade de posições', type: 'number', min: 1, required: true }, { name: 'status', label: 'Situação', type: 'select', options: ['Aberta', 'Em andamento', 'Pausada', 'Fechada', 'Cancelada'], required: true, placeholder: null },
       ...R.fields([['location', 'Local'], ['area', 'Área'], ['language_requirement', 'Idioma requerido'], ['recognition_requirement', 'Reconhecimento exigido'], ['external_url', 'Página da oportunidade', 'url'], ['source', 'Origem'], ['verified_at', 'Verificada em', 'datetime-local'], ['description', 'Descrição e requisitos', 'textarea']])
-    ].filter((f) => !row || f.name in row), prepare(v) { if (!row) { v.order_index = 0; v.deleted_at = null; } }, after: load });
+    ].filter((f) => !row || f.name in row), prepare(v, changes) {
+      const closed = /fechad|cancelad/i.test(M.norm(v.status));
+      if (!row) Object.assign(v, { order_index: 0, deleted_at: null, is_active: !closed });
+      if (row && Object.prototype.hasOwnProperty.call(row, 'is_active')) {
+        const nextActive = !closed;
+        const storedActive = typeof row.is_active === 'string' ? String(nextActive) : nextActive;
+        if ('status' in changes || row.is_active !== storedActive) changes.is_active = storedActive;
+      }
+    }, after: load });
   }
   function openingDetail(row) {
     if (!row) return;
