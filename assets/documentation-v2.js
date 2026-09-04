@@ -689,10 +689,11 @@
       if (trail.has(String(folder.id))) return '';
       const nextTrail = new Set(trail);
       nextTrail.add(String(folder.id));
+      const nested = treeBranch(folder.id, depth + 1, nextTrail);
       return '<li><button type="button" class="t4-doc-tree-button ' + (same(folder.id, state.folderId) ? 'is-current' : '')
         + '" style="--tree-depth:' + depth + '" data-action="documentation-open-folder" data-id="' + a(folder.id) + '">'
         + U.icon('folder', '') + '<span>' + e(folder.name) + '</span><small>' + countChildren(folder.id) + '</small></button>'
-        + (treeBranch(folder.id, depth + 1, nextTrail) ? '<ul>' + treeBranch(folder.id, depth + 1, nextTrail) + '</ul>' : '')
+        + (nested ? '<ul>' + nested + '</ul>' : '')
         + '</li>';
     }).join('');
   }
@@ -776,7 +777,7 @@
   function sourceNotice() {
     if (!sourceAvailable()) {
       return '<div class="t4-doc-migration-note" role="status">' + U.icon('info', '') + '<div><strong>Documentação ainda não foi ativada no banco.</strong>'
-        + '<p>A estrutura da área já está publicada. Aplique manualmente a migração aditiva desta área após revisar a pré-checagem; nenhuma alteração automática será feita.</p></div></div>';
+        + '<p>A estrutura da área já está publicada. Revise e aplique manualmente a migração da pasta <code>supabase/talents-v22/documentation/</code>; nenhuma alteração automática será feita.</p></div></div>';
     }
     return W.sourceAlerts(state, ['talents', 'employers', 'openings', 'selections']);
   }

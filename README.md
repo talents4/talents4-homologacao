@@ -1,6 +1,6 @@
 # Talents 4 · homologação
 
-CRM de recrutamento internacional da Talents 4: Talentos, Empregadores, vagas, seleções, apresentações, contatos, agenda, acompanhamento de Alemão e planejamento organizacional, com importação e exportação das duas planilhas oficiais. A base canônica de pessoas é a tabela `candidatos` do Supabase — não existe (e não deve existir) uma segunda base de pessoas.
+CRM de recrutamento internacional da Talents 4: Talentos, Empregadores, vagas, seleções, apresentações, contatos, agenda, acompanhamento de Alemão, planejamento organizacional e Documentação, com importação e exportação das duas planilhas oficiais. A base canônica de pessoas é a tabela `candidatos` do Supabase — não existe (e não deve existir) uma segunda base de pessoas.
 
 ## Abrir no navegador
 
@@ -19,11 +19,11 @@ A projeção de Alemão B1 é só um cenário de evolução — não aprova um T
 
 ## Estrutura do repositório
 
-- `index.html`, `organizacional.html`, `contatos.html`, `alemao.html` — as 4 telas do produto (produção, conectadas ao Supabase real).
+- `index.html`, `organizacional.html`, `contatos.html`, `alemao.html`, `documentacao.html` — as 5 telas do produto (produção, conectadas ao Supabase real).
 - `demo/` — as mesmas 4 telas com dados fictícios, sem rede, para avaliação sem credenciais.
 - `assets/` — todo o frontend (HTML/CSS/JS puro, sem build step; ver `docs/design/ARQUITETURA_FRONTEND.md` para a justificativa dessa escolha).
-- `supabase/talents-v22/` — SQL de auditoria (somente leitura) e migrações aditivas do schema, aplicadas manualmente via SQL Editor após revisão (nunca automaticamente pelo frontend).
-- `tests/` — 112 testes (`node --test "tests/**/*.test.mjs"`) e o harness que os roda sem navegador real.
+- `supabase/talents-v22/` — SQL de auditoria (somente leitura) e migrações aditivas do schema, incluindo `documentation/`, aplicadas manualmente via SQL Editor após revisão (nunca automaticamente pelo frontend).
+- `tests/` — testes de contrato e regras de negócio (`node --test "tests/**/*.test.mjs"`) e o harness que os roda sem navegador real.
 - `scripts/check-v2.mjs` — ~400 verificações estáticas de contrato, segurança e regra de negócio (`node scripts/check-v2.mjs`). Deve passar em 100% antes de qualquer entrega ser considerada pronta.
 - `docs/design/` — decisão de arquitetura, design system, fluxos de usuário, critérios de aceitação.
 - `docs/mapeamento/` — contrato campo a campo das duas planilhas oficiais → Supabase, classificação de empresas, importação/exportação.
