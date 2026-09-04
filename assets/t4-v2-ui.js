@@ -120,7 +120,7 @@
     const start = s.page * s.pageSize, slice = rows.slice(start, start + s.pageSize);
     let previousGroup = null;
     return `<div class="t4-grid-tools"><span><strong>${rows.length}</strong> registro${rows.length === 1 ? '' : 's'}</span><div><button type="button" class="t4-btn ghost sm" data-grid-density="${a(id)}" aria-pressed="${s.dense}">${U.icon('list')}${s.dense ? 'Confortável' : 'Compacto'}</button><details class="t4-columns-menu"><summary>${U.icon('columns')}Colunas</summary><div>${s.columns.filter((c) => c.label).map((c) => `<label><input type="checkbox" data-grid-column="${a(c.key)}" data-grid-id="${a(id)}" ${s.hidden.has(c.key) ? '' : 'checked'} ${c.required ? 'disabled' : ''}>${e(c.label)}</label>`).join('')}</div></details></div></div>
-      ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? e(c.label || '') : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
+      ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? (c.ariaLabel ? `<span class="t4-sr-only">${e(c.ariaLabel)}</span>` : e(c.label || '')) : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
         const group = s.groupBy?.(r);
         const header = group != null && group !== previousGroup ? `<tr class="t4-group-row"><th colspan="${columns.length}">${e(group)}</th></tr>` : '';
         previousGroup = group;
@@ -337,14 +337,31 @@
       catch (error) { U.toast(formatError(error), 'error', 7500); }
     });
     app.pageRoot.addEventListener('input', (event) => {
-      if (!event.target.matches('[data-multi-filter-search]')) return;
-      const key = event.target.dataset.multiFilterSearch || '';
-      const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
-      multiSearch.set(key, event.target.value);
-      app.pageRoot.querySelectorAll('[data-multi-filter-option]').forEach((option) => {
-        if (option.dataset.multiFilterOption !== key) return;
-        option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
-      });
+      if (event.target.matches('[data-multi-filter-search]')) {
+        const key = event.target.dataset.multiFilterSearch || '';
+        const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
+        multiSearch.set(key, event.target.value);
+        app.pageRoot.querySelectorAll('[data-multi-filter-option]').forEach((option) => {
+          if (option.dataset.multiFilterOption !== key) return;
+          option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
+        });
+        return;
+      }
+      // searchableSelect() (linha ~24) sempre renderizou este campo de
+      // busca junto do <select> nativo quando a lista passa de 12 opções,
+      // mas nada escutava o input — digitar não filtrava nada. O <select>
+      // continua sendo a fonte de valor/acessibilidade; só escondemos as
+      // <option> que não combinam, igual ao filtro multi-seleção acima.
+      if (event.target.matches('[data-select-search]')) {
+        const key = event.target.dataset.selectSearch || '';
+        const query = event.target.value.trim().toLocaleLowerCase('pt-BR');
+        const select = key && app.pageRoot.querySelector(`select[data-searchable-value="${CSS.escape(key)}"]`);
+        if (!select) return;
+        [...select.options].forEach((option) => {
+          if (!option.value) return;
+          option.hidden = Boolean(query) && !option.textContent.toLocaleLowerCase('pt-BR').includes(query);
+        });
+      }
     });
     app.pageRoot.addEventListener('change', (event) => {
       if (event.target.matches('[data-filter]')) change?.(event.target.dataset.filter, event.target.value);

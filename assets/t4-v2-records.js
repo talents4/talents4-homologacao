@@ -109,7 +109,7 @@
       { key: 'due_at', label: 'Prazo', render: (r) => `${e(U.formatDate(r.due_at, true))}${M.overdue(r.due_at, r.status) ? U.badge('Vencida', 'danger') : ''}` },
       { key: 'talent_id', label: 'Vínculos', render: (r) => `<div class="t4-chip-row">${r.talent_id ? W.link(talentName(state, r.talent_id), `./index.html?talent=${encodeURIComponent(r.talent_id)}`) : ''}${r.employer_id ? W.link(employerName(state, r.employer_id), `./organizacional.html?employer=${encodeURIComponent(r.employer_id)}`) : ''}${r.contact_id ? W.link('Contato', `./contatos.html?contact=${encodeURIComponent(r.contact_id)}`) : ''}</div>` },
       { key: 'owner_username', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
-      { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-activity', r.id, { className: 'sm', icon: 'check' }) : '' }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-activity', r.id, { className: 'sm', icon: 'check' }) : '' }
     ] });
   }
   function editSelection(state, row, context = {}, after) {
@@ -162,7 +162,7 @@
       { key: 'stage', label: 'Etapa', render: (r) => W.status(r.stage) },
       { key: 'next_action', label: 'Próxima ação', render: (r) => W.stack(r.next_action, M.dateOnly(r.next_action_at) ? U.formatDate(r.next_action_at) : '') },
       { key: 'owner_username', label: 'Responsável' },
-      { key: 'actions', label: '', sort: false, render: (r) => W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' }) }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' }) }
     ], pageSize: options.pageSize || 25, groupBy: options.groupBy || null });
   }
   function selectionAnalytics(state, rows, options = {}) {

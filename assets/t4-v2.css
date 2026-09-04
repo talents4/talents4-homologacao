@@ -10,7 +10,9 @@
   --t4-yellow: #fbb900;
   --t4-purple: #1e1349;
   --t4-ink: #1b2a3e;
-  --t4-muted: #64748b;
+  /* Escurecido para WCAG AA 4.5:1 (auditoria axe-core); ver mesma correção
+     em --t4-ink-soft (t4-tokens.css). */
+  --t4-muted: #4a5e73;
   --t4-muted-2: #75849b;
   --t4-line: #e2e8f0;
   --t4-line-strong: #cbd5e1;
@@ -204,7 +206,7 @@ svg { display: block; width: 100%; height: 100%; }
 .t4-company-avatar { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 11px; background: #ecf3f9; color: var(--t4-navy); }
 .t4-card-title { border: 0; padding: 0; background: none; color: var(--t4-navy); font-size: 16px; font-weight: 700; line-height: 1.4; text-align: left; }
 .t4-card-title:hover { color: #2b6994; }
-.t4-company-card > p, .t4-course-card > p { color: #6b7c90; font-size: 11px; margin-top: 10px; }
+.t4-company-card > p, .t4-course-card > p { color: var(--t4-muted); font-size: 11px; margin-top: 10px; }
 .t4-company-card .t4-card-location { font-size: 10px; margin: 4px 0 8px; }
 .t4-card-stats { display: flex; gap: 15px; margin: 12px 0 18px; }
 .t4-card-stats > span { color: var(--t4-muted); font-size: 10px; }
@@ -235,16 +237,19 @@ svg { display: block; width: 100%; height: 100%; }
 .t4-board-column.success > header { border-color: #168568; }
 .t4-board-cards { padding: 0 10px 10px; display: grid; gap: 10px; max-height: 70vh; overflow-y: auto; scrollbar-width: thin; }
 .t4-selection-card { padding: 16px 14px 10px; border: 1px solid #dce5ee; background: #fff; border-radius: 9px; box-shadow: 0 2px 3px #002a4a04; }
-.t4-card-eyebrow { font-size: 9px; color: #7a8797; margin-bottom: 7px; }
+/* Cores de texto secundário do cartão Kanban escurecidas para WCAG AA
+   4.5:1 (auditoria axe-core); .t4-selection-card footer (#65758b) já
+   passava e foi mantido. */
+.t4-card-eyebrow { font-size: 9px; color: #4a5e73; margin-bottom: 7px; }
 .t4-selection-card .t4-card-title { font-size: 13px; }
-.t4-selection-card > p { color: #6a7b8b; font-size: 10px; margin: 4px 0 12px; }
+.t4-selection-card > p { color: #4a5e73; font-size: 10px; margin: 4px 0 12px; }
 .t4-card-next { display: grid; gap: 5px; padding: 10px; margin: 13px 0 8px; background: #f7f9fc; border-radius: 6px; }
 .t4-card-next > span { display: flex; gap: 5px; font-size: 10px; color: #4b6480; }
 .t4-card-next .t4-icon { width: 13px; height: 13px; flex-basis: 13px; }
-.t4-card-next small { color: #6d8096; font-size: 9px; }
+.t4-card-next small { color: #4a5e73; font-size: 9px; }
 .t4-selection-card footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #65758b; font-size: 9px; }
 .t4-source-caption { display: block; padding-top: 8px; color: var(--t4-muted); font-size: 10px; }
-.t4-column-empty { color: #8290a2; font-size: 11px; text-align: center; padding: 28px 10px; border: 1px dashed #ccd9e5; border-radius: 8px; }
+.t4-column-empty { color: #4a5e73; font-size: 11px; text-align: center; padding: 28px 10px; border: 1px dashed #ccd9e5; border-radius: 8px; }
 .t4-shortcuts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 .t4-course-code { padding: 5px 8px; font-size: 10px; color: #765607; background: #fff4d9; border: 1px solid #f2e4bf; border-radius: 6px; font-weight: 700; }
 .t4-level-route { display: flex; align-items: center; gap: 10px; margin: 9px 0 18px; }

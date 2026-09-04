@@ -68,14 +68,14 @@
       { key: 'email', label: 'Canais', render: (r) => W.stack(r.email || r.phone, r.email ? r.phone : '') },
       { key: 'stage', label: 'Relacionamento', render: (r) => W.status(r.stage) }, { key: 'owner', label: 'Responsável' },
       { key: 'next', label: 'Próximo passo', value: (r) => nextFollowup(r)?.due_at || '', render: (r) => { const f = nextFollowup(r); return f ? W.stack(f.title, U.formatDate(f.due_at, true)) : '<span class="t4-muted">Não definido</span>'; } },
-      { key: 'actions', label: '', sort: false, render: (r) => W.button('Abrir', 'contact-detail', r.key, { className: 'sm ghost', icon: 'chevron' }) }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => W.button('Abrir', 'contact-detail', r.key, { className: 'sm ghost', icon: 'chevron' }) }
     ] });
   }
   function followupTable(rows, id = 'followups') {
     return W.table({ id, rows, columns: [
       { key: 'title', label: 'Acompanhamento', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-followup" data-id="${a(r.id)}">${e(r.title)}</button><span class="t4-cell-secondary">${e(byContact(r.contact_id)?.displayName || 'Contato não encontrado')}</span>` },
       { key: 'due_at', label: 'Prazo', render: (r) => `${e(U.formatDate(r.due_at, true))}${M.overdue(r.due_at, r.status) ? U.badge('Vencido', 'danger') : ''}` }, { key: 'assigned_username', label: 'Responsável' }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'priority', label: 'Prioridade' },
-      { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() && r.status === 'Pendente' ? W.button('Concluir', 'finish-followup', r.id, { className: 'sm', icon: 'check' }) : '' }
+      { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() && r.status === 'Pendente' ? W.button('Concluir', 'finish-followup', r.id, { className: 'sm', icon: 'check' }) : '' }
     ] });
   }
   function followupsView() {
@@ -87,7 +87,7 @@
   function categoriesView() {
     return W.table({ id: 'categories', rows: state.categories.filter((r) => match([r.name, r.slug])), columns: [
       { key: 'name', label: 'Categoria', required: true, render: (r) => U.badge(U.term(r.name), 'purple') }, { key: 'is_system', label: 'Origem', render: (r) => e(r.is_system ? 'Padrão do sistema' : 'Personalizada') }, { key: 'is_active', label: 'Situação', render: (r) => W.status(r.is_active ? 'Ativa' : 'Inativa') },
-      { key: 'count', label: 'Contatos', value: (r) => state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length, render: (r) => e(state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length) }, { key: 'actions', label: '', sort: false, render: (r) => D.canEdit() && !r.is_system ? W.button('Editar', 'edit-category', r.id, { className: 'sm', icon: 'edit' }) : '' }
+      { key: 'count', label: 'Contatos', value: (r) => state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length, render: (r) => e(state.categoryLinks.filter((l) => M.same(l.category_id, r.id)).length) }, { key: 'actions', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() && !r.is_system ? W.button('Editar', 'edit-category', r.id, { className: 'sm', icon: 'edit' }) : '' }
     ] });
   }
   function duplicatesView() {
@@ -109,7 +109,7 @@
         ${W.section('Relacionamentos', relations.length ? relations.map((r) => { const isOwn = row.contactIds.some((id) => M.same(id, r.contact_id)); const target = byContact(isOwn ? r.related_contact_id : r.contact_id); return `<div class="t4-relation-row"><div><strong>${e(target?.displayName || 'Contato não encontrado')}</strong><span>${e(isOwn ? r.relationship_label : `${r.relationship_label} · vínculo recebido`)}${r.is_primary ? ' · principal' : ''}</span><small>${e(r.notes || '')}</small></div>${target ? W.button('Abrir', 'contact-detail', target.key, { className: 'sm ghost' }) : ''}${D.canEdit() ? W.button('Remover vínculo', 'remove-relation', r.id, { className: 'ghost sm' }) : ''}</div>`; }).join('') : '<p class="t4-muted">Nenhum relacionamento registrado.</p>', D.canEdit() ? W.button('Novo vínculo', 'new-relation', row.key, { className: 'sm', icon: 'link' }) : '')}
         ${W.section('Próximos passos e histórico', followupTable(state.followups.filter((r) => relatedTo(row, r)), 'contact-followups'))}
         ${W.section('Linha do tempo', W.table({ id: 'contact-timeline', rows: interactions, columns: [
-          { key: 'occurred_at', label: 'Data', render: (r) => e(U.formatDate(r.occurred_at, true)) }, { key: 'interaction_type', label: 'Canal' }, { key: 'subject', label: 'Assunto', required: true }, { key: 'summary', label: 'Resumo', render: (r) => `<span class="t4-preserve">${e(r.summary)}</span>` }, { key: 'outcome', label: 'Resultado' }, { key: 'edit', label: '', sort: false, render: (r) => D.canEdit() ? W.button('Editar', 'edit-interaction', r.id, { className: 'ghost sm' }) : '' }
+          { key: 'occurred_at', label: 'Data', render: (r) => e(U.formatDate(r.occurred_at, true)) }, { key: 'interaction_type', label: 'Canal' }, { key: 'subject', label: 'Assunto', required: true }, { key: 'summary', label: 'Resumo', render: (r) => `<span class="t4-preserve">${e(r.summary)}</span>` }, { key: 'outcome', label: 'Resultado' }, { key: 'edit', label: '', ariaLabel: 'Ações', sort: false, render: (r) => D.canEdit() ? W.button('Editar', 'edit-interaction', r.id, { className: 'ghost sm' }) : '' }
         ] }))}
         <p class="t4-preserve">${e(contact.notes || '')}</p>${row.source === 'contact' && !row.unresolved && D.canEdit() ? `<div class="t4-chip-row">${W.button('Vincular a talento ou empregador existente', 'link-canonical', row.key, { className: 'sm', icon: 'link' })}${W.button(row.status === 'Arquivado' ? 'Reativar contato' : 'Arquivar contato', 'archive-contact', row.key, { className: 'sm', icon: 'archive' })}</div>` : ''}${R.storedFields(contact, ['id', 'display_name', 'email', 'secondary_email', 'phone', 'whatsapp', 'notes', 'country', 'city', 'address_line', 'postal_code', 'language', 'source_system', 'source_record_id'])}` });
   }
