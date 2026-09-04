@@ -273,42 +273,32 @@ test('PO operacional alterna entre atividades em cartões e lista completa', asy
   assert.ok(h.fixture.db.operational_tasks[0].completed_at);
   assert.equal((h.html().match(/data-ready-task=/g) || []).length, 0);
 });
-test('Seleções soma toda etapa real do vínculo no funil e separa abertas e contratados em cartões', async () => {
+test('Seleções usa a etapa real, mantém Não gostou no acompanhamento e reserva excluídos/removidos no histórico', async () => {
   const h = makeHarness();
-  // Uma etapa fora das duas listas fixas (nem STAGES moderno, nem as opções de
-  // status_vinculo do formulário) simula um valor legado real, como visto em
-  // produção — o funil precisa contar mesmo assim, nunca escondê-lo.
   h.fixture.db.talent_opportunity_matches.push({ ...h.fixture.db.talent_opportunity_matches[0], id: h.id(310), talent_id: 'DEMO-T1', stage: 'Contratado', status: 'Ativo', updated_at: '2026-09-03T09:00:00.000Z', next_action: null, next_action_at: null });
-  h.fixture.db.candidate_employer_matches.push({ id: h.id(313), candidato_id: 'DEMO-T5', empregador_id: h.id(102), status_vinculo: 'Aguardando retorno', elegivel: true, is_primary: true, prioridade: 2, proxima_acao: 'Confirmar retorno da empresa', observacoes: null, motivo_encaixe: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
+  h.fixture.db.candidate_employer_matches.push(
+    { id: h.id(313), candidato_id: 'DEMO-T5', empregador_id: h.id(102), status_vinculo: 'Não gostou', elegivel: true, prioridade: 2, proxima_acao: 'Registrar retorno', created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' },
+    { id: h.id(314), candidato_id: 'DEMO-T4', empregador_id: h.id(102), status_vinculo: 'Removido', prioridade: 3, proxima_acao: null, created_at: '2026-09-01T11:00:00.000Z', updated_at: '2026-09-02T10:00:00.000Z' },
+    { id: h.id(315), candidato_id: 'DEMO-T3', empregador_id: h.id(101), status_vinculo: 'Excluído', prioridade: 4, proxima_acao: null, created_at: '2026-09-01T12:00:00.000Z', updated_at: '2026-09-02T11:00:00.000Z' }
+  );
   await h.load('organization'); h.app.route('pipeline');
   const html = h.html();
 
-  // Funil: nenhuma etapa real fica de fora, incluindo a fora do enum fixo.
-  assert.match(html, /Aguardando retorno/);
-  assert.doesNotMatch(html, /Sem registros agora/);
+  assert.match(html, /Distribuição por etapa do vínculo geral/);
+  assert.match(html, /Não gostou/);
+  assert.doesNotMatch(html, /Todas as seleções em aberto/);
+  assert.doesNotMatch(html, /Contratações mais recentes/);
+  assert.match(html, /Histórico de excluídos e removidos/);
+  const historyStart = html.indexOf('Histórico de excluídos e removidos');
+  const activeHtml = html.slice(0, historyStart);
+  const historyHtml = html.slice(historyStart);
+  assert.doesNotMatch(activeHtml, /data-ready-selection=/);
+  assert.match(historyHtml, /Removido/);
+  assert.match(historyHtml, /Excluído/);
 
-  const openStart = html.indexOf('SELEÇÕES EM ABERTO'), hiredStart = html.indexOf('CONTRATADOS'), tableStart = html.indexOf('data-table="org-selection-active"');
-  assert.ok(openStart >= 0 && hiredStart > openStart && tableStart > hiredStart);
-  const openSection = html.slice(openStart, hiredStart), hiredSection = html.slice(hiredStart, tableStart), tableSection = html.slice(tableStart);
-
-  // Painel "em aberto": as 4 relações não contratadas, sem a contratação.
-  assert.equal((openSection.match(/data-ready-selection=/g) || []).length, 4);
-  assert.match(openSection, /Marina Duarte/); assert.match(openSection, /Lucas Vieira/); assert.match(openSection, /Camila Santos/); assert.match(openSection, /Sofia Almeida/);
-  // Ordem: etapas "sent" (Apresentado, Em processo, Aguardando retorno) antes de "interview" (Entrevista);
-  // dentro de "sent", quem tem próxima ação definida vem primeiro, depois ordem alfabética.
-  assert.ok(openSection.indexOf('Marina Duarte') < openSection.indexOf('Camila Santos'));
-  assert.ok(openSection.indexOf('Camila Santos') < openSection.indexOf('Sofia Almeida'));
-  assert.ok(openSection.indexOf('Sofia Almeida') < openSection.indexOf('Lucas Vieira'));
-
-  // Painel "contratados": só a nova contratação, não duplica as demais relações do mesmo Talento.
-  assert.equal((hiredSection.match(/data-ready-selection=/g) || []).length, 1);
-  assert.match(hiredSection, /Marina Duarte/);
-  assert.doesNotMatch(hiredSection, /Lucas Vieira/);
-
-  // Registro geral: reordenado por mais recente — a contratação (mais nova) aparece antes da apresentação (mais antiga).
-  assert.match(tableSection, /Aguardando retorno/);
-  assert.ok(tableSection.indexOf('Contratado') < tableSection.indexOf('Apresentado'));
-
+  const tableStart = html.indexOf('data-table="org-selection-active"');
+  const tableHtml = html.slice(tableStart, historyStart);
+  assert.ok(tableHtml.indexOf('Contratado') < tableHtml.indexOf('Apresentado'));
   assert.equal(h.fixture.writes.length, 0);
 });
 test('detalhes de empregador e vaga com histórico encerrado não chamam W.badge', async () => {
