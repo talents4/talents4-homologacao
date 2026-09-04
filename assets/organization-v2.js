@@ -15,7 +15,7 @@
     { id: 'history', label: 'Acervo anterior', subtitle: 'Consulta protegida das informações anteriores à V2.', icon: 'archive', primary: false }
   ];
   const app = U.mount({ module: 'organization', moduleLabel: 'Organizacional', views: VIEWS, defaultView: 'employers' });
-  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], poPlans: [], poMembers: [], users: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', operationsPlanId: '', meetingsMonth: M.today().slice(0, 7), selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
+  const state = { talents: [], employers: [], openings: [], selections: { rows: [], modern: false }, activities: [], plans: [], meetings: [], summaries: [], replacements: [], tasks: [], metrics: [], taskResponsibles: [], users: [], query: '', employer: '', month: '', status: '', employerScope: 'active', employerClassification: 'partner', employerDisplay: 'cards', planningFocus: 'all', planningMonth: M.today().slice(0, 7), operationsFocus: 'all', operationsMonth: M.today().slice(0, 7), operationsDisplay: 'activities', meetingsMonth: M.today().slice(0, 7), selectionDisplay: 'list', selectionScope: 'active', selectionShowClosed: false, opportunityScope: 'open', calendar: M.today().slice(0, 7), loaded: false, archive: null };
   const operationalKeys = ['plans', 'meetings', 'summaries', 'replacements', 'tasks', 'metrics'];
   const labels = { plans: 'Planejamento mensal', meetings: 'Reuniões', summaries: 'Resumos manuais', replacements: 'Reposições', tasks: 'Tarefas operacionais', metrics: 'Métricas' };
   const sources = {
@@ -25,8 +25,7 @@
     selections: { label: 'Seleções e vínculos anteriores', load: () => D.loadMatches() },
     activities: { label: 'Agenda integrada', load: () => D.loadActivities() },
     ...Object.fromEntries(operationalKeys.map((key) => [key, { label: labels[key], load: () => D.optionalAll(D.TABLES[key], '*', (q) => q.is('deleted_at', null)) }])),
-    poPlans: { label: 'P.O. individuais', load: () => D.optionalAll(D.TABLES.poPlans, '*', (q) => q.is('deleted_at', null)) },
-    poMembers: { label: 'Compartilhamento dos P.O.s', load: () => D.optionalAll(D.TABLES.poMembers, '*', (q) => q.is('deleted_at', null)) },
+    taskResponsibles: { label: 'Responsáveis das tarefas', load: () => D.optionalAll(D.TABLES.taskResponsibles, '*', (q) => q.is('deleted_at', null)) },
     users: { label: 'Usuários do sistema', load: () => D.optionalSelect(D.TABLES.users, D.SELECTS.users, (q) => q.order('nome', { ascending: true })) }
   };
   const load = W.loader(app, state, sources, render);
@@ -84,71 +83,33 @@
   const currentUsername = () => String(D.profile?.username || '').trim();
   const userRecord = (username) => state.users.find((row) => M.norm(row.username) === M.norm(username));
   const userLabel = (username) => userRecord(username)?.nome || username || 'Usuário não informado';
-  const visiblePOPlans = () => {
-    const username = currentUsername();
-    return state.poPlans.filter((plan) => M.norm(plan.owner_username) === M.norm(username)
-      || state.poMembers.some((member) => !member.deleted_at && M.same(member.plan_id, plan.id) && M.norm(member.username) === M.norm(username)));
-  };
-  const selectedPOPlan = () => {
-    const visible = visiblePOPlans();
-    return visible.find((plan) => M.same(plan.id, state.operationsPlanId))
-      || visible.find((plan) => M.norm(plan.owner_username) === M.norm(currentUsername()))
-      || visible[0] || null;
-  };
-  const canManagePOPlan = (plan) => !!plan && (D.canAdmin() || M.norm(plan.owner_username) === M.norm(currentUsername()));
-  function poScopeBar() {
-    if (!available('poPlans')) return W.note('P.O. individual ainda não está disponível neste ambiente. Aplique a migração de colaboração da homologação para criar um P.O. por usuário sem misturar tarefas.', 'warning');
-    const plans = visiblePOPlans(), selected = selectedPOPlan();
-    if (selected && !M.same(state.operationsPlanId, selected.id)) state.operationsPlanId = selected.id;
-    const members = selected ? state.poMembers.filter((member) => !member.deleted_at && M.same(member.plan_id, selected.id)) : [];
-    const memberCopy = members.length ? members.map((member) => userLabel(member.username)).join(', ') : 'somente o proprietário';
-    return `<section class="org-po-scope"><div class="org-po-scope-copy"><span class="org-panel-kicker">P.O. INDIVIDUAL</span><h2>${e(selected ? selected.title || `P.O. de ${userLabel(selected.owner_username)}` : 'Nenhum P.O. selecionado')}</h2><p>${e(selected ? `Proprietário: ${userLabel(selected.owner_username)} · compartilhado com: ${memberCopy}.` : 'Crie um P.O. para você ou para outro usuário. O acesso permanece privado até alguém ser vinculado.')}</p></div><div class="org-po-scope-actions">${plans.length ? W.chips(plans.map((plan) => ({ id: String(plan.id), label: userLabel(plan.owner_username), count: null, icon: M.norm(plan.owner_username) === M.norm(currentUsername()) ? 'user' : 'people' })), selected?.id ? String(selected.id) : '', 'po-plan') : U.emptyState('Nenhum P.O. disponível', 'Crie o primeiro P.O. individual para começar.')}${D.canEdit() ? W.button('Novo P.O.', 'new-po', '', { className: 'primary sm', icon: 'plus' }) : ''}${selected && canManagePOPlan(selected) ? W.button('Compartilhar', 'share-po', selected.id, { className: 'ghost sm', icon: 'people' }) : ''}</div></section>`;
-  }
   function activeUsers() {
     return state.users.filter((row) => M.active(row.ativo) && row.username).sort((left, right) => userLabel(left.username).localeCompare(userLabel(right.username), 'pt-BR'));
   }
-  function editOperationalPlan() {
-    if (!D.canEdit() || !available('poPlans')) return U.toast('A migração de P.O. individual ainda não foi aplicada neste ambiente.', 'warning');
-    const users = activeUsers();
-    if (!users.length) return U.toast('Nenhum usuário ativo foi encontrado para criar o P.O.', 'warning');
-    return W.form({ title: 'Criar P.O. individual', subtitle: 'Um P.O. por usuário, privado até ser compartilhado.', row: { owner_username: currentUsername(), observer_username: currentUsername(), title: '' }, fields: [
-      { name: 'owner_username', label: 'Proprietário', type: 'select', options: users.map((row) => ({ value: row.username, label: userLabel(row.username) })), required: true, searchable: true },
-      { name: 'title', label: 'Nome do P.O.', placeholder: 'Ex.: P.O. da Sara' },
-      { name: 'observer_username', label: 'Vincular observador agora', type: 'select', options: [{ value: '', label: 'Não vincular agora' }, ...users.map((row) => ({ value: row.username, label: userLabel(row.username) }))], searchable: true }
-    ], onSubmit: async (values) => {
-      const existing = state.poPlans.find((plan) => M.norm(plan.owner_username) === M.norm(values.owner_username));
-      if (existing) throw new Error(`Este usuário já possui um P.O.: ${existing.title || 'P.O. sem título'}. Abra-o e use Compartilhar.`);
-      const plan = { id: D.uuid(), owner_username: values.owner_username, title: values.title || `P.O. de ${userLabel(values.owner_username)}`, deleted_at: null };
-      // A criação em nome de outra pessoa pode não retornar pela policy de
-      // leitura antes do vínculo do observador. O ID já é conhecido; gravar
-      // sem SELECT evita perder o P.O. entre as duas operações.
-      await D.insert(D.TABLES.poPlans, plan, { select: false });
-      const observer = values.observer_username;
-      if (observer && M.norm(observer) !== M.norm(values.owner_username)) await D.upsert(D.TABLES.poMembers, { id: D.uuid(), plan_id: plan.id, username: observer, permission: 'viewer', deleted_at: null }, { onConflict: 'plan_id,username' });
-      U.toast('P.O. individual criado. O acesso ficou restrito ao proprietário e aos usuários vinculados.', 'success');
-      await load();
-    } });
-  }
-  function shareOperationalPlan(id) {
-    const plan = state.poPlans.find((row) => M.same(row.id, id));
-    if (!canManagePOPlan(plan) || !available('poMembers')) return U.toast('Somente o proprietário ou administrador pode compartilhar este P.O.', 'warning');
-    const users = activeUsers().filter((row) => M.norm(row.username) !== M.norm(plan.owner_username));
-    const existing = state.poMembers.find((member) => M.same(member.plan_id, plan.id) && !member.deleted_at);
-    return W.form({ title: `Compartilhar ${plan.title || 'P.O.'}`, subtitle: `Proprietário: ${userLabel(plan.owner_username)}. O restante da equipe não verá este P.O.`, row: { username: existing?.username || currentUsername(), permission: existing?.permission || 'viewer' }, fields: [
-      { name: 'username', label: 'Usuário vinculado', type: 'select', options: users.map((row) => ({ value: row.username, label: userLabel(row.username) })), required: true, searchable: true },
-      { name: 'permission', label: 'Permissão', type: 'select', options: [{ value: 'viewer', label: 'Observador · acompanha sem editar' }, { value: 'editor', label: 'Editor · pode registrar tarefas' }], required: true, placeholder: null }
-    ], onSubmit: async (values) => {
-      const sameMember = state.poMembers.find((member) => M.same(member.plan_id, plan.id) && M.norm(member.username) === M.norm(values.username));
-      await D.upsert(D.TABLES.poMembers, { id: sameMember?.id || D.uuid(), plan_id: plan.id, username: values.username, permission: values.permission, deleted_at: null }, { onConflict: 'plan_id,username' });
-      U.toast(`${userLabel(values.username)} agora acompanha este P.O.`, 'success');
-      await load();
-    } });
-  }
+  const taskResponsiblesFor = (rowOrId) => {
+    const taskId = typeof rowOrId === 'object' ? rowOrId?.id : rowOrId;
+    return state.taskResponsibles.filter((item) => M.same(item.task_id, taskId) && !item.deleted_at);
+  };
+  const taskOwnerMatches = (row, username = currentUsername()) => {
+    const owner = row?.owner_user_key || row?.assigned_user_key;
+    const profile = userRecord(username);
+    return [username, profile?.username, profile?.nome].filter(Boolean).some((candidate) => M.norm(owner) === M.norm(candidate));
+  };
+  const taskVisible = (row) => {
+    // The database remains the authority when the additive association table
+    // has not been applied yet. The demo fixture also has no association
+    // source, so its sample task must remain visible for UI tests.
+    if (state.sources?.taskResponsibles?.available !== true) return true;
+    return taskOwnerMatches(row) || taskResponsiblesFor(row).some((item) => taskOwnerMatches({ owner_user_key: item.username }));
+  };
+  const responsibleUsernames = (row) => [...new Set([row?.owner_user_key || row?.assigned_user_key, ...taskResponsiblesFor(row).map((item) => item.username)].filter(Boolean))];
+  const responsibleLabels = (row) => responsibleUsernames(row).map(userLabel).join(', ');
+  const taskResponsibleOptions = (primary) => activeUsers().filter((item) => M.norm(item.username) !== M.norm(primary)).map((item) => ({ value: item.username, label: userLabel(item.username) }));
   function events() {
     return [
       ...state.plans.map((r) => ({ ...r, title: r.activity_label, due: r.end_date || r.start_date, start: r.start_date, owner: r.responsavel, type: 'Planejamento', action: 'edit-plan', detail: r.obs })),
       ...state.meetings.map((r) => ({ ...r, title: r.topic || r.title, due: r.scheduled_at, owner: r.owner_name, type: 'Reunião', action: 'meeting-detail', detail: r.decision_summary, next: r.next_action })),
-      ...state.tasks.map((r) => ({ ...r, due: r.due_date, owner: r.owner_user_key || r.assigned_user_key, type: 'PO operacional', action: 'edit-task', detail: r.description, next: r.notes })),
+      ...state.tasks.filter(taskVisible).map((r) => ({ ...r, due: r.due_date, owner: responsibleLabels(r), type: 'PO operacional', action: 'edit-task', detail: r.description, next: r.notes })),
       ...state.activities.map((r) => ({ ...r, due: r.due_at, owner: r.owner_username, type: r.contact_followup_id ? 'Contatos' : 'Agenda integrada', action: 'edit-activity', detail: r.notes, next: r.outcome }))
     ].sort((x, y) => String(x.due || '9999').localeCompare(String(y.due || '9999')));
   }
@@ -164,7 +125,7 @@
   }
   function render() {
     if (!state.loaded) return;
-    app.setCounts({ employers: state.employers.filter((r) => M.activeRecord(r)).length, pipeline: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length, meetings: state.meetings.length, operations: state.tasks.filter((r) => M.isOpen(r.status)).length });
+    app.setCounts({ employers: state.employers.filter((r) => M.activeRecord(r)).length, pipeline: state.selections.rows.filter((r) => M.selectionBucket(r) !== 'closed').length, meetings: state.meetings.length, operations: state.tasks.filter((r) => taskVisible(r) && M.isOpen(r.status)).length });
     app.setSearchHandler((q) => { state.query = q; render(); }, 'Buscar nesta área…');
     const primary = { overview: ['Nova atividade', () => R.editActivity(state, null, {}, load), 'activities'], employers: ['Novo empregador', () => editEmployer(), 'employers'], opportunities: ['Nova vaga', () => editOpening(), 'openings'], pipeline: ['Nova seleção', () => R.editSelection(state, null, {}, load), 'selections'], planning: ['Nova atividade mensal', () => editPlan(), 'plans'], calendar: ['Nova reunião', () => editMeeting(), 'meetings'], meetings: ['Nova reunião', () => editMeeting(), 'meetings'], operations: ['Nova tarefa', () => editTask(), 'tasks'], summary: ['Adicionar resumo', () => editSummary(), 'summaries'] }[app.view];
     app.setPrimaryAction(primary?.[0], primary && can(primary[2]) ? primary[1] : null);
@@ -322,12 +283,7 @@
   function operationsView() {
     const today = M.today(), currentMonth = periodKey(today), selectedMonth = state.operationsMonth || currentMonth;
     const inMonth = (r, month) => { const explicit = periodKey(r.month_ref); return explicit ? explicit === month : rowPeriodKeys(r).includes(month); };
-    const selectedPlan = selectedPOPlan();
-    const planMatches = (row) => {
-      if (!selectedPlan) return M.norm(row.owner_user_key || row.assigned_user_key) === M.norm(currentUsername()) || M.norm(row.owner_user_key || row.assigned_user_key) === M.norm(D.profile?.nome);
-      return M.same(row.plan_id, selectedPlan.id) || (!row.plan_id && [selectedPlan.owner_username, userLabel(selectedPlan.owner_username)].some((value) => M.norm(value) === M.norm(row.owner_user_key || row.assigned_user_key)));
-    };
-    const scopedTasks = state.tasks.filter((r) => planMatches(r) && scoped(r) && matchQuery(r));
+    const scopedTasks = state.tasks.filter((r) => taskVisible(r) && scoped(r) && matchQuery(r));
     const monthTasks = scopedTasks.filter((r) => inMonth(r, selectedMonth));
     const allTasks = monthTasks.filter((r) => values(state.status).length ? matches(r.status, state.status) : true);
     const priorityRank = { critica: 0, alta: 1, media: 2, normal: 2, baixa: 3 };
@@ -362,21 +318,21 @@
     const taskCount = (bucket) => ({ overdue, today: todayCount, high, unassigned }[bucket] ?? 0);
     const display = ['activities', 'all'].includes(state.operationsDisplay) ? state.operationsDisplay : 'activities';
     const focusBar = `<div class="org-focus-bar org-operations-focus-bar"><div class="org-focus-group"><span class="org-focus-label">Mostrar</span>${W.chips([{ id: 'activities', label: 'Atividades', count: open, icon: 'activity' }, { id: 'all', label: 'Todos', count: allTasks.length, icon: 'list' }], display, 'operations-display')}</div><div class="org-focus-group"><span class="org-focus-label">Filtrar</span>${W.chips([{ id: 'all', label: 'Todas', count: allTasks.length, icon: 'list' }, { id: 'overdue', label: 'Vencidas', count: taskCount('overdue'), icon: 'warning' }, { id: 'today', label: 'Para hoje', count: taskCount('today'), icon: 'calendar' }, { id: 'high', label: 'Alta prioridade', count: taskCount('high'), icon: 'activity' }, { id: 'unassigned', label: 'Sem responsável', count: taskCount('unassigned'), icon: 'people' }], focus, 'operations-focus')}</div></div>`;
-    const taskCard = (r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${isOverdue(r) ? 'is-overdue' : ''} ${priorityClass(r)}" data-ready-task="${a(r.id)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : M.norm(r.priority) === 'media' ? 'warning' : '')}<span class="org-ready-card-deadline ${deadlineClass(r)}">${U.icon('calendar')}${e(deadlineLabel(r))}</span></div><h3><button type="button" class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), r.owner_user_key || r.assigned_user_key || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.description || r.notes || 'Sem descrição registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div></footer></article>`;
+    const taskCard = (r, index) => `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${isOverdue(r) ? 'is-overdue' : ''} ${priorityClass(r)}" data-ready-task="${a(r.id)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : M.norm(r.priority) === 'media' ? 'warning' : '')}<span class="org-ready-card-deadline ${deadlineClass(r)}">${U.icon('calendar')}${e(deadlineLabel(r))}</span></div><h3><button type="button" class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button></h3><p class="org-ready-card-context">${e([employerOf(r), responsibleLabels(r) || 'sem responsável'].join(' · '))}</p><p class="org-ready-card-description">${e(r.description || r.notes || 'Sem descrição registrada.')}</p><footer class="org-ready-card-footer"><span>${W.status(r.status || 'Sem status')}</span><div>${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div></footer></article>`;
     const readyCards = readyTasks.map(taskCard).join('');
     const openCards = allOpenTasks.map(taskCard).join('');
     const readyBody = readyCards || U.emptyState('Nenhuma tarefa em aberto', focus === 'all' ? 'O histórico completo fica abaixo.' : 'Remova o recorte para conferir as demais tarefas abertas.');
     const taskActions = (r) => `<div class="t4-chip-row">${D.canEdit() && M.isOpen(r.status) ? W.button('Concluir', 'finish-task', r.id, { className: 'sm', icon: 'check' }) : ''}${actions(r, 'task')}</div>`;
     const taskTable = W.table({ id: 'tasks', rows: tasks, columns: [
       { key: 'title', label: 'Tarefa / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-3">${e(r.description || r.notes || 'Sem descrição ou resultado registrado.')}</span>` },
-      { key: 'due_date', label: 'Prazo', render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : dueOf(r) === today && M.isOpen(r.status) ? U.badge('Hoje', 'warning') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(M.norm(r.priority)) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', ariaLabel: 'Ações', sort: false, render: taskActions }
+      { key: 'due_date', label: 'Prazo', render: (r) => `${e(dueOf(r) ? U.formatDate(dueOf(r)) : 'Sem prazo')}${M.overdue(dueOf(r), r.status) ? U.badge('Vencida', 'danger') : dueOf(r) === today && M.isOpen(r.status) ? U.badge('Hoje', 'warning') : ''}` }, { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', /alta|crit/i.test(M.norm(r.priority)) ? 'danger' : '') }, { key: 'status', label: 'Situação', render: (r) => W.status(r.status) }, { key: 'owner_user_key', label: 'Responsáveis', render: (r) => e(responsibleLabels(r) || 'Sem responsável') }, { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) }, { key: 'edit', label: '', ariaLabel: 'Ações', sort: false, render: taskActions }
     ] });
     const historyTable = W.table({ id: 'operations-history', rows: historyRows, pageSize: 20, empty: 'Nenhuma atividade registrada neste histórico.', columns: [
       { key: 'title', label: 'Atividade / entrega', required: true, render: (r) => `<button class="t4-row-link" data-action="edit-task" data-id="${a(r.id)}">${e(r.title || 'Tarefa sem título')}</button><span class="t4-cell-secondary t4-clamp-2">${e(r.description || r.notes || 'Sem descrição registrada.')}</span>` },
       { key: 'history_date', label: 'Mais recente em', value: historyDateOf, render: (r) => e(historyDateOf(r) ? U.formatDate(historyDateOf(r)) : 'Data não registrada') },
       { key: 'priority', label: 'Prioridade', render: (r) => U.badge(r.priority || 'Normal', isHigh(r) ? 'danger' : M.norm(r.priority) === 'media' ? 'warning' : '') },
       { key: 'status', label: 'Situação', render: (r) => W.status(r.status) },
-      { key: 'owner_user_key', label: 'Responsável', render: (r) => e(r.owner_user_key || r.assigned_user_key || 'Sem responsável') },
+      { key: 'owner_user_key', label: 'Responsáveis', render: (r) => e(responsibleLabels(r) || 'Sem responsável') },
       { key: 'context_type', label: 'Empregador / escopo', render: (r) => W.stack(employerOf(r), r.team_scope) },
       { key: 'notes', label: 'Resultado / observação', render: (r) => `<span class="t4-clamp-3">${e(r.notes || r.description || '—')}</span>` },
       { key: 'edit', label: '', ariaLabel: 'Ações', sort: false, render: (r) => actions(r, 'task') }
@@ -388,7 +344,7 @@
     const listPanel = `<section class="t4-panel org-all-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONSULTAR HISTÓRICO</span><h2>${listTitle}</h2><p>${e(listSubtitle)}</p></div><strong class="org-panel-count">${tasks.length} registros</strong></div><div class="t4-panel-body">${taskTable}</div></section>`;
     const surface = display === 'activities' ? `${readyPanel}${openPanel}` : listPanel;
     const historyPanel = `<section class="t4-panel org-history-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">HISTÓRICO COMPLETO</span><h2>Histórico completo</h2><p>Todas as atividades deste recorte, sem limitar ao período acima: abertas primeiro; depois, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${historyRows.length} registro${historyRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body">${historyTable}</div></section>`;
-    return `<div class="org-workspace org-operations-view">${poScopeBar()}${operationsMonthStepper()}${focusBar}${toolbar(allTasks, { noMonth: true })}${surface}${historyPanel}</div>`;
+    return `<div class="org-workspace org-operations-view">${operationsMonthStepper()}${focusBar}${toolbar(allTasks, { noMonth: true })}${surface}${historyPanel}</div>`;
   }
   function summaryView() {
     const manual = state.summaries.map((r) => ({ ...r, title: r.what_was_done, detail: r.result_summary, next: r.next_action, due: r.period_end, owner: r.owner_name, type: 'Resumo manual', action: 'edit-summary' }));
@@ -652,21 +608,76 @@
       ...R.fields([['topic', 'Pauta', 'textarea'], ['decision_summary', 'O que foi decidido', 'textarea'], ['resolved_items', 'Itens resolvidos', 'textarea'], ['pending_items', 'Pendências', 'textarea'], ['next_action', 'Próxima ação', 'textarea'], ['notes', 'Observações', 'textarea']])
     ], prepare(v, c) { snapshotEmployer(v, c, row); if (!row || 'employer_id' in c) { v.meeting_scope = v.employer_id ? 'employer' : 'internal'; v.group_name = v.employer_id ? null : 'Talents 4'; if (row) Object.assign(c, { meeting_scope: v.meeting_scope, group_name: v.group_name }); } if (!row) v.deleted_at = null; }, after: load });
   }
+  async function syncTaskResponsibles(taskId, usernames, primaryUsername, currentRows = taskResponsiblesFor(taskId)) {
+    const primary = String(primaryUsername || '').trim();
+    const desired = [...new Set((Array.isArray(usernames) ? usernames : []).map((value) => String(value || '').trim()).filter((value) => value && M.norm(value) !== M.norm(primary)))];
+    const current = [...currentRows];
+    const removed = current.filter((item) => !desired.some((username) => M.norm(username) === M.norm(item.username)));
+    const added = desired.filter((username) => !current.some((item) => M.norm(username) === M.norm(item.username)));
+    if ((removed.length || added.length) && !available('taskResponsibles')) throw new Error('A tabela de responsáveis das tarefas ainda não está disponível. Aplique a migração 52 no Supabase antes de compartilhar uma tarefa.');
+    await Promise.all(removed.map((item) => D.update(D.TABLES.taskResponsibles, item.id, { deleted_at: new Date().toISOString() }, { select: false })));
+    const addedRows = [];
+    for (const username of added) {
+      const draft = { id: D.uuid(), task_id: String(taskId), username, deleted_at: null };
+      const result = await D.upsert(D.TABLES.taskResponsibles, draft, { onConflict: 'task_id,username' });
+      const saved = Array.isArray(result) ? result[0] : result;
+      addedRows.push({ ...draft, ...(saved || {}), task_id: String(taskId), username, deleted_at: null });
+    }
+    return [...current.filter((item) => !removed.includes(item)), ...addedRows];
+  }
   function editTask(row, context = {}) {
     if (!D.canEdit()) return readonlyDetail(row, 'Tarefa operacional');
-    const plan = selectedPOPlan();
-    const taskRow = row || { ...context, plan_id: plan?.id || null, employer_id: context.employer_id || firstValue(state.employer), month_ref: state.operationsMonth || M.today().slice(0, 7), status: 'A fazer', priority: 'Média', team_scope: 'private', owner_user_key: context.owner_user_key || plan?.owner_username || D.profile.username };
-    const planField = available('poPlans') ? [{ name: 'plan_id', label: 'P.O. individual', type: 'select', options: visiblePOPlans().map((item) => ({ value: item.id, label: `${item.title || 'P.O.'} · ${userLabel(item.owner_username)}` })), required: true, searchable: true }] : [];
-    const ownerField = { name: 'owner_user_key', label: 'Responsável', type: 'select', options: activeUsers().map((item) => ({ value: item.username, label: userLabel(item.username) })), searchable: true };
-    return W.recordForm({ title: row ? 'Editar tarefa' : 'Nova tarefa operacional', table: D.TABLES.tasks, row: taskRow, fields: [
-      { name: 'title', label: 'Tarefa', required: true, wide: true }, { name: 'description', label: 'Descrição', type: 'textarea', wide: true }, ...employerFields(), ...planField, { name: 'month_ref', label: 'Mês', type: 'month' }, ownerField, { name: 'team_scope', label: 'Escopo da equipe', default: 'private' }, { name: 'priority', label: 'Prioridade', type: 'select', options: ['Baixa', 'Média', 'Alta', 'Crítica'], required: true, placeholder: null }, { name: 'status', label: 'Situação', type: 'select', options: ['A fazer', 'Em andamento', 'Bloqueado', 'Pronto', 'Cancelado'], required: true, placeholder: null }, { name: 'start_date', label: 'Início', type: 'date' }, { name: 'due_date', label: 'Prazo', type: 'date' }, { name: 'notes', label: 'Observações / resultado', type: 'textarea', wide: true }
-    ], prepare(v, c) {
+    const users = activeUsers();
+    const contextOwner = users.find((item) => [item.username, item.nome].some((value) => M.norm(value) === M.norm(context.owner_user_key)))?.username || context.owner_user_key;
+    const primary = row?.owner_user_key || row?.assigned_user_key || contextOwner || currentUsername() || D.profile.nome;
+    const initialAdditional = row ? taskResponsiblesFor(row).map((item) => item.username) : [];
+    let selectedAdditional = initialAdditional;
+    let requestedPrimary = primary;
+    let stagedRows = row ? taskResponsiblesFor(row) : [];
+    const taskRow = row ? { ...row, responsible_usernames: initialAdditional } : { ...context, employer_id: context.employer_id || firstValue(state.employer), month_ref: state.operationsMonth || M.today().slice(0, 7), status: 'A fazer', priority: 'Média', team_scope: 'private', owner_user_key: primary, assigned_user_key: primary, responsible_usernames: [] };
+    const ownerField = { name: 'owner_user_key', label: 'Responsável principal', type: 'select', options: users.map((item) => ({ value: item.username, label: userLabel(item.username) })), required: true, searchable: true };
+    const responsibleField = { name: 'responsible_usernames', label: 'Outros responsáveis', type: 'multi-select', options: taskResponsibleOptions(primary), wide: true, help: 'A tarefa fica visível para o responsável principal e para todos os usuários marcados aqui.' };
+    return W.recordForm({ title: row ? 'Editar tarefa' : 'Nova tarefa operacional', subtitle: 'P.O. é a fila de tarefas. Cada tarefa é privada por padrão e pode ser compartilhada com outros responsáveis.', table: D.TABLES.tasks, row: taskRow, fields: [
+      { name: 'title', label: 'Tarefa', required: true, wide: true }, { name: 'description', label: 'Descrição', type: 'textarea', wide: true }, ...employerFields(), { name: 'month_ref', label: 'Mês' , type: 'month' }, ownerField, responsibleField, { name: 'team_scope', label: 'Escopo da equipe', default: 'private' }, { name: 'priority', label: 'Prioridade', type: 'select', options: ['Baixa', 'Média', 'Alta', 'Crítica'], required: true, placeholder: null }, { name: 'status', label: 'Situação', type: 'select', options: ['A fazer', 'Em andamento', 'Bloqueado', 'Pronto', 'Cancelado'], required: true, placeholder: null }, { name: 'start_date', label: 'Início', type: 'date' }, { name: 'due_date', label: 'Prazo', type: 'date' }, { name: 'notes', label: 'Observações / resultado', type: 'textarea', wide: true }
+    ], async prepare(v, c) {
       if (v.start_date && v.due_date && v.due_date < v.start_date) throw new Error('O prazo não pode ser anterior ao início.');
-      if (!row) Object.assign(v, { context_type: context.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal', assigned_user_key: v.owner_user_key, completed_at: v.status === 'Pronto' ? new Date().toISOString() : null, sort_index: 0, is_recurring: false, deleted_at: null, meeting_id: context.meeting_id || null, plan_id: v.plan_id || plan?.id || null });
+      selectedAdditional = Array.isArray(v.responsible_usernames) ? v.responsible_usernames : [];
+      if (selectedAdditional.length && !available('taskResponsibles')) throw new Error('A tabela de responsáveis das tarefas ainda não está disponível. Aplique a migração 52 no Supabase antes de compartilhar uma tarefa.');
+      delete v.responsible_usernames;
+      delete c.responsible_usernames;
+      requestedPrimary = v.owner_user_key || currentUsername();
+      if (!row) {
+        // O primeiro INSERT precisa ser visível para quem abriu a tarefa para
+        // que o segundo passo possa gravar os responsáveis. Se a tarefa foi
+        // criada para outra pessoa, ela começa temporariamente com o criador;
+        // o after() troca o responsável principal depois de criar os vínculos.
+        const creator = currentUsername();
+        if (M.norm(requestedPrimary) !== M.norm(creator)) Object.assign(v, { owner_user_key: creator, assigned_user_key: creator });
+        else v.assigned_user_key = v.owner_user_key;
+        Object.assign(v, { context_type: context.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal', completed_at: v.status === 'Pronto' ? new Date().toISOString() : null, sort_index: 0, is_recurring: false, deleted_at: null, meeting_id: context.meeting_id || null });
+      } else if (taskOwnerMatches(row) && M.norm(requestedPrimary) !== M.norm(currentUsername()) && !stagedRows.some((item) => M.norm(item.username) === M.norm(currentUsername()))) {
+        if (!available('taskResponsibles')) throw new Error('A tabela de responsáveis das tarefas ainda não está disponível. Aplique a migração 52 no Supabase antes de transferir uma tarefa.');
+        const id = D.uuid();
+        const result = await D.upsert(D.TABLES.taskResponsibles, { id, task_id: String(row.id), username: currentUsername(), deleted_at: null }, { onConflict: 'task_id,username' });
+        const saved = Array.isArray(result) ? result[0] : result;
+        stagedRows = [...stagedRows, { id, task_id: String(row.id), username: currentUsername(), deleted_at: null, ...(saved || {}) }];
+      }
       if (row && 'employer_id' in c) c.context_type = row.meeting_id ? 'meeting' : v.employer_id ? 'employer' : 'internal';
       if ('owner_user_key' in c) c.assigned_user_key = v.owner_user_key;
       if ('status' in c && (!row || Object.prototype.hasOwnProperty.call(row, 'completed_at'))) c.completed_at = v.status === 'Pronto' ? new Date().toISOString() : null;
-    }, after: load });
+    }, after: async (saved) => {
+      const taskId = saved?.id || row?.id || taskRow.id;
+      const creator = currentUsername();
+      if (!row && M.norm(requestedPrimary) !== M.norm(creator)) {
+        let activeRows = await syncTaskResponsibles(taskId, [...selectedAdditional, requestedPrimary, creator], '', stagedRows);
+        activeRows = await syncTaskResponsibles(taskId, [...selectedAdditional, creator], '', activeRows);
+        await D.update(D.TABLES.tasks, taskId, { owner_user_key: requestedPrimary, assigned_user_key: requestedPrimary }, { select: false });
+        await syncTaskResponsibles(taskId, selectedAdditional, requestedPrimary, activeRows);
+      } else {
+        await syncTaskResponsibles(taskId, selectedAdditional, requestedPrimary || saved?.owner_user_key || taskRow.owner_user_key || creator, stagedRows);
+      }
+      await load();
+    } });
   }
   async function finishTask(row) {
     if (!row || !D.canEdit() || !M.isOpen(row.status)) return;
@@ -715,9 +726,6 @@
     if (name === 'reload') return D.session ? load() : location.reload();
     if (name === 'go') { U.closeDrawer(); state.status = []; app.route(id); return; }
     if (name === 'v24-view') { U.closeDrawer(); state.status = []; state.employer = []; app.route(id); return; }
-    if (name === 'po-plan') { state.operationsPlanId = id; state.operationsFocus = 'all'; render(); return; }
-    if (name === 'new-po') return editOperationalPlan();
-    if (name === 'share-po') return shareOperationalPlan(id);
     if (name === 'display') { state.employerDisplay = id; render(); return; }
     if (name === 'employer-display') { state.employerDisplay = ['cards', 'list'].includes(id) ? id : 'list'; render(); return; }
     if (name === 'planning-focus') { state.planningFocus = ['all', 'overdue', 'next', 'scheduled', 'no-date'].includes(id) ? id : 'all'; render(); return; }
@@ -732,7 +740,7 @@
     if (name === 'selection-scope') { state.selectionScope = ['active', 'all', 'closed'].includes(id) ? id : 'active'; state.status = []; render(); return; }
     if (name === 'selection-archive') { state.selectionShowClosed = !state.selectionShowClosed; render(); return; }
     if (name === 'go-employer') { state.employer = id === 'internal' ? '' : id; app.route('employers'); return; }
-    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.operationsPlanId = ''; state.meetingsMonth = M.today().slice(0, 7); state.selectionScope = 'active'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
+    if (name === 'clear') { state.employer = []; state.month = []; state.status = []; state.query = ''; state.planningFocus = 'all'; state.planningMonth = M.today().slice(0, 7); state.operationsFocus = 'all'; state.operationsMonth = M.today().slice(0, 7); state.operationsDisplay = 'activities'; state.meetingsMonth = M.today().slice(0, 7); state.selectionScope = 'active'; state.selectionShowClosed = false; app.resetSearch(); render(); return; }
     if (name === 'planning-month-prev' || name === 'planning-month-next' || name === 'planning-month-today' || name === 'operations-month-prev' || name === 'operations-month-next' || name === 'operations-month-today' || name === 'meetings-month-prev' || name === 'meetings-month-next' || name === 'meetings-month-today') {
       const key = name.startsWith('planning-') ? 'planningMonth' : name.startsWith('operations-') ? 'operationsMonth' : 'meetingsMonth', current = M.today().slice(0, 7);
       state[key] = name.endsWith('-today') ? current : shiftMonth(state[key] || current, name.endsWith('-prev') ? -1 : 1);
@@ -772,5 +780,5 @@
     await load();
     const id = new URLSearchParams(location.search).get('employer');
     if (id && !state.openedInitial) { state.openedInitial = true; employerDetail(W.find(state.employers, id)); }
-  }, [...Object.keys(sources).flatMap((key) => key === 'selections' ? [D.TABLES.matches, D.TABLES.legacyMatches, D.TABLES.legacyLinks] : [D.TABLES[key] || (key === 'talents' ? D.TABLES.candidates : '')]), D.TABLES.contacts, D.TABLES.poPlans, D.TABLES.poMembers]);
+  }, [...Object.keys(sources).flatMap((key) => key === 'selections' ? [D.TABLES.matches, D.TABLES.legacyMatches, D.TABLES.legacyLinks] : [D.TABLES[key] || (key === 'talents' ? D.TABLES.candidates : '')]), D.TABLES.contacts, D.TABLES.taskResponsibles]);
 })();

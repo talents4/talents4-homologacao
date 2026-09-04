@@ -66,14 +66,13 @@
   }
 
   async function poOpenTasks() {
-    const [tasks, plans, members] = await Promise.all([
-      D.optionalSelect(D.TABLES.tasks, 'id,title,status,due_date,owner_user_key,assigned_user_key,plan_id,deleted_at', (query) => query.is('deleted_at', null).order('due_date', { ascending: true }).limit(100)),
-      D.optionalSelect(D.TABLES.poPlans, 'id,owner_username,title,deleted_at', (query) => query.is('deleted_at', null)),
-      D.optionalSelect(D.TABLES.poMembers, 'plan_id,username,deleted_at', (query) => query.eq('username', currentUser()).is('deleted_at', null))
+    const [tasks, responsibilities] = await Promise.all([
+      D.optionalSelect(D.TABLES.tasks, 'id,title,status,due_date,owner_user_key,assigned_user_key,deleted_at', (query) => query.is('deleted_at', null).order('due_date', { ascending: true }).limit(100)),
+      D.optionalSelect(D.TABLES.taskResponsibles, 'task_id,username,deleted_at', (query) => query.eq('username', currentUser()).is('deleted_at', null))
     ]);
-    if (!tasks.available || !plans.available || !members.available) return [];
-    const allowedPlans = new Set(plans.data.filter((row) => norm(row.owner_username) === norm(currentUser()) || members.data.some((member) => String(member.plan_id) === String(row.id))).map((row) => String(row.id)));
-    return tasks.data.filter((row) => active(row.status) && (allowedPlans.has(String(row.plan_id)) || norm(row.owner_user_key || row.assigned_user_key) === norm(currentUser())));
+    if (!tasks.available) return [];
+    const assigned = new Set((responsibilities.data || []).filter((row) => !row.deleted_at).map((row) => String(row.task_id)));
+    return tasks.data.filter((row) => active(row.status) && (assigned.has(String(row.id)) || norm(row.owner_user_key || row.assigned_user_key) === norm(currentUser())));
   }
 
   function reminderLockAvailable() {
@@ -168,8 +167,20 @@
     const participants = [...form.querySelectorAll('input[name="participant"]:checked')].map((input) => input.value);
     if (!title) return;
     const id = D.uuid();
-    await D.insert(D.TABLES.chatConversations, { id, title, created_by: currentUser(), updated_at: new Date().toISOString(), deleted_at: null });
-    await D.insert(D.TABLES.chatParticipants, [...new Set([currentUser(), ...participants])].map((username) => ({ id: D.uuid(), conversation_id: id, username, role: username === currentUser() ? 'owner' : 'member', deleted_at: null })), { single: false });
+    const conversation = { id, title, created_by: currentUser(), updated_at: new Date().toISOString(), deleted_at: null };
+    try {
+      // A conversa ainda não possui participante no momento da criação.
+      // Usar RETURNING aqui faz a policy de SELECT avaliar uma linha que
+      // ainda não é visível para o criador e transforma uma inclusão válida
+      // em erro 42501/PGRST116.
+      await D.insert(D.TABLES.chatConversations, conversation, { select: false });
+      await D.insert(D.TABLES.chatParticipants, [...new Set([currentUser(), ...participants])].map((username) => ({ id: D.uuid(), conversation_id: id, username, role: username === currentUser() ? 'owner' : 'member', deleted_at: null })), { single: false, select: false });
+    } catch (error) {
+      // Se a segunda operação falhar, não deixe uma conversa sem membros
+      // aparecendo posteriormente nem force a equipe a limpar o banco.
+      try { await D.update(D.TABLES.chatConversations, id, { deleted_at: new Date().toISOString() }, { select: false }); } catch (_) { /* a primeira inclusão pode ter sido recusada */ }
+      throw error;
+    }
     U.toast('Conversa criada e armazenada no CRM.', 'success');
     const data = await loadChatData(); state.chatData = data; state.activeConversation = id; await renderConversation(modal, data, id);
   }
