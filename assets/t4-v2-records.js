@@ -122,7 +122,7 @@
       return W.recordForm({ title: 'Editar vínculo geral', subtitle: talentName(state, row.talent_id) + ' · ' + employerName(state, row.employer_id), row: original, table: row._source,
         notice: 'Este é um vínculo anterior, sem vaga específica. A edição preserva seu ID e não altera o cadastro geral do talento.',
         fields: [
-          { name: 'status_vinculo', label: 'Etapa do vínculo', required: true, type: 'select', options: ['Aguardando retorno', 'Aguardando envio', 'Aguardando resposta', 'Reunião marcada', 'Em processo', 'Gostou', 'Não gostou', 'Contratado', 'Removido'], placeholder: null },
+          { name: 'status_vinculo', label: 'Etapa do vínculo', required: true, type: 'select', options: ['Aguardando retorno', 'Aguardando envio', 'Aguardando resposta', 'Reunião marcada', 'Em processo', 'Gostou', 'Não gostou', 'Contratado', 'Removido', 'Excluído'], placeholder: null },
           { name: 'proxima_acao', label: 'Próxima ação', wide: true },
           ...(link ? fields([['proximo_followup_em', 'Prazo', 'datetime-local'], ['responsavel_interno', 'Responsável'], ['motivo_match', 'Motivo do vínculo', 'textarea'], ['observacao_rh', 'Observações', 'textarea']])
             : fields([['data_envio', 'Data de envio', 'date'], ['data_retorno', 'Data do retorno', 'date'], ['motivo_encaixe', 'Motivo do vínculo', 'textarea'], ['riscos_ressalvas', 'Riscos e ressalvas', 'textarea'], ['observacoes', 'Observações', 'textarea']]))
