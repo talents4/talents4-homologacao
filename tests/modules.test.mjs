@@ -531,6 +531,7 @@ test('Apresentações usa três recortes, seleção manual e folha A4 vertical d
   assert.match(nectanet, /Selecionar Talentos/);
   assert.match(nectanet, /data-presentation-select/);
   assert.match(nectanet, /data-tw-sheet="presentation-a4"/);
+  assert.match(nectanet, /data-presentation-scroll/);
   assert.match(nectanet, /tw-presentation-field-label/);
   assert.match(nectanet, /tw-presentation-value is-filled/);
   assert.match(nectanet, /tw-presentation-value is-missing/);
