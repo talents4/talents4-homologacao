@@ -332,13 +332,31 @@
     const scopeBar = W.chips([{ id: 'open', label: 'Abertas', count: count('open'), icon: 'briefcase' }, { id: 'all', label: 'Todas', count: count('all'), icon: 'list' }, { id: 'closed', label: 'Encerradas', count: count('closed'), icon: 'archive' }], scope, 'opportunity-scope');
     return workViews('opportunities') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">MERCADO DE OPORTUNIDADES</span><h2>Oportunidades separadas das seleções.</h2><p>Uma vaga pode receber vários Talentos; a etapa de cada vínculo fica em Seleções.</p></div><span class="v25-result-count">${rows.length} vaga${rows.length === 1 ? '' : 's'}</span></div>` + scopeBar + toolbar(state.openings, { noMonth: true }) + opportunityRegister(rows, scope);
   }
+  const SELECTION_BUCKET_RANK = { review: 0, sent: 1, interview: 2, offer: 3, hired: 4 };
   function pipelineView() {
     const rows = state.selections.rows.filter((r) => scoped(r) && matchQuery({ ...r, talent: R.talentName(state, r.talent_id), employer: employerOf(r) }) && matches(r.stage, state.status));
     const activeRows = rows.filter((r) => M.selectionBucket(r) !== 'closed'), closedRows = rows.filter((r) => M.selectionBucket(r) === 'closed');
     const display = state.selectionDisplay || 'list';
+    // "Mais recente" para uma seleção é quando ela foi tocada pela última vez
+    // (retorno do empregador, atualização, envio ou criação) — não a próxima
+    // ação, que é uma data futura e ordenaria errado misturada com estas.
+    const recencyOf = (r) => String(r.updated_at || r.responded_at || r.sent_at || r.created_at || '');
+    const byRecency = (left, right) => recencyOf(right).localeCompare(recencyOf(left), 'pt-BR', { numeric: true });
+    const sortedActiveRows = [...activeRows].sort(byRecency);
+    const openPipelineRows = activeRows.filter((r) => M.selectionBucket(r) !== 'hired')
+      .sort((left, right) => (SELECTION_BUCKET_RANK[M.selectionBucket(left)] ?? 9) - (SELECTION_BUCKET_RANK[M.selectionBucket(right)] ?? 9)
+        || String(left.next_action_at || '9999').localeCompare(String(right.next_action_at || '9999'))
+        || M.norm(R.talentName(state, left.talent_id)).localeCompare(M.norm(R.talentName(state, right.talent_id)), 'pt-BR'));
+    const hiredRows = activeRows.filter((r) => M.selectionBucket(r) === 'hired').sort(byRecency);
+    const selectionCard = (r, index) => {
+      const opening = W.find(state.openings, r.opening_id), overdue = M.overdue(r.next_action_at, r.status);
+      return `<article class="org-ready-card ${index === 0 ? 'is-next' : ''} ${overdue ? 'is-overdue' : ''}" data-ready-selection="${a(r.key)}"><div class="org-ready-card-head"><span class="org-ready-card-index">${String(index + 1).padStart(2, '0')}</span>${W.status(r.stage)}<span class="org-ready-card-deadline ${overdue ? 'is-overdue' : r.next_action_at ? 'is-scheduled' : 'is-no-date'}">${U.icon('calendar')}${e(r.next_action_at ? U.formatDate(r.next_action_at) : 'Sem prazo')}</span></div><h3><button type="button" class="t4-row-link" data-action="selection-detail" data-id="${a(r.key)}">${e(R.talentName(state, r.talent_id))}</button></h3><p class="org-ready-card-context">${e([employerOf(r), opening?.title || 'Vínculo geral · anterior à V2'].join(' · '))}</p><p class="org-ready-card-description">${e(r.next_action || 'Definir próxima ação')}</p><footer class="org-ready-card-footer"><span>${e(r.owner_username || 'Sem responsável')}</span><div>${W.button('Abrir', 'selection-detail', r.key, { className: 'sm', icon: 'chevron' })}</div></footer></article>`;
+    };
+    const openPanel = `<section class="t4-panel org-open-tasks-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">SELEÇÕES EM ABERTO</span><h2>Todas as seleções em aberto</h2><p>Ordenadas pela etapa do vínculo e, depois, pela próxima ação mais próxima.</p></div><strong class="org-panel-count">${openPipelineRows.length} abertas</strong></div><div class="t4-panel-body"><div class="org-ready-list">${openPipelineRows.map(selectionCard).join('') || U.emptyState('Nenhuma seleção em aberto', 'Ajuste os filtros ou cadastre uma nova seleção.')}</div></div></section>`;
+    const hiredPanel = `<section class="t4-panel org-ready-panel"><div class="t4-panel-head"><div><span class="org-panel-kicker">CONTRATADOS</span><h2>Contratações mais recentes</h2><p>Seleções na etapa Contratado, da mais recente para a mais antiga.</p></div><strong class="org-panel-count">${hiredRows.length} contratada${hiredRows.length === 1 ? '' : 's'}</strong></div><div class="t4-panel-body"><div class="org-ready-list">${hiredRows.map(selectionCard).join('') || U.emptyState('Nenhuma contratação registrada ainda', 'Assim que uma seleção avançar para Contratado, ela aparece aqui.')}</div></div></section>`;
     const closedSection = closedRows.length ? (state.selectionShowClosed ? W.section('Encerrados e histórico', R.selectionTable(state, closedRows, 'org-selection-closed')) : `<div class="v25-archive-callout"><div><strong>${closedRows.length} relação${closedRows.length === 1 ? '' : 'ões'} encerrada${closedRows.length === 1 ? '' : 's'} não aparece${closedRows.length === 1 ? '' : 'm'} na fila.</strong><span>O histórico continua preservado e só é exibido quando você solicitar.</span></div>${W.button('Mostrar encerrados', 'selection-archive', '', { className: 'ghost sm', icon: 'archive' })}</div>`) : '';
-    const current = display === 'cards' ? R.selectionBoard(state, activeRows) : R.selectionTable(state, activeRows, 'org-selection-active');
-    return workViews('pipeline') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Uma relação por linha, sem quadro obrigatório.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + W.chips([{ id: 'list', label: 'Lista analítica', icon: 'list' }, { id: 'cards', label: 'Quadro opcional', icon: 'columns' }], display, 'selection-display') + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(activeRows) + current + closedSection +
+    const current = display === 'cards' ? R.selectionBoard(state, sortedActiveRows) : R.selectionTable(state, sortedActiveRows, 'org-selection-active');
+    return workViews('pipeline') + `<div class="v25-page-intro"><div><span class="mx-eyebrow">CENTRO DE SELEÇÕES</span><h2>Uma relação por linha, sem quadro obrigatório.</h2><p>Seleção = Talento + empregador + vaga + etapa. O cadastro do Talento e o dossiê do empregador continuam sendo únicos.</p></div><span class="v25-result-count">${activeRows.length} ativa${activeRows.length === 1 ? '' : 's'}</span></div>` + W.chips([{ id: 'list', label: 'Lista analítica', icon: 'list' }, { id: 'cards', label: 'Quadro opcional', icon: 'columns' }], display, 'selection-display') + toolbar(state.selections.rows.map((r) => ({ status: r.stage })), { noMonth: true }) + stagePulse(activeRows) + openPanel + hiredPanel + current + closedSection +
       W.section('Reposições', replacementTable(state.replacements.filter(scoped)), can('replacements') ? W.button('Nova reposição', 'new-replacement', '', { className: 'sm', icon: 'plus' }) : '');
   }
   function selectionRegister(rows, closed = false) {
@@ -352,9 +370,19 @@
     }).join('');
     return metrics + `<div class="mx-register" aria-label="Registro de seleções">${blocks}</div>`;
   }
-  const STAGE_TONES = { 'Mapeado': '', 'Em análise': '', 'Apresentado': 'info', 'Entrevista': 'info', 'Proposta': 'warning', 'Contratado': 'success' };
+  const SELECTION_BUCKET_TONE = { review: '', sent: 'info', interview: 'info', offer: 'warning', hired: 'success', closed: 'danger' };
+  // As seleções misturam duas taxonomias (vagas modernas: Mapeado…Contratado;
+  // vínculos anteriores: Aguardando envio…Removido). Um funil com etapas fixas
+  // de uma só taxonomia esconde a outra inteira. Aqui o funil conta a etapa
+  // real de cada linha (campo "Etapa do vínculo") e só usa M.selectionBucket
+  // — a mesma classificação do quadro Kanban — para ordenar e colorir.
   function stagePulse(rows) {
-    const buckets = Object.entries(STAGE_TONES).map(([stage, tone]) => ({ label: stage, tone, count: rows.filter((r) => M.norm(r.stage) === M.norm(stage)).length }));
+    const counts = new Map();
+    rows.forEach((r) => { const stage = r.stage || 'Sem etapa'; counts.set(stage, (counts.get(stage) || 0) + 1); });
+    const bucketOf = (stage) => M.selectionBucket({ stage, status: '' });
+    const buckets = [...counts.entries()]
+      .sort((left, right) => (SELECTION_BUCKET_RANK[bucketOf(left[0])] ?? 9) - (SELECTION_BUCKET_RANK[bucketOf(right[0])] ?? 9) || right[1] - left[1] || left[0].localeCompare(right[0], 'pt-BR'))
+      .map(([stage, count]) => ({ label: stage, tone: SELECTION_BUCKET_TONE[bucketOf(stage)] || '', count }));
     return W.funnelChart('Distribuição por etapa', 'LEITURA RÁPIDA', `${rows.length} relação${rows.length === 1 ? '' : 'ões'} ativa${rows.length === 1 ? '' : 's'}`, buckets);
   }
   function opportunityRegister(rows, scope = 'open') {
