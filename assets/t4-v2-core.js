@@ -57,7 +57,9 @@
     activity: '<path d="M3 12h4l2-7 4 14 2-7h6"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     command: '<path d="M7 3v4M17 3v4M7 17v4M17 17v4M3 7h4M17 7h4M3 17h4M17 17h4"/><rect x="7" y="7" width="10" height="10" rx="2"/>',
-    more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>'
+    more: '<circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"/>'
   };
 
   const SWITCHES = [
@@ -65,7 +67,8 @@
     { id: 'organization', label: 'Organizacional', href: './organizacional.html', icon: 'building' },
     { id: 'contacts', label: 'Contatos', href: './contatos.html', icon: 'contact' },
     { id: 'german', label: 'Alemão', href: './alemao.html', icon: 'graduation' },
-    { id: 'documentation', label: 'Documentação', href: './documentacao.html', icon: 'folder' }
+    { id: 'documentation', label: 'Documentação', href: './documentacao.html', icon: 'folder' },
+    { id: 'settings', label: 'Configurações', href: './configuracoes.html', icon: 'settings' }
   ];
 
   function esc(value) {
@@ -389,13 +392,13 @@
           </a>
           <div class="t4-sidebar-scroll">
             <nav class="t4-nav-section" aria-label="${attr(config.moduleLabel)}">
-              <div class="t4-nav-label">${esc(config.moduleLabel)}</div>
-              ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
-              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary aria-label="Mais espaços" data-tooltip="Mais espaços"><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
+              <div class="t4-nav-label" data-i18n-module-label="${attr(moduleId)}">${esc(config.moduleLabel)}</div>
+              ${primaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text" data-i18n-view="${attr(moduleId)}:${attr(view.id)}">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}
+              ${secondaryViews.length ? `<details class="t4-nav-more" ${secondaryViews.some((view) => view.id === currentView) ? 'open' : ''}><summary aria-label="Mais espaços" data-tooltip="Mais espaços"><span class="t4-nav-icon">${icon('more', '')}</span><span class="t4-nav-text" data-i18n-static="moreSpaces">Mais espaços</span><span class="t4-nav-chevron">${icon('chevron', '')}</span></summary><div>${secondaryViews.map((view) => `<button type="button" class="t4-nav-item" data-route="${attr(view.id)}" aria-label="${attr(view.label)}" data-tooltip="${attr(view.label)}"><span class="t4-nav-icon">${icon(view.icon || 'note', '')}</span><span class="t4-nav-text" data-i18n-view="${attr(moduleId)}:${attr(view.id)}">${esc(view.label)}</span><span class="t4-nav-count" data-count="${attr(view.id)}" hidden></span></button>`).join('')}</div></details>` : ''}
             </nav>
             <nav class="t4-nav-section" aria-label="Alternar módulo">
-              <div class="t4-nav-label">Áreas do sistema</div>
-              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}" aria-label="${attr(item.label)}" data-tooltip="${attr(item.label)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
+              <div class="t4-nav-label" data-i18n-static="systemAreas">Áreas do sistema</div>
+              ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}" aria-label="${attr(item.label)}" data-tooltip="${attr(item.label)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text" data-i18n-switch="${attr(item.id)}">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
             </nav>
           </div>
           <button type="button" class="t4-sidebar-collapse-toggle" data-sidebar-collapse aria-pressed="false" aria-label="Recolher menu" data-tooltip="Recolher menu">${icon('chevron', 't4-icon t4-collapse-icon')}<span class="t4-nav-text">Recolher menu</span></button>

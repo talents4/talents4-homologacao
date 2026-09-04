@@ -38,7 +38,8 @@
     notifications: 'crm_notifications',
     chatConversations: 'crm_chat_conversations',
     chatParticipants: 'crm_chat_participants',
-    chatMessages: 'crm_chat_messages'
+    chatMessages: 'crm_chat_messages',
+    systemSettings: 't4_system_settings'
   });
 
   const SELECTS = Object.freeze({
