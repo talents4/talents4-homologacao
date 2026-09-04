@@ -5,6 +5,7 @@
   const e = U.esc, a = U.attr;
   const labels = { stage: 'Etapas', german: 'Alemão', owner: 'Responsáveis', employer: 'Empregadores', cluster: 'Clusters', visa: 'Visto', qualification: 'Qualificação', cv: 'Novo CV', nectanet: 'Lista NectaNet' };
   const quicks = [{ id: 'mine', label: 'Meus talentos', icon: 'user' }, { id: 'attention', label: 'A acompanhar', icon: 'warning' }, { id: 'course', label: 'Em aulas', icon: 'graduation' }, { id: 'ready', label: 'Prontos para apresentar', icon: 'check' }];
+  const PRESENTATION_VIEWS = Object.freeze([{ id: 'nectanet', label: 'Lista Nectanet = Sim', description: 'Candidatos marcados na Lista NectaNet para comparação.' }, { id: 'released', label: 'Sim — liberado para apresentação', description: 'Candidatos com decisão humana de liberação.' }, { id: 'partial', label: 'Parcial — ainda em preparação', description: 'Candidatos liberados parcialmente, com campos ainda em revisão.' }]);
   const profileFields = [
     ['perfil_titulo', 'Perfil / áreas de atuação'], ['perfil_comprovado', 'Perfil comprovado', 'textarea'], ['idiomas_contexto', 'Idiomas', 'textarea'],
     ['regra_revisao', 'Regra desta revisão', 'textarea'], ['premissa_projecao', 'Premissa da projeção B1', 'textarea'],
@@ -13,7 +14,7 @@
   const safe = (value) => M.safeUrl(value);
   function create({ state, app, load, render, talentDetail }) {
     state.filters ||= {}; state.quick = T.list(state.quick).filter((x) => x !== 'all');
-    state.multiOpen = ''; state.multiSearch ||= {}; state.mappingStatus ||= []; state.presentationTab ||= 'people'; state.workFilters ||= {}; state.moreFiltersOpen = !!state.moreFiltersOpen;
+    state.multiOpen = ''; state.multiSearch ||= {}; state.mappingStatus ||= []; state.presentationTab ||= 'people'; state.presentationView ||= 'nectanet'; state.presentationSelections ||= {}; state.presentationSelectionInitialized ||= {}; state.presentationPickerSearch ||= {}; state.workFilters ||= {}; state.moreFiltersOpen = !!state.moreFiltersOpen;
     const filtered = (options = {}) => T.filterTalents(state, { profile: D.profile, ...options });
     const available = (key) => state.sources?.[key]?.available === true && !state.sources[key].error;
     const requireSource = (key) => { if (!available(key)) throw new Error('Os campos de mapeamento não estão disponíveis. Confira a pré-checagem do Supabase; nenhuma alteração foi gravada.'); };
@@ -99,23 +100,56 @@
       return `<div class="tw-sheet-grid" data-tw-sheet="${a(view)}">${W.table({id:`tw-${view}`, rows, columns, empty, pageSize:25})}</div>`;
     }
     function presentation() {
-      const people = filtered().filter((r) => T.yes(r.pronto_para_employer));
-      const rows = T.presentationRows(state, people);
-      const tabs = [['people','Talentos priorizados'],['partners','Nectanet Partner'],['companies','Empresas detalhadas']];
-      const top = sheetTabs('presentation') + quickFilters() + toolbar({extended:true}) + `<div class="tw-sheet-heading"><div><span class="tw-kicker">APRESENTAÇÃO · FILA DE LIBERAÇÃO</span><h2>${people.length} Talento${people.length === 1 ? '' : 's'} pronto${people.length === 1 ? '' : 's'} para revisão</h2><p>Pronto para apresentar é uma liberação manual. Lista NectaNet é uma classificação de mercado separada e não altera a etapa.</p></div><div class="tw-mode-tabs">${tabs.map(([id,label]) => `<button type="button" data-action="presentation-tab" data-id="${id}" aria-pressed="${state.presentationTab === id}">${e(label)}</button>`).join('')}</div></div>`;
-      if (state.presentationTab !== 'people') return top + partners(people, state.presentationTab);
-      const columns = T.FIELDS.presentation.map(([key,label,source,type]) => ({key,label,required:['nome_completo','lista_nectanet'].includes(key),className:`tw-col-${key}`,value:(r)=>type==='employer' ? state.employers.find((x)=>M.same(x.id,r[key]))?.nome || '' : r[key],render:(r) => {
-        if (key === 'nome_completo') return W.person(r.nome_completo, r.profissao_principal || '', '', 'talent-detail', r.id);
-        let value = r[key], content = e(M.present(value) ? value : 'Não informado');
-        if (type === 'employer') content = e(state.employers.find((x) => M.same(x.id,value))?.nome || (value ? 'Vínculo indisponível' : 'Não definido'));
-        if (type === 'url') return `<div class="tw-link-cell">${safe(value) ? W.external('Abrir CV', value) : '<span class="tw-muted">Sem link</span>'}${D.canEdit() ? W.button('Editar', 'presentation-cell', JSON.stringify([r.id,key]), {className:'ghost sm'}) : ''}</div>`;
-        if (key === 'lista_nectanet' || key === 'novo_cv') content = U.badge(value || 'Não informado', T.yes(value) || value === 'Feito' ? 'success' : '');
-        if (key === 'perfil_profissional_para_apresentacao' && r._summaryFallback) content = `<span>${content}<small>Exibindo resumo RH existente · ainda não revisado para apresentação</small></span>`;
-        if (key === 'ingles' && r._englishFallback) content = `<span>${content}<small>Nível registrado na ficha anterior</small></span>`;
-        return editCell(content, 'presentation-cell', JSON.stringify([r.id,key]), label, source === 'talent' || available('mappingProfiles'));
-      }}));
-      const legend = window.T4V25?.legend?.([{label:'Decisão humana de liberação',tone:'success'},{label:'Classificação NectaNet',tone:'info'},{label:'Dado ainda não informado',tone:''}]) || '';
-      return top + legend + grid('presentation',rows,columns,'Nenhum Talento pronto neste recorte. Abra a ficha e revise a liberação antes de apresentar.') + `<p class="tw-table-note">${T.FIELDS.presentation.length} campos · use Colunas para ocultar o que não precisa.</p>`;
+      const selectedView = PRESENTATION_VIEWS.some((item) => item.id === state.presentationView) ? state.presentationView : 'nectanet';
+      state.presentationView = selectedView;
+      const basePeople = T.filterTalents({ ...state, quick: [] }, { profile: D.profile });
+      const allPeople = state.talents.filter((row) => T.active(row));
+      const allRows = T.presentationRows(state, allPeople);
+      const baseRows = T.presentationRows(state, basePeople);
+      const criteria = (row) => {
+        const release = M.norm(row.pronto_para_employer);
+        if (selectedView === 'nectanet') return T.yes(row.lista_nectanet);
+        if (selectedView === 'released') return T.yes(row.pronto_para_employer) || /liberad|pronto para/.test(release);
+        return /parcial/.test(release);
+      };
+      if (!(state.presentationSelections[selectedView] instanceof Set)) state.presentationSelections[selectedView] = new Set(state.presentationSelections[selectedView] || []);
+      if (!state.presentationSelectionInitialized[selectedView]) {
+        baseRows.filter(criteria).forEach((row) => state.presentationSelections[selectedView].add(String(row.id)));
+        state.presentationSelectionInitialized[selectedView] = true;
+      }
+      const selectedIds = state.presentationSelections[selectedView];
+      const qualifyingRows = allRows.filter(criteria);
+      const selectedRows = allRows.filter((row) => selectedIds.has(String(row.id))).sort((left, right) => M.norm(left.nome_completo).localeCompare(M.norm(right.nome_completo), 'pt-BR'));
+      const manualRows = selectedRows.filter((row) => !criteria(row));
+      const meta = PRESENTATION_VIEWS.find((item) => item.id === selectedView);
+      const pickerSearch = state.presentationPickerSearch[selectedView] || '';
+      const pickerText = M.norm(pickerSearch);
+      const pickerRows = [...allRows].sort((left, right) => M.norm(left.nome_completo).localeCompare(M.norm(right.nome_completo), 'pt-BR'));
+      const pickerOptions = pickerRows.filter((row) => !pickerText || M.norm([row.nome_completo, row.profissao_principal, row.area_profissional].filter(Boolean).join(' ')).includes(pickerText));
+      const picker = `<section class="tw-presentation-picker" data-presentation-picker="${selectedView}"><div class="tw-presentation-picker-head"><div><span class="tw-kicker">SELEÇÃO MANUAL</span><h3>Selecionar Talentos</h3><p>Os candidatos do recorte já vêm marcados. Pesquise pelo nome para incluir ou retirar qualquer Talento ativo.</p></div><strong>${selectedRows.length} selecionado${selectedRows.length === 1 ? '' : 's'}</strong></div><div class="tw-presentation-selected" aria-label="Talentos selecionados">${selectedRows.map((row) => `<span class="tw-presentation-chip"><span class="t4-avatar xs">${U.initials(row.nome_completo || '')}</span>${e(row.nome_completo || 'Sem nome')}</span>`).join('') || '<span class="tw-muted">Nenhum Talento selecionado.</span>'}</div><label class="tw-presentation-search"><span>Buscar por nome</span><input type="search" data-presentation-search="${selectedView}" value="${a(pickerSearch)}" placeholder="Digite o nome do Talento…" autocomplete="off"></label><div class="tw-presentation-options" role="group" aria-label="Talentos disponíveis">${pickerOptions.slice(0, 100).map((row) => `<label class="tw-presentation-option" data-presentation-option="${a(M.norm([row.nome_completo, row.profissao_principal, row.area_profissional].filter(Boolean).join(' ')))}"><input type="checkbox" data-presentation-select data-presentation-view="${selectedView}" data-id="${a(row.id)}" ${selectedIds.has(String(row.id)) ? 'checked' : ''}><span><strong>${e(row.nome_completo || 'Sem nome')}</strong><small>${e(row.profissao_principal || row.area_profissional || 'Perfil ainda não informado')}</small></span></label>`).join('') || '<p class="tw-muted">Nenhum Talento encontrado para esta busca.</p>'}</div>${pickerOptions.length > 100 ? `<small class="tw-presentation-picker-note">Mostrando os primeiros 100 resultados. Continue refinando pelo nome para encontrar outros.</small>` : ''}</section>`;
+      const fields = T.FIELDS.presentation.filter(([key]) => key !== 'nome_completo');
+      const hasValue = (value) => value !== null && value !== undefined && String(value).trim() !== '';
+      const cellData = (row, field) => {
+        const [key, label, source, type] = field;
+        let value = row[key];
+        if (type === 'employer') {
+          value = hasValue(value) ? state.employers.find((item) => M.same(item.id, value))?.nome || 'Empregador não encontrado' : '';
+        }
+        if (!hasValue(value)) return { filled: false, html: '' };
+        if (type === 'url') {
+          return { filled: true, html: safe(value) ? W.external('Abrir CV', value) : `<span class="tw-presentation-text">${e(value)}</span>` };
+        }
+        let html = e(value);
+        if (key === 'lista_nectanet' || key === 'novo_cv') html = U.badge(value, T.yes(value) || value === 'Feito' ? 'success' : '');
+        if (key === 'perfil_profissional_para_apresentacao' && row._summaryFallback) html = `<span>${html}<small>Exibindo resumo RH existente · ainda não revisado para apresentação</small></span>`;
+        if (key === 'ingles' && row._englishFallback) html = `<span>${html}<small>Nível registrado na ficha anterior</small></span>`;
+        return { filled: true, html };
+      };
+      const sheet = selectedRows.length ? `<div class="tw-presentation-sheet-scroll"><section class="tw-presentation-sheet" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}" style="--tw-presentation-count:${selectedRows.length}"><div class="tw-presentation-grid"><div class="tw-presentation-corner"><span>Informação</span><small>Folha de apresentação · ${e(meta.label)}</small></div>${selectedRows.map((row) => `<button type="button" class="tw-presentation-person" data-action="talent-detail" data-id="${a(row.id)}"><span class="t4-avatar sm">${U.initials(row.nome_completo || '')}</span><strong title="${a(row.nome_completo || 'Sem nome')}">${e(row.nome_completo || 'Sem nome')}</strong><small>${e(row.profissao_principal || row.area_profissional || 'Perfil não informado')}</small></button>`).join('')}${fields.map((field) => { const [key, label, source, type] = field; return `<div class="tw-presentation-field-label" data-presentation-field="${a(key)}"><strong>${e(label)}</strong><small>${source === 'profile' ? 'Complementar' : 'Cadastro único'}</small></div>${selectedRows.map((row) => { const data = cellData(row, field), editable = source === 'talent' || available('mappingProfiles'), content = data.html || '<span class="tw-presentation-blank" aria-hidden="true"></span>', control = editCell(content, 'presentation-cell', JSON.stringify([row.id, key]), label, editable), ariaLabel = `${label}: ${data.filled ? 'preenchido' : 'não informado'}`; return `<div class="tw-presentation-value ${data.filled ? 'is-filled' : 'is-missing'}" data-presentation-status="${data.filled ? 'filled' : 'missing'}" aria-label="${a(ariaLabel)}" title="${a(data.filled ? 'Preenchido' : 'Não informado')}">${control}</div>`; }).join('')}`; }).join('')}</div></section></div>` : `<div class="tw-presentation-sheet-scroll"><section class="tw-presentation-sheet is-empty" data-tw-sheet="presentation-a4" data-presentation-view="${selectedView}"><div class="tw-presentation-empty"><strong>Nenhum Talento selecionado</strong><span>Marque os candidatos no campo acima para preencher esta folha.</span></div></section></div>`;
+      const legend = `<div class="tw-presentation-legend" aria-label="Legenda de preenchimento"><span><i class="is-filled"></i>Campo preenchido</span><span><i class="is-missing"></i>Campo a completar</span>${manualRows.length ? `<span><i class="is-manual"></i>Incluído manualmente neste recorte</span>` : ''}</div>`;
+      const viewMenu = `<div class="tw-presentation-menu" role="group" aria-label="Recorte da apresentação">${PRESENTATION_VIEWS.map((item) => `<button type="button" data-action="presentation-view" data-id="${item.id}" aria-pressed="${item.id === selectedView}" class="${item.id === selectedView ? 'is-selected' : ''}"><strong>${e(item.label)}</strong><small>${e(item.description)}</small><span>${allRows.filter((row) => { const release = M.norm(row.pronto_para_employer); return item.id === 'nectanet' ? T.yes(row.lista_nectanet) : item.id === 'released' ? T.yes(row.pronto_para_employer) || /liberad|pronto para/.test(release) : /parcial/.test(release); }).length}</span></button>`).join('')}</div>`;
+      const manualLabel = manualRows.length ? `${manualRows.length} incluído${manualRows.length === 1 ? '' : 's'} manualmente` : 'Seleção inicial automática';
+      return toolbar({ extended: true }) + `<div class="tw-presentation-heading"><div><span class="tw-kicker">APRESENTAÇÕES · COMPARATIVO A4</span><h2>${selectedRows.length} Talento${selectedRows.length === 1 ? '' : 's'} nesta folha</h2><p>${e(meta.description)} A Lista NectaNet é uma classificação de mercado; somente a decisão humana de liberação autoriza a apresentação.</p></div><div class="tw-presentation-heading-meta"><strong>${qualifyingRows.length} no recorte</strong><span>${manualLabel}</span></div></div>${viewMenu}${picker}${legend}${sheet}<p class="tw-table-note">Os nomes ficam em colunas no topo; cada informação permanece em uma linha. Campos sem dados ficam visualmente vazios e destacados para revisão. A folha imprime em A4 horizontal.</p>`;
     }
     function partners(people, mode) {
       const rows = T.partnerRows(state, people), fields = T.FIELDS[mode];
@@ -284,6 +318,7 @@
         if (id === 'mappingStatus') state.mappingStatus=vals; else if(id in workLabels) state.workFilters[id]=vals; else state.filters[id]=vals; state.multiOpen=id; render(); return true;
       }
       if (action === 'presentation-tab') {state.presentationTab=id;render();return true;}
+      if (action === 'presentation-view') { if (PRESENTATION_VIEWS.some((item) => item.id === id)) { state.presentationView = id; render(); } return true; }
       if (action === 'mapping-for') {state.mappingTalent=id;state.mappingArchived=!T.active(state.talents.find((r) => M.same(r.id,id)) || {});state.filters={};state.quick=[];state.mappingStatus=[];state.query='';app.resetSearch();U.closeDrawer();app.route('mapping');return true;}
       if (action === 'readiness') {if(D.canEdit()) await readiness(id);return true;}
       if (action === 'presentation-cell') {if(D.canEdit()) await presentationCell(...JSON.parse(id));return true;}
@@ -302,6 +337,13 @@
     }
     document.addEventListener('change',(event) => {
       const input=event.target;
+      if (input.matches?.('[data-presentation-select]')) {
+        const view = input.dataset.presentationView;
+        if (!(state.presentationSelections[view] instanceof Set)) state.presentationSelections[view] = new Set(state.presentationSelections[view] || []);
+        if (input.checked) state.presentationSelections[view].add(String(input.dataset.id)); else state.presentationSelections[view].delete(String(input.dataset.id));
+        render();
+        return;
+      }
       if (!input.matches?.('[data-tw-check]')) return;
       const key=input.dataset.twCheck, values=key === 'mappingStatus' ? state.mappingStatus : key in workLabels ? state.workFilters[key] || [] : state.filters[key] || [];
       const next=input.checked ? [...new Set([...values,input.value])] : values.filter((v) => v !== input.value);
@@ -310,6 +352,13 @@
     });
     document.addEventListener('input',(event) => {
       const input=event.target;
+      if (input.matches?.('[data-presentation-search]')) {
+        const view = input.dataset.presentationSearch;
+        state.presentationPickerSearch[view] = input.value;
+        const term = M.norm(input.value);
+        input.closest('[data-presentation-picker]')?.querySelectorAll('[data-presentation-option]').forEach((option) => { option.hidden = !!term && !option.dataset.presentationOption.includes(term); });
+        return;
+      }
       if (!input.matches?.('[data-tw-search]')) return;
       state.multiSearch[input.dataset.twSearch]=input.value;
       input.closest('[data-tw-multi]')?.querySelectorAll('[data-tw-option]').forEach((option) => {option.hidden=!option.dataset.twOption.includes(M.norm(input.value));});
