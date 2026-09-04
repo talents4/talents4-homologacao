@@ -260,7 +260,7 @@
     ];
     const monthTable = W.table({ id: 'meetings-month', rows: monthRows, columns, empty: `Nenhuma reunião registrada em ${monthLabel(selectedMonth)}.` });
     const allTable = W.table({ id: 'meetings-all', rows: allRows, pageSize: 20, columns, empty: 'Nenhuma reunião registrada ainda.' });
-    return `<div class="org-workspace">${meetingsMonthStepper()}${toolbar(state.meetings, { noMonth: true })}${W.section('Histórico do mês', monthTable, can('meetings') ? W.button('Nova reunião', 'new-meeting', '', { className: 'primary sm', icon: 'plus' }) : '', `Todas as reuniões de ${monthLabel(selectedMonth)}, em qualquer situação.`)}${W.section('Histórico completo', allTable, '', 'Todos os registros de sempre: em andamento primeiro e, depois, do mais recente para o mais antigo.')}</div>`;
+    return `<div class="org-workspace">${meetingsMonthStepper()}${toolbar(state.meetings, { noMonth: true })}${W.section('Histórico do mês', monthTable, can('meetings') ? W.button('Nova reunião', 'new-meeting', '', { className: 'primary sm', icon: 'plus' }) : '', `Todas as reuniões de ${monthLabel(selectedMonth)}, em qualquer situação.`)}${W.section('Histórico completo', allTable, '', 'Todos os registros de sempre: abertas primeiro e, depois, da mais recente à mais antiga.')}</div>`;
   }
   function meetingDetail(row) {
     if (!row) return;
