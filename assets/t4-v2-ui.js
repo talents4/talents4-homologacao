@@ -158,11 +158,16 @@
     const common = `name="${a(f.name)}" ${f.required ? 'required' : ''} ${f.readonly ? 'disabled' : ''} ${f.min != null ? `min="${a(f.min)}"` : ''} ${f.max != null ? `max="${a(f.max)}"` : ''} ${f.step != null ? `step="${a(f.step)}"` : ''}`;
     const selectOptions = f.options || [];
     const isSearchable = f.type === 'select' && (f.searchable === true || selectOptions.length > 12);
+    const isMulti = f.type === 'multi-select';
+    const picked = Array.isArray(value) ? value.map(String) : M.present(value) ? [String(value)] : [];
+    const multiOptions = normalizedOptions(selectOptions).concat(picked.filter((item) => !selectOptions.some((option) => String(typeof option === 'object' ? option.value : option) === item)).map((item) => ({ value: item, label: U.term(item) })));
+    const multiControl = `<div class="t4-form-multi-select" role="group" aria-label="${a(f.label)}">${multiOptions.map((option) => `<label class="t4-form-multi-option"><input type="checkbox" name="${a(f.name)}" value="${a(option.value)}" ${picked.includes(String(option.value)) ? 'checked' : ''} ${f.readonly ? 'disabled' : ''}><span>${e(option.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhum usuário disponível.</span>'}</div>`;
     const control = f.type === 'textarea' ? `<textarea ${common} rows="${f.rows || 3}">${e(value)}</textarea>`
       : f.type === 'select' ? searchableSelect(f.name, selectOptions, value, { label: f.label, placeholder: f.placeholder === undefined ? 'Não informado' : f.placeholder, searchable: isSearchable, searchPlaceholder: f.searchPlaceholder, attrs: common })
+      : isMulti ? multiControl
       : f.type === 'checkbox' ? `<input type="checkbox" ${common} ${value === true ? 'checked' : ''}>`
       : `<input type="${a(f.type || 'text')}" ${common} value="${a(value)}" ${f.placeholder ? `placeholder="${a(f.placeholder)}"` : ''}>`;
-    const tag = isSearchable ? 'div' : 'label';
+    const tag = isSearchable || isMulti ? 'div' : 'label';
     // Validação em tempo real (pedido explícito): campos de texto/número/
     // data/select simples ganham um espaço para o ícone de check/alerta,
     // preenchido por bindFieldValidation() (chamado dentro de form()) —
@@ -170,7 +175,7 @@
     // desabilitados, checkbox e select com busca (não é um <input> simples
     // que o usuário edita direto) ficam de fora: não faz sentido validar
     // "ao vivo" o que não se digita.
-    const validatable = !f.readonly && f.type !== 'checkbox' && !isSearchable;
+    const validatable = !f.readonly && f.type !== 'checkbox' && !isSearchable && !isMulti;
     const controlHtml = validatable ? `<span class="t4-field-control">${control}<span class="t4-field-validity" aria-hidden="true"></span></span>` : control;
     return `<${tag} class="t4-field ${f.wide ? 't4-span-2' : ''} ${f.type === 'checkbox' ? 't4-check-field' : ''}"><span class="t4-field-label">${e(f.label)}${f.required ? ' *' : ''}</span>${controlHtml}${f.help ? `<span class="t4-field-help">${e(f.help)}</span>` : ''}</${tag}>`;
   }
@@ -222,9 +227,14 @@
     bindFieldValidation(modal);
     const read = () => Object.fromEntries(fields.filter((f) => f.name && !f.readonly).map((f) => {
       const el = editor.elements.namedItem(f.name);
-      const value = f.type === 'checkbox' ? el.checked : f.type === 'number' ? M.number(el.value) : String(el.value).trim() || null;
+      const value = f.type === 'multi-select'
+        ? [...(editor.querySelectorAll?.('input[type="checkbox"]') || [])].filter((node) => node.name === f.name && node.checked).map((node) => node.value)
+        : f.type === 'checkbox' ? el.checked : f.type === 'number' ? M.number(el.value) : String(el.value).trim() || null;
       return [f.name, f.type === 'datetime-local' && value ? new Date(value).toISOString() : value];
     }));
+    const sameValue = (left, right) => Array.isArray(left) && Array.isArray(right)
+      ? left.length === right.length && left.every((value, index) => String(value) === String(right[index]))
+      : left === right;
     const initial = read();
     editor.addEventListener('input', () => { backdrop.dataset.dirty = 'true'; });
     editor.addEventListener('change', () => { backdrop.dataset.dirty = 'true'; });
@@ -233,7 +243,7 @@
     editor.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (save.disabled || !editor.reportValidity()) return;
-      const values = read(), changes = Object.fromEntries(Object.entries(values).filter(([key, value]) => value !== initial[key]));
+      const values = read(), changes = Object.fromEntries(Object.entries(values).filter(([key, value]) => !sameValue(value, initial[key])));
       const errorBox = modal.querySelector('[data-form-error]');
       errorBox.hidden = true; save.disabled = true; backdrop.dataset.saving = 'true';
       save.textContent = 'Salvando…';
