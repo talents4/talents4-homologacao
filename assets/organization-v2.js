@@ -356,11 +356,6 @@
     const byRecency = (left, right) => recencyOf(right).localeCompare(recencyOf(left), 'pt-BR', { numeric: true });
     const sortedActiveRows = [...activeRows].sort(byRecency);
     const generalRows = rows.filter(isGeneralLink);
-    const openPipelineRows = generalRows.filter((r) => M.selectionBucket(r) !== 'closed' && M.selectionBucket(r) !== 'hired')
-      .sort((left, right) => generalLinkStageRank(left) - generalLinkStageRank(right)
-        || compareSelectionDateDesc(left, right, 'next_action_at')
-        || byRecency(left, right)
-        || M.norm(R.talentName(state, left.talent_id)).localeCompare(M.norm(R.talentName(state, right.talent_id)), 'pt-BR'));
     const historyRows = generalRows
       .filter((r) => /^(excluid[oa]|removid[oa])/.test(M.norm(r.stage || r.status || '')))
       .sort(byRecency);
