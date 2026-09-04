@@ -152,6 +152,16 @@ test('seletores longos mostram busca sem mudar o valor nativo do formulário', a
   assert.match(h.forms.at(-1).innerHTML, /name="employer_id"/);
   assert.equal(h.fixture.writes.length, 0);
 });
+test('cancelar vaga sincroniza status e is_active', async () => {
+  const h = await makeHarness().load('organization');
+  await h.action('edit-opening', h.id(201));
+  const result = await h.submit({ status: 'Cancelada' });
+  assert.equal(result.error, '');
+  assert.equal(h.fixture.writes.at(-1).table, 'employer_openings');
+  assert.equal(h.fixture.writes.at(-1).payload.status, 'Cancelada');
+  assert.equal(h.fixture.writes.at(-1).payload.is_active, false);
+  assert.equal(h.fixture.db.employer_openings[0].is_active, false);
+});
 test('busca deixa claro quando o Talento arquivado ainda tem seleção ativa', async () => {
   const h = makeHarness();
   h.fixture.db.candidatos[0].ativo = false;
