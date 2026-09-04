@@ -228,3 +228,39 @@ body[data-t4-module="talents"] .t4-page { padding-top:1.25rem; }
   body[data-t4-module="talents"] .tw-presentation-person small,.tw-presentation-field-label small { font-size:6.5pt; }
   body[data-t4-module="talents"] .tw-presentation-value,.tw-presentation-field-label { min-height:2.4rem; padding:.25rem; }
 }
+/* A folha comparativa pode ser explorada como uma faixa: arraste ou use o scroll sobre ela. */
+.tw-presentation-sheet-scroll {
+  position: relative;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #9db1c5 transparent;
+}
+.tw-presentation-sheet-scroll.is-pointer-down,
+.tw-presentation-sheet-scroll.is-dragging,
+.tw-presentation-sheet-scroll.is-pointer-down *,
+.tw-presentation-sheet-scroll.is-dragging * {
+  cursor: grabbing;
+}
+.tw-presentation-sheet-scroll:focus-visible {
+  outline: 2px solid #2b78d0;
+  outline-offset: 3px;
+}
+.tw-presentation-sheet-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.tw-presentation-sheet-scroll::-webkit-scrollbar-thumb {
+  background: #9db1c5;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.tw-presentation-sheet-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
