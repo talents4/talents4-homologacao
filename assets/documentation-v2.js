@@ -697,7 +697,7 @@
     }
     return '<nav class="t4-doc-breadcrumb" aria-label="Localização">'
       + '<button type="button" data-action="documentation-open-folder" data-id="" class="' + (!current ? 'is-current' : '') + '">'
-      + U.icon('folder', '') + e(AREA_LABELS[state.area]) + '</button>'
+      + U.icon('folder') + e(AREA_LABELS[state.area]) + '</button>'
       + chain.map(function (folder, index) {
         return '<span aria-hidden="true">/</span><button type="button" data-action="documentation-open-folder" data-id="' + a(folder.id) + '" class="'
           + (index === chain.length - 1 ? 'is-current' : '') + '">' + e(folder.name) + '</button>';
@@ -718,7 +718,7 @@
       const nested = treeBranch(folder.id, depth + 1, nextTrail);
       return '<li><button type="button" class="t4-doc-tree-button ' + (same(folder.id, state.folderId) ? 'is-current' : '')
         + '" style="--tree-depth:' + depth + '" data-action="documentation-open-folder" data-id="' + a(folder.id) + '">'
-        + U.icon('folder', '') + '<span>' + e(folder.name) + '</span><small>' + countChildren(folder.id) + '</small></button>'
+        + U.icon('folder') + '<span>' + e(folder.name) + '</span><small>' + countChildren(folder.id) + '</small></button>'
         + (nested ? '<ul>' + nested + '</ul>' : '')
         + '</li>';
     }).join('');
@@ -728,10 +728,10 @@
     return '<aside class="t4-doc-tree" aria-label="Pastas da área"><div class="t4-doc-tree-head"><span>Pastas</span><strong>'
       + folders(state.area).length + '</strong></div><ul class="t4-doc-tree-list"><li><button type="button" class="t4-doc-tree-button t4-doc-tree-root '
       + (!state.folderId ? 'is-current' : '') + '" data-action="documentation-open-folder" data-id="">'
-      + U.icon('folder', '') + '<span>Raiz da área</span><small>' + immediateNodes('').length + '</small></button></li>'
+      + U.icon('folder') + '<span>Raiz da área</span><small>' + immediateNodes('').length + '</small></button></li>'
       + treeBranch('', 0, new Set()) + '</ul>'
       + (canWrite() ? '<button type="button" class="t4-btn ghost t4-doc-tree-new" data-action="documentation-new-folder">'
-        + U.icon('plus', '') + 'Nova pasta</button>' : '')
+        + U.icon('plus') + 'Nova pasta</button>' : '')
       + '</aside>';
   }
 
@@ -761,14 +761,14 @@
 
   function cardActions(node) {
     const editing = canWrite() ? '<button type="button" class="t4-doc-icon-action" data-action="documentation-edit" data-id="' + a(node.id) + '" aria-label="Editar">'
-      + U.icon('edit', '') + '</button><button type="button" class="t4-doc-icon-action danger" data-action="documentation-delete" data-id="' + a(node.id) + '" aria-label="Excluir">'
-      + U.icon('trash', '') + '</button>' : '';
+      + U.icon('edit') + '</button><button type="button" class="t4-doc-icon-action danger" data-action="documentation-delete" data-id="' + a(node.id) + '" aria-label="Excluir">'
+      + U.icon('trash') + '</button>' : '';
     return '<div class="t4-doc-card-actions">' + editing + '</div>';
   }
 
   function renderFolderCard(node) {
     return '<article class="t4-doc-card t4-doc-folder-card"><button type="button" class="t4-doc-card-main" data-action="documentation-open-folder" data-id="' + a(node.id) + '">'
-      + '<span class="t4-doc-card-icon folder">' + U.icon('folder', '') + '</span><span class="t4-doc-card-copy"><strong>' + e(node.name)
+      + '<span class="t4-doc-card-icon folder">' + U.icon('folder') + '</span><span class="t4-doc-card-copy"><strong>' + e(node.name)
       + '</strong><small>Pasta · ' + countChildren(node.id) + ' item' + (countChildren(node.id) === 1 ? '' : 's') + '</small>'
       + (contextFor(node) ? '<em>' + e(contextFor(node)) + '</em>' : '') + '</span></button>' + cardActions(node) + '</article>';
   }
@@ -776,10 +776,10 @@
   function renderLinkCard(node) {
     const safe = M.safeUrl(node.url);
     const target = contextFor(node);
-    return '<article class="t4-doc-card t4-doc-link-card"><span class="t4-doc-card-icon link">' + U.icon('link', '') + '</span>'
+    return '<article class="t4-doc-card t4-doc-link-card"><span class="t4-doc-card-icon link">' + U.icon('link') + '</span>'
       + '<div class="t4-doc-card-copy"><strong>' + e(node.name) + '</strong><small>' + e(nodeProvider(node)) + '</small>'
       + (target ? '<em>' + e(target) + '</em>' : '') + (safe ? '<a class="t4-doc-link" href="' + a(safe) + '" target="_blank" rel="noopener noreferrer">'
-        + U.icon('external', '') + 'Abrir link</a>' : '<span class="t4-doc-invalid-link">Link não disponível</span>') + '</div>' + cardActions(node) + '</article>';
+        + U.icon('external') + 'Abrir link</a>' : '<span class="t4-doc-invalid-link">Link não disponível</span>') + '</div>' + cardActions(node) + '</article>';
   }
 
   function renderChecklistCard(node) {
@@ -787,7 +787,7 @@
     const payload = parsePayload(node);
     const progress = checklistProgress(payload);
     return '<article class="t4-doc-card t4-doc-checklist-card"><button type="button" class="t4-doc-card-main" data-action="documentation-checklist" data-id="' + a(node.id) + '">'
-      + '<span class="t4-doc-card-icon checklist">' + U.icon('check', '') + '</span><span class="t4-doc-card-copy"><strong>Checklist Operacional</strong>'
+      + '<span class="t4-doc-card-icon checklist">' + U.icon('check') + '</span><span class="t4-doc-card-copy"><strong>Checklist Operacional</strong>'
       + '<small>Modelo DOCX · ' + progress.complete + '/' + progress.total + ' concluídos</small>'
       + '<em>' + e([context.candidate, context.employerName, context.openingName].filter(Boolean).join(' · ') || 'Sem vínculos complementares') + '</em>'
       + '<span class="t4-doc-progress"><i style="width:' + (progress.total ? Math.round(progress.complete / progress.total * 100) : 0) + '%"></i></span></span></button>'
@@ -802,7 +802,7 @@
 
   function sourceNotice() {
     if (!sourceAvailable()) {
-      return '<div class="t4-doc-migration-note" role="status">' + U.icon('info', '') + '<div><strong>Documentação ainda não foi ativada no banco.</strong>'
+      return '<div class="t4-doc-migration-note" role="status">' + U.icon('info') + '<div><strong>Documentação ainda não foi ativada no banco.</strong>'
         + '<p>A estrutura da área já está publicada. Revise e aplique manualmente a migração da pasta <code>supabase/talents-v22/documentation/</code>; nenhuma alteração automática será feita.</p></div></div>';
     }
     return W.sourceAlerts(state, ['talents', 'employers', 'openings', 'selections']);
@@ -813,20 +813,20 @@
     const rows = immediateNodes(current ? current.id : '');
     const actions = canWrite()
       ? '<div class="t4-doc-browser-actions"><button type="button" class="t4-btn" data-action="documentation-new-link">'
-        + U.icon('link', '') + 'Novo atalho</button>'
-        + (state.area === 'talents' ? '<button type="button" class="t4-btn" data-action="documentation-new-checklist">' + U.icon('check', '') + 'Adicionar Checklist Operacional</button>' : '')
-        + '<button type="button" class="t4-btn primary" data-action="documentation-new-folder">' + U.icon('plus', '') + 'Nova pasta</button></div>'
+        + U.icon('link') + 'Novo atalho</button>'
+        + (state.area === 'talents' ? '<button type="button" class="t4-btn" data-action="documentation-new-checklist">' + U.icon('check') + 'Adicionar Checklist Operacional</button>' : '')
+        + '<button type="button" class="t4-btn primary" data-action="documentation-new-folder">' + U.icon('plus') + 'Nova pasta</button></div>'
       : '';
     return '<section class="t4-doc-browser"><div class="t4-doc-browser-head"><div><span class="t4-doc-eyebrow">'
       + e(current ? 'PASTA ATUAL' : 'RAIZ DA ÁREA') + '</span><h2>' + e(current ? current.name : AREA_LABELS[state.area]) + '</h2>'
       + '<p>' + e(current ? (contextFor(current) || 'Pasta de documentação') : AREA_HELP[state.area]) + '</p></div>' + actions + '</div>'
       + (state.query ? '<div class="t4-doc-query-note">Busca por: <strong>' + e(state.query) + '</strong></div>' : '')
       + (rows.length ? '<div class="t4-doc-grid">' + rows.map(renderCard).join('') + '</div>'
-        : '<div class="t4-doc-empty"><span class="t4-doc-empty-icon">' + U.icon(state.query ? 'search' : 'folder', '') + '</span><h3>'
+        : '<div class="t4-doc-empty"><span class="t4-doc-empty-icon">' + U.icon(state.query ? 'search' : 'folder') + '</span><h3>'
         + (state.query ? 'Nenhum item encontrado' : 'Esta pasta está vazia') + '</h3><p>'
         + (state.query ? 'Tente outro termo de busca.' : 'Crie uma pasta, adicione um atalho ou inclua o checklist do candidato.') + '</p>'
-        + (canWrite() && !state.query ? '<div><button type="button" class="t4-btn primary" data-action="documentation-new-folder">' + U.icon('plus', '') + 'Nova pasta</button>'
-          + '<button type="button" class="t4-btn" data-action="documentation-new-link">' + U.icon('link', '') + 'Novo atalho</button></div>' : '') + '</div>')
+        + (canWrite() && !state.query ? '<div><button type="button" class="t4-btn primary" data-action="documentation-new-folder">' + U.icon('plus') + 'Nova pasta</button>'
+          + '<button type="button" class="t4-btn" data-action="documentation-new-link">' + U.icon('link') + 'Novo atalho</button></div>' : '') + '</div>')
       + '</section>';
   }
 
@@ -839,8 +839,8 @@
       + '<h1>Documentação</h1><p>Organize documentos, atalhos e checklists sem duplicar os cadastros de Talents 4.</p></div>'
       + '<div class="t4-doc-intro-meta"><strong>' + total + '</strong><span>item' + (total === 1 ? '' : 's') + ' nesta área</span></div></header>'
       + areaTabs() + '<div class="t4-doc-toolbar">' + breadcrumb() + '<div class="t4-doc-toolbar-actions">'
-      + (current ? '<button type="button" class="t4-btn ghost" data-action="documentation-up">' + U.icon('arrow', '') + 'Subir um nível</button>' : '')
-      + (canWrite() ? '<button type="button" class="t4-btn ghost" data-action="documentation-new-link">' + U.icon('link', '') + 'Novo atalho</button>' : '')
+      + (current ? '<button type="button" class="t4-btn ghost" data-action="documentation-up">' + U.icon('arrow') + 'Subir um nível</button>' : '')
+      + (canWrite() ? '<button type="button" class="t4-btn ghost" data-action="documentation-new-link">' + U.icon('link') + 'Novo atalho</button>' : '')
       + '</div></div>' + sourceNotice() + '<div class="t4-doc-layout">' + folderTree() + browser() + '</div></div>';
   }
 
@@ -988,7 +988,7 @@
     const drawer = U.openDrawer({
       title: 'Checklist Operacional',
       subtitle: [context.candidate, context.employerName, context.openingName].filter(Boolean).join(' · ') || 'Cadastro sem vínculos complementares',
-      actions: '<span class="t4-doc-check-progress" data-check-progress></span><button type="button" class="t4-btn primary" data-checklist-save ' + (!editable ? 'disabled' : '') + '>' + U.icon('check', '') + 'Salvar checklist</button>',
+      actions: '<span class="t4-doc-check-progress" data-check-progress></span><button type="button" class="t4-btn primary" data-checklist-save ' + (!editable ? 'disabled' : '') + '>' + U.icon('check') + 'Salvar checklist</button>',
       body: '<div class="t4-doc-checklist">' + checklistHeader(context, payload, editable)
         + '<div class="t4-doc-check-legend"><span>[X] concluído/recebido</span><span>[!] parcial ou exige correção</span><span>[ ] pendente/não recebido</span><span>[-] não aplicável</span></div>'
         + CHECKLIST_SECTIONS.map(function (section) { return checklistSection(section, payload, editable); }).join('')
@@ -1015,7 +1015,7 @@
         await load();
       } catch (error) {
         button.disabled = false;
-        button.innerHTML = U.icon('check', '') + 'Salvar checklist';
+        button.innerHTML = U.icon('check') + 'Salvar checklist';
         U.toast(W.formatError(error), 'error', 7500);
       }
     });
