@@ -24,7 +24,7 @@
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }
   function isOpen(status) {
-    return !/^(concluid[oa]|cancelad[oa]|pronto|contratado|rejeitado|removido|desistente|transferido|arquivado|encerrado|inativo)$/.test(norm(status));
+    return !/^(concluid[oa]|cancelad[oa]|pronto|contratado|rejeitado|removido|excluid[oa]|desistente|transferido|arquivado|encerrado|inativo)$/.test(norm(status));
   }
   const overdue = (date, status, now = today()) => isOpen(status) && !!dateOnly(date) && dateOnly(date) < now;
   function riskReasons(row, now = today()) {
@@ -86,8 +86,12 @@
   }
   function selectionBucket(row) {
     const status = norm(`${row.stage} ${row.status}`);
-    if (/rejeit|removid|cancel|inativo|arquiv|encerr|fechad|nao gost|desist|nao aprovado/.test(status)) return 'closed';
+    if (/rejeit|removid|exclu|cancel|inativo|arquiv|encerr|fechad|desist|nao aprovado/.test(status)) return 'closed';
     if (/contrat|admitid/.test(status)) return 'hired';
+    // "Não gostou" continua no acompanhamento: é uma etapa real do vínculo,
+    // não um registro excluído/removido. Deve vir antes de "gostou" porque
+    // a palavra também contém o trecho "gostou".
+    if (/nao gost/.test(status)) return 'sent';
     if (/proposta|oferta|aprov|gostou/.test(status)) return 'offer';
     if (/entrevista|reuniao/.test(status)) return 'interview';
     if (/enviad|apresentad|aguardando resposta|aguardando retorno|em processo/.test(status)) return 'sent';
