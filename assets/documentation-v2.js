@@ -394,8 +394,9 @@
   }
 
   function selectedFolderOptions(area, selectedId, candidateId) {
+    const blocked = selectedId ? folderDescendantIds(selectedId, area) : new Set();
     const available = folders(area).filter(function (folder) {
-      if (selectedId && same(folder.id, selectedId)) return false;
+      if (blocked.has(String(folder.id))) return false;
       if (!candidateId) return true;
       return !folder.talent_id || same(folder.talent_id, candidateId);
     });
@@ -431,8 +432,30 @@
     }));
   }
 
+  function deriveEmployerFromOpening(values, changes) {
+    const opening = W.find(state.openings, values.opening_id);
+    if (!opening || values.employer_id || !opening.employer_id) return;
+    values.employer_id = opening.employer_id;
+    if (changes) changes.employer_id = opening.employer_id;
+  }
+
   function nodeParent(row) {
     return row && row.parent_id || state.folderId || '';
+  }
+
+  function folderDescendantIds(folderId, area) {
+    const blocked = new Set(folderId ? [String(folderId)] : []);
+    let changed = true;
+    while (changed) {
+      changed = false;
+      folders(area).forEach(function (folder) {
+        if (blocked.has(String(folder.parent_id)) && !blocked.has(String(folder.id))) {
+          blocked.add(String(folder.id));
+          changed = true;
+        }
+      });
+    }
+    return blocked;
   }
 
   function commonTargetFields() {
@@ -485,7 +508,7 @@
         }
       ].concat(commonTargetFields()),
       row: formRow,
-      prepare: async function (values) {
+      prepare: async function (values, changes) {
         if (!editing) {
           values.area = state.area;
           values.node_type = 'folder';
@@ -499,6 +522,7 @@
         values.parent_id = values.parent_id || null;
         values.talent_id = values.talent_id || null;
         values.employer_id = values.employer_id || null;
+        deriveEmployerFromOpening(values, changes);
       },
       after: load
     });
@@ -556,7 +580,7 @@
         }
       ]),
       row: formRow,
-      prepare: async function (values) {
+      prepare: async function (values, changes) {
         if (!editing) {
           values.area = state.area;
           values.node_type = 'link';
@@ -569,6 +593,7 @@
         values.talent_id = values.talent_id || null;
         values.employer_id = values.employer_id || null;
         values.opening_id = values.opening_id || null;
+        deriveEmployerFromOpening(values, changes);
       },
       after: load
     });
@@ -623,7 +648,7 @@
         }
       ],
       row: formRow,
-      prepare: async function (values) {
+      prepare: async function (values, changes) {
         if (!editing) {
           values.area = 'talents';
           values.node_type = 'checklist';
@@ -638,6 +663,7 @@
         values.talent_id = values.talent_id || null;
         values.employer_id = values.employer_id || null;
         values.opening_id = values.opening_id || null;
+        deriveEmployerFromOpening(values, changes);
       },
       after: load
     });
