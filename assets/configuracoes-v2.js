@@ -28,7 +28,7 @@
 
   const sources = {
     users: { label: 'Usuários', load: () => D.optionalAll(D.TABLES.users, 'username,nome,role,ativo,auth_uid', (q) => q.order('nome', { ascending: true })) },
-    settings: { label: 'Configurações do sistema', load: () => D.optionalAll(D.TABLES.systemSettings, 'key,value,updated_at,updated_by') }
+    settings: { label: 'Configurações do sistema', load: () => D.optionalAll(D.TABLES.systemSettings, 'key,value,updated_at,updated_by', null, { orderKeys: ['key'] }) }
   };
 
   const isActive = (row) => !row?.ativo || String(row.ativo).toUpperCase() === 'SIM';

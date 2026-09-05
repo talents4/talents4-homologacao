@@ -213,6 +213,13 @@ check(i18nCode.includes("document.addEventListener('t4:ready'") && i18nCode.incl
 check(settingsSQL.includes('t4_system_settings') && settingsSQL.includes('t4_settings_read') && settingsSQL.includes('t4_settings_admin_write') && settingsSQL.includes('t4_settings_users_admin_read') && settingsSQL.includes('t4_settings_users_admin_write') && settingsSQL.includes('t4_collab_is_admin()') && settingsSQL.includes('nunca é tocada'), 'migração 54 é aditiva: cria a preferência de idioma e amplia o acesso de administradores sem tocar a policy pré-existente de usuarios');
 check(adminUsersFn.includes('SUPABASE_SERVICE_ROLE_KEY') && adminUsersFn.includes('admin.auth.getUser(token)') && adminUsersFn.includes("caller.role !== 'admin'") && adminUsersFn.includes('inviteUserByEmail') && adminUsersFn.includes('ban_duration') && adminUsersFn.includes('auth.admin.deleteUser') && (adminUsersFn.match(/\.eq\('username', row\.username\)/g) || []).length === 2, 'função de administração de contas valida sessão e papel de administrador no servidor antes de qualquer ação, e usa igualdade exata (não ilike) para gravar');
 check(settingsCode.includes('FUNCTIONS_URL') && settingsCode.includes('callAdminUsers') && settingsCode.includes('D.session.access_token') && settingsCode.includes('D.canAdmin()') && settingsCode.includes("D.TABLES.systemSettings") && settingsCode.includes('window.T4I18n?.applyChrome'), 'tela de Configurações chama a função de administração com o token da sessão e aplica a tradução do menu após renderizar');
+// D.all()/D.optionalAll() ordenam por "id" por padrão para paginar de forma
+// estável (t4-v2-data.js:236) — mas t4_system_settings usa "key" como chave
+// primária, sem coluna id. Sem essa substituição explícita, a leitura falha
+// em produção com 42703 (column t4_system_settings.id does not exist),
+// mesmo passando limpo em todos os testes e na demonstração (bug visto ao
+// validar em homologação).
+check(settingsCode.includes("D.TABLES.systemSettings, 'key,value,updated_at,updated_by', null, { orderKeys: ['key'] }"), 'leitura de t4_system_settings ordena pela chave primária real (key), não pela coluna id inexistente');
 check(!front.includes('SUPABASE_SERVICE_ROLE_KEY') && !front.includes('admin.auth.admin'), 'frontend nunca referencia a chave de serviço nem chama a API administrativa do Supabase diretamente');
 check(settingsCSS.includes('.t4-users-table') && settingsCSS.includes('.is-inactive'), 'lista de usuários diferencia contas desativadas visualmente');
 for (const file of [...Object.keys(pages), 'documentacao.html', 'configuracoes.html', ...Object.keys(pages).map((f) => `demo/${f}`), 'demo/configuracoes.html']) check(read(file).includes('t4-i18n.js'), `${file}: menu lateral traduzível carregado`);
