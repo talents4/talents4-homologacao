@@ -40,8 +40,7 @@ for (const file of pages) {
 const dataPath = path.join(preview, 'assets/t4-v2-data.js');
 const data = fs.readFileSync(dataPath, 'utf8')
   .replace(/const SUPABASE_URL = '[^']+';/, "const SUPABASE_URL = 'https://offline.invalid';")
-  .replace(/const SUPABASE_ANON_KEY = '[^']+';/, "const SUPABASE_ANON_KEY = 'DEMONSTRACAO_SEM_CHAVE_REAL';")
-  .replace("const ROOT_LOGIN = '/talents4/index.html';", "const ROOT_LOGIN = './index.html';");
+  .replace(/const SUPABASE_ANON_KEY = '[^']+';/, "const SUPABASE_ANON_KEY = 'DEMONSTRACAO_SEM_CHAVE_REAL';");
 if (/\.supabase\.co|eyJ[A-Za-z0-9_-]+\./.test(data)) throw new Error('Configuração real encontrada na prévia sem banco.');
 fs.writeFileSync(dataPath, data);
 fs.writeFileSync(path.join(preview, 'LEIA_ME.md'), `# Talents 4 V2.5.2 · prévia sem banco

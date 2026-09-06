@@ -194,7 +194,7 @@
 
   async function read(file) {
     const JSZip = global.JSZip || globalThis.JSZip;
-    if (!JSZip) throw new Error('Leitor de planilhas indisponível. Atualize a página da homologação.');
+    if (!JSZip) throw new Error('Leitor de planilhas indisponível. Atualize a página.');
     const input = typeof file?.arrayBuffer === 'function' ? await file.arrayBuffer() : file;
     const zip = await JSZip.loadAsync(input);
     const workbookXml = await zipText(zip, 'xl/workbook.xml');
@@ -294,7 +294,7 @@
 
   async function write(workbook) {
     const JSZip = global.JSZip || globalThis.JSZip;
-    if (!JSZip) throw new Error('Gerador de planilhas indisponível. Atualize a página da homologação.');
+    if (!JSZip) throw new Error('Gerador de planilhas indisponível. Atualize a página.');
     const zip = new JSZip(), specs = Array.isArray(workbook?.sheets) ? workbook.sheets : [];
     if (!specs.length) throw new Error('Não há abas para exportar.');
     const used = new Set(), sheetNames = specs.map((spec) => safeSheetName(spec.name, used));
