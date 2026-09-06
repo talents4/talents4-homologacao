@@ -81,15 +81,18 @@ for (const [name, module] of Object.entries(pages)) {
       const resolved = path.resolve(root, path.dirname(file), filePath);
       check(resolved.startsWith(root + path.sep) && fs.existsSync(resolved), `${file}: referência local ${ref}`);
     }
-    const core = scriptRefs.findIndex((r) => r.endsWith('t4-v2-core.js'));
-    const models = scriptRefs.findIndex((r) => r.endsWith('t4-v2-models.js'));
-    const data = scriptRefs.findIndex((r) => r.endsWith('t4-v2-data.js'));
-    const ui = scriptRefs.findIndex((r) => r.endsWith('t4-v2-ui.js'));
-    const records = scriptRefs.findIndex((r) => r.endsWith('t4-v2-records.js'));
+    // Cache-busting (?v=...) muda o fim literal da URL — sem remover antes,
+    // .endsWith() nunca mais acha o arquivo assim que alguém versiona.
+    const scriptPaths = scriptRefs.map((r) => r.replace(/[?#].*$/, ''));
+    const core = scriptPaths.findIndex((r) => r.endsWith('t4-v2-core.js'));
+    const models = scriptPaths.findIndex((r) => r.endsWith('t4-v2-models.js'));
+    const data = scriptPaths.findIndex((r) => r.endsWith('t4-v2-data.js'));
+    const ui = scriptPaths.findIndex((r) => r.endsWith('t4-v2-ui.js'));
+    const records = scriptPaths.findIndex((r) => r.endsWith('t4-v2-records.js'));
     check(core >= 0 && core < models && models < data && data < ui && ui < records, `${file}: dependências compartilhadas na ordem correta`);
-    const modern = scriptRefs.findIndex((r) => r.endsWith('t4-modern.js'));
-    const v24 = scriptRefs.findIndex((r) => r.endsWith('t4-v24.js'));
-    const v25 = scriptRefs.findIndex((r) => r.endsWith('t4-v25.js'));
+    const modern = scriptPaths.findIndex((r) => r.endsWith('t4-modern.js'));
+    const v24 = scriptPaths.findIndex((r) => r.endsWith('t4-v24.js'));
+    const v25 = scriptPaths.findIndex((r) => r.endsWith('t4-v25.js'));
     check(records >= 0 && records < modern && modern < v24 && v24 < v25, `${file}: camadas modernas carregam depois do núcleo compartilhado`);
     check(/href="(?:\.\/|\.\.\/)assets\/t4-v2.css"/.test(html), `${file}: mesmo design system`);
     check(html.includes('Content-Security-Policy') && html.includes("object-src 'none'"), `${file}: política de conteúdo`);
@@ -211,7 +214,7 @@ check(data.includes("systemSettings: 't4_system_settings'"), 'tabela de configur
 check(core.includes('data-i18n-switch') && core.includes('data-i18n-module-label') && core.includes('data-i18n-view') && core.includes('data-i18n-static') && core.includes("href: './configuracoes.html'"), 'menu lateral marca os rótulos traduzíveis e possui o espaço de Configurações');
 check(i18nCode.includes('DICT_DE') && i18nCode.includes("function t(text)") && i18nCode.includes("state.language !== 'de'") && i18nCode.includes('data-i18n-text') && i18nCode.includes('data-i18n-attrs'), 'tradução possui um dicionário plano e um mecanismo de correção por DOM para texto/atributos montados antes do idioma ser conhecido');
 check(core.includes("const t = (text) => window.T4I18n?.t") && workUI.includes("const t = (text) => window.T4I18n?.t"), 'shell compartilhado (t4-v2-core.js) e componentes de trabalho (t4-v2-ui.js) expõem o mesmo atalho de tradução');
-check(workUI.includes('await (window.T4I18n?.ready?.() ?? Promise.resolve())') && workUI.indexOf('await (window.T4I18n?.ready?.() ?? Promise.resolve())') < workUI.indexOf('await load()'), 'W.start() espera o idioma carregar antes da primeira renderização de qualquer módulo (sem isto, todo T4I18n.t(...) chamado dentro de render() nasceria em português)');
+check(workUI.includes("window.T4I18n?.ready?.() ?? Promise.resolve()") && workUI.indexOf("window.T4I18n?.ready?.() ?? Promise.resolve()") < workUI.indexOf('render();'), 'loader() espera o idioma ao lado da própria busca de dados do módulo (não antes dela), garantindo T4I18n.t(...) já traduzido dentro de render() sem atrasar a primeira renderização além do necessário');
 check(core.includes('data-i18n-text>${t(\'Ir para o conteúdo\')}') && core.includes('data-i18n-attrs="aria-label,data-tooltip"') && core.includes('data-i18n-attrs="title"'), 'casca síncrona da sidebar/topbar (montada antes de t4:ready) marca texto e atributos traduzíveis para a correção por DOM, não só T4I18n.t(...) direto');
 check(i18nCode.includes("document.addEventListener('t4:ready'") && i18nCode.includes('SWITCH_LABELS_DE') && i18nCode.includes('VIEW_LABELS_DE') && i18nCode.includes('applyChrome') && i18nCode.includes('data-i18n-switch') && i18nCode.includes('window.T4I18n'), 'tradução do menu lateral é aplicada após a sessão ficar pronta, sem travar a primeira renderização');
 check(settingsSQL.includes('t4_system_settings') && settingsSQL.includes('t4_settings_read') && settingsSQL.includes('t4_settings_admin_write') && settingsSQL.includes('t4_settings_users_admin_read') && settingsSQL.includes('t4_settings_users_admin_write') && settingsSQL.includes('t4_collab_is_admin()') && settingsSQL.includes('nunca é tocada'), 'migração 54 é aditiva: cria a preferência de idioma e amplia o acesso de administradores sem tocar a policy pré-existente de usuarios');

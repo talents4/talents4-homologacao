@@ -310,15 +310,24 @@
       if (pending) { again = true; return pending; }
       app.setSync('loading', t('Atualizando dados'));
       pending = (async () => {
-        await Promise.all(Object.entries(sources).map(async ([key, spec]) => {
-          try {
-            const result = await spec.load();
-            const wrapped = result && typeof result === 'object' && !Array.isArray(result) && 'available' in result;
-            if (wrapped && !result.available) { state.sources[key] = { label: spec.label, available: false }; return; }
-            state[key] = wrapped ? result.data : result;
-            state.sources[key] = { label: spec.label, available: true, warnings: result?.warnings || [] };
-          } catch (error) { state.sources[key] = { label: spec.label, error, stale: state.loaded === true }; }
-        }));
+        // T4I18n.ready() já está em andamento desde t4:ready (dentro de
+        // D.init, que chamou esta função) — aguardar aqui, ao lado da busca
+        // dos dados do próprio módulo em vez de antes dela, garante que
+        // T4I18n.t(...) chamado dentro de render() já nasce traduzido, sem
+        // atrasar a primeira renderização além do que a própria leitura de
+        // dados já levaria (as duas ficam em paralelo, não em fila).
+        await Promise.all([
+          Promise.all(Object.entries(sources).map(async ([key, spec]) => {
+            try {
+              const result = await spec.load();
+              const wrapped = result && typeof result === 'object' && !Array.isArray(result) && 'available' in result;
+              if (wrapped && !result.available) { state.sources[key] = { label: spec.label, available: false }; return; }
+              state[key] = wrapped ? result.data : result;
+              state.sources[key] = { label: spec.label, available: true, warnings: result?.warnings || [] };
+            } catch (error) { state.sources[key] = { label: spec.label, error, stale: state.loaded === true }; }
+          })),
+          window.T4I18n?.ready?.() ?? Promise.resolve()
+        ]);
         state.loaded = true;
         render();
         const issues = D.readWarnings?.length || Object.values(state.sources).some((s) => s.error || s.available === false || s.warnings?.length);
@@ -398,13 +407,6 @@
   function start(app, load, tables) {
     let unsubscribe;
     D.init(app).then(async () => {
-      // t4:ready (disparado dentro de D.init, acima) já deixou T4I18n com
-      // uma promessa real em andamento neste ponto — esperar por ela aqui
-      // garante que T4I18n.language está resolvido ANTES da primeira
-      // renderização do módulo, para que cada T4I18n.t(...) chamado dentro
-      // de render() já devolva o idioma certo de primeira, sem depender de
-      // uma renderização seguinte para corrigir o texto.
-      await (window.T4I18n?.ready?.() ?? Promise.resolve());
       await load();
       unsubscribe = D.subscribe(tables, U.debounce(() => load(true), 500));
       document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
