@@ -24,17 +24,33 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.112.3';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
+// Nenhuma requisição daqui é aceita só por causa do CORS — toda ação exige
+// sessão válida (getUser) e role='admin' checados no servidor, mesmo assim
+// restringir a origem é defesa em profundidade: sem isto, qualquer site na
+// internet podia pelo menos TENTAR chamar esta função. Ajuste esta lista se
+// o site for publicado num domínio próprio (além do GitHub Pages padrão).
+const ALLOWED_ORIGINS = [
+  'https://talents4.github.io',
+];
 
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), {
+// Cabeçalhos e json() são criados de novo a cada requisição (dentro do
+// handler abaixo) e passados explicitamente para createUser/setActive/
+// deleteUser — nunca guardados numa variável do módulo. Deno.serve atende
+// requisições concorrentes na mesma isolate; uma variável compartilhada
+// aqui vazaria a origem de uma requisição para a resposta de outra.
+function makeJson(origin) {
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const headers = {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    Vary: 'Origin',
+  };
+  const json = (body, status = 200) => new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    headers: { ...headers, 'Content-Type': 'application/json' },
   });
+  return { headers, json };
 }
 
 function normalize(value) {
@@ -46,7 +62,8 @@ function normalize(value) {
 const VALID_ROLES = ['admin', 'recrutador', 'viewer'];
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: CORS_HEADERS });
+  const { headers, json } = makeJson(req.headers.get('origin') || '');
+  if (req.method === 'OPTIONS') return new Response(null, { headers });
   if (req.method !== 'POST') return json({ error: 'Método não suportado.' }, 405);
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
     return json({ error: 'Função sem SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY configuradas no projeto.' }, 500);
@@ -84,10 +101,10 @@ Deno.serve(async (req) => {
   const action = String(payload?.action || '');
 
   try {
-    if (action === 'create') return await createUser(admin, payload, caller.username);
-    if (action === 'deactivate') return await setActive(admin, payload, false);
-    if (action === 'reactivate') return await setActive(admin, payload, true);
-    if (action === 'delete') return await deleteUser(admin, payload);
+    if (action === 'create') return await createUser(admin, payload, caller.username, json);
+    if (action === 'deactivate') return await setActive(admin, payload, false, json);
+    if (action === 'reactivate') return await setActive(admin, payload, true, json);
+    if (action === 'delete') return await deleteUser(admin, payload, json);
     return json({ error: `Ação desconhecida: ${action}` }, 400);
   } catch (error) {
     console.error('[admin-users]', error);
@@ -95,7 +112,7 @@ Deno.serve(async (req) => {
   }
 });
 
-async function createUser(admin, payload, createdByUsername) {
+async function createUser(admin, payload, createdByUsername, json) {
   const email = String(payload?.email || '').trim();
   const nome = String(payload?.nome || '').trim();
   const username = normalize(payload?.username || email.split('@')[0] || nome);
@@ -129,7 +146,7 @@ async function createUser(admin, payload, createdByUsername) {
 // permanente) e marca ativo='NAO', mas preserva a linha em usuarios — o
 // mesmo espírito de soft-delete usado no resto do sistema (deleted_at em
 // vez de apagar). Reversível por um administrador via "reactivate".
-async function setActive(admin, payload, active) {
+async function setActive(admin, payload, active, json) {
   const username = String(payload?.username || '').trim();
   if (!username) return json({ error: 'Usuário não informado.' }, 400);
   const { data: rows, error } = await admin.from('usuarios').select('auth_uid,username').ilike('username', username).limit(1);
@@ -156,7 +173,7 @@ async function setActive(admin, payload, active) {
 // tabelas continua intacto, já que referenciam username, não o auth_uid).
 // A linha de usuarios não é apagada: fica marcada ativo='NAO' e sem
 // auth_uid, preservando o registro de quem foi essa pessoa no sistema.
-async function deleteUser(admin, payload) {
+async function deleteUser(admin, payload, json) {
   const username = String(payload?.username || '').trim();
   if (!username) return json({ error: 'Usuário não informado.' }, 400);
   const { data: rows, error } = await admin.from('usuarios').select('auth_uid,username').ilike('username', username).limit(1);
