@@ -2,6 +2,10 @@
 (function () {
   'use strict';
   const U = window.T4V2, D = window.T4Data, M = window.T4Models;
+  // Referência tardia (não capturada no carregamento do script): t4-v2-ui.js
+  // carrega antes de t4-i18n.js, mas t()/language só são chamados dentro de
+  // funções executadas bem depois, quando todos os scripts já rodaram.
+  const t = (text) => window.T4I18n?.t ? window.T4I18n.t(text) : text;
   const tableStates = new Map();
   // The page re-renders after each checkbox change. Keep the active menu and
   // its search term outside the HTML so multi-select filters do not collapse
@@ -11,7 +15,7 @@
   const e = U.esc, a = U.attr;
   const button = (label, action, id = '', options = {}) => `<button type="button" class="t4-btn ${a(options.className || '')}" data-action="${a(action)}" data-id="${a(id)}" ${options.disabled ? 'disabled' : ''} ${options.title ? `title="${a(options.title)}"` : ''}>${options.icon ? U.icon(options.icon) : ''}${e(label)}</button>`;
   const link = (label, href, icon = '') => `<a class="t4-btn sm" href="${a(href)}">${icon ? U.icon(icon) : ''}${e(label)}</a>`;
-  const external = (label, url) => M.safeUrl(url) ? `<a class="t4-text-link" href="${a(M.safeUrl(url))}" target="_blank" rel="noopener noreferrer">${e(label)}${U.icon('external')}</a>` : '<span class="t4-muted">Não informado</span>';
+  const external = (label, url) => M.safeUrl(url) ? `<a class="t4-text-link" href="${a(M.safeUrl(url))}" target="_blank" rel="noopener noreferrer">${e(label)}${U.icon('external')}</a>` : `<span class="t4-muted">${t('Não informado')}</span>`;
   const normalizedOptions = (options) => options.map((o) => typeof o === 'object' ? o : { value: o, label: U.term(o) });
   const optionsHtml = (options, value, placeholder = null) => {
     const opts = normalizedOptions(options);
@@ -27,10 +31,10 @@
     const selectAttrs = settings.attrs || '';
     const native = `<select ${selectAttrs}${searchable ? ` data-searchable-value="${a(name)}"` : ''}>${optionsHtml(list, value, placeholder)}</select>`;
     if (!searchable) return native;
-    const searchPlaceholder = settings.searchPlaceholder || `Buscar ${String(label).toLocaleLowerCase('pt-BR')}…`;
-    return `<span class="t4-searchable-select" data-searchable-select="${a(name)}"><span class="t4-select-search"><span class="t4-sr-only">Buscar ${a(label)}</span><input type="search" data-select-search="${a(name)}" placeholder="${a(searchPlaceholder)}" aria-label="Buscar ${a(label)}" autocomplete="off"></span>${native}</span>`;
+    const searchPlaceholder = settings.searchPlaceholder || `${t('Buscar')} ${String(label).toLocaleLowerCase('pt-BR')}…`;
+    return `<span class="t4-searchable-select" data-searchable-select="${a(name)}"><span class="t4-select-search"><span class="t4-sr-only">${t('Buscar')} ${a(label)}</span><input type="search" data-select-search="${a(name)}" placeholder="${a(searchPlaceholder)}" aria-label="${t('Buscar')} ${a(label)}" autocomplete="off"></span>${native}</span>`;
   };
-  const filter = (name, label, values, value = '') => `<label class="t4-filter"><span>${e(label)}</span><select data-filter="${a(name)}" aria-label="${a(label)}">${optionsHtml(values, value, `Todos · ${label.toLowerCase()}`)}</select></label>`;
+  const filter = (name, label, values, value = '') => `<label class="t4-filter"><span>${e(label)}</span><select data-filter="${a(name)}" aria-label="${a(label)}">${optionsHtml(values, value, `${t('Todos')} · ${label.toLowerCase()}`)}</select></label>`;
   const normalizedMultiOptions = (values) => values.map((o) => {
     const option = typeof o === 'object' ? o : { value: o, label: U.term(o) };
     return { ...option, value: option.value ?? '', label: option.label ?? U.term(option.value) };
@@ -39,7 +43,8 @@
     const picked = Array.isArray(selected) ? selected.map(String) : M.present(selected) ? [String(selected)] : [];
     const options = normalizedMultiOptions(values);
     const query = multiSearch.get(String(name)) || '';
-    return `<details class="t4-multi-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">Buscar em ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="Buscar opção…" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${options.map((o) => `<label data-multi-filter-option="${a(name)}"><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhuma opção disponível.</span>'}</div></details>`;
+    const pickedLabel = picked.length ? (window.T4I18n?.language === 'de' ? `${picked.length} ausgewählt` : `${picked.length} selecionado${picked.length > 1 ? 's' : ''}`) : t('Todos');
+    return `<details class="t4-multi-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="${t('Filtrar')} ${a(label)}"><span>${e(label)}</span><strong>${pickedLabel}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">${t('Buscar em')} ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="${t('Buscar opção…')}" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">${t('Limpar')}</button></div>${options.map((o) => `<label data-multi-filter-option="${a(name)}"><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span>${e(o.label)}</span></label>`).join('') || `<span class="t4-muted">${t('Nenhuma opção disponível.')}</span>`}</div></details>`;
   };
   // Períodos precisam de uma hierarquia própria: o mês corrente fica sempre
   // visível no topo e os demais são agrupados por ano. Os mesmos atributos do
@@ -53,17 +58,18 @@
     const rest = options.filter((o) => o !== current);
     const groups = new Map();
     rest.forEach((o) => {
-      const group = String(o.group || String(o.value).slice(0, 4) || 'Outros');
+      const group = String(o.group || String(o.value).slice(0, 4) || t('Outros'));
       if (!groups.has(group)) groups.set(group, []);
       groups.get(group).push(o);
     });
     const groupEntries = [...groups.entries()].sort(([left], [right]) => String(right).localeCompare(String(left), 'pt-BR', { numeric: true }));
     const optionHtml = (o, className = '') => `<label class="t4-period-option ${a(className)}" data-multi-filter-option="${a(name)}" data-period-year="${a(o.group || String(o.value).slice(0, 4))}" ${o.current ? 'data-period-current="true"' : ''}><input type="checkbox" data-multi-filter="${a(name)}" value="${a(o.value)}" ${picked.includes(String(o.value)) ? 'checked' : ''}><span class="t4-period-option-copy"><strong>${e(o.label)}</strong>${o.secondary ? `<small>${e(o.secondary)}</small>` : ''}</span></label>`;
-    const currentHtml = current ? `<section class="t4-period-current"><span class="t4-period-section-label">Mês atual</span>${optionHtml(current, 'is-current')}</section>` : '';
+    const currentHtml = current ? `<section class="t4-period-current"><span class="t4-period-section-label">${t('Mês atual')}</span>${optionHtml(current, 'is-current')}</section>` : '';
     const groupsHtml = groupEntries.map(([year, yearOptions]) => `<section class="t4-period-year"><h4>${e(year)}</h4>${yearOptions.map((o) => optionHtml(o)).join('')}</section>`).join('');
-    return `<details class="t4-multi-filter t4-period-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="Filtrar ${a(label)}"><span>${e(label)}</span><strong>${picked.length ? `${picked.length} selecionado${picked.length > 1 ? 's' : ''}` : 'Todos'}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options t4-period-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">Buscar em ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="Buscar mês ou ano…" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">Limpar</button></div>${currentHtml}${groupsHtml || '<span class="t4-muted">Nenhum outro período disponível.</span>'}</div></details>`;
+    const pickedLabel = picked.length ? (window.T4I18n?.language === 'de' ? `${picked.length} ausgewählt` : `${picked.length} selecionado${picked.length > 1 ? 's' : ''}`) : t('Todos');
+    return `<details class="t4-multi-filter t4-period-filter" data-multi-filter-menu="${a(name)}" ${multiOpenKey === String(name) ? 'open' : ''}><summary aria-label="${t('Filtrar')} ${a(label)}"><span>${e(label)}</span><strong>${pickedLabel}</strong><span class="t4-multi-chevron">${U.icon('chevron')}</span></summary><div class="t4-multi-options t4-period-options"><div class="t4-multi-option-actions"><label class="t4-multi-search"><span class="t4-sr-only">${t('Buscar em')} ${e(label)}</span><input type="search" data-multi-filter-search="${a(name)}" value="${a(query)}" placeholder="${t('Buscar mês ou ano…')}" autocomplete="off"></label><button type="button" class="t4-btn ghost sm" data-action="multi-filter-clear" data-id="${a(name)}">${t('Limpar')}</button></div>${currentHtml}${groupsHtml || `<span class="t4-muted">${t('Nenhum outro período disponível.')}</span>`}</div></details>`;
   };
-  const chips = (items, current, action = 'quick') => `<div class="t4-quickfilters" aria-label="Visões rápidas">${items.map((x) => `<button type="button" class="t4-quickfilter ${x.id === current ? 'active' : ''}" data-action="${a(action)}" data-id="${a(x.id)}" aria-pressed="${x.id === current}">${x.icon ? U.icon(x.icon) : ''}${e(x.label)}${x.count == null ? '' : `<span>${e(x.count)}</span>`}</button>`).join('')}</div>`;
+  const chips = (items, current, action = 'quick') => `<div class="t4-quickfilters" aria-label="${t('Visões rápidas')}">${items.map((x) => `<button type="button" class="t4-quickfilter ${x.id === current ? 'active' : ''}" data-action="${a(action)}" data-id="${a(x.id)}" aria-pressed="${x.id === current}">${x.icon ? U.icon(x.icon) : ''}${e(x.label)}${x.count == null ? '' : `<span>${e(x.count)}</span>`}</button>`).join('')}</div>`;
   const note = (text, tone = 'info') => `<div class="t4-alert ${a(tone)}">${U.icon(tone === 'error' || tone === 'warning' ? 'warning' : 'note')}<div>${e(text)}</div></div>`;
   const section = (title, body, actions = '', subtitle = '') => `<section class="t4-panel"><div class="t4-panel-head"><div><h2>${e(title)}</h2>${subtitle ? `<p>${e(subtitle)}</p>` : ''}</div><div class="t4-panel-actions">${actions}</div></div><div class="t4-panel-body">${body}</div></section>`;
   const person = (name, meta = '', tone = '', action = '', id = '') => `<div class="t4-inline-person"><span class="t4-avatar-sm ${a(tone)}">${e(U.initials(name))}</span><span class="t4-inline-person-copy">${action ? `<button class="t4-row-link" type="button" data-action="${a(action)}" data-id="${a(id)}">${e(name)}</button>` : `<strong>${e(name)}</strong>`}<small>${e(meta)}</small></span></div>`;
@@ -83,13 +89,13 @@
     || (error?.name === 'TypeError' && /fetch|network/i.test(error?.message || ''))
     || /timeout|excedeu/i.test(error?.message || '');
   function formatError(error) {
-    if (error?.code === 'PGRST116') return 'O registro mudou, foi removido ou você não tem permissão. Atualize a ficha antes de salvar novamente.';
-    if (error?.code === '23505') return 'Já existe um registro com essa identificação. Confira os dados; nenhuma duplicidade foi criada.';
-    if (error?.code === '23503') return 'O vínculo informado não existe mais. Atualize os dados e selecione um registro válido.';
-    if (error?.code === '42501') return 'Seu perfil não tem permissão para esta operação. Solicite revisão ao administrador.';
+    if (error?.code === 'PGRST116') return t('O registro mudou, foi removido ou você não tem permissão. Atualize a ficha antes de salvar novamente.');
+    if (error?.code === '23505') return t('Já existe um registro com essa identificação. Confira os dados; nenhuma duplicidade foi criada.');
+    if (error?.code === '23503') return t('O vínculo informado não existe mais. Atualize os dados e selecione um registro válido.');
+    if (error?.code === '42501') return t('Seu perfil não tem permissão para esta operação. Solicite revisão ao administrador.');
     if (isConnectivityError(error)) {
       console.error('[Talents4]', error);
-      return 'Falha de conexão com o servidor. Verifique sua internet e tente novamente; nada foi salvo.';
+      return t('Falha de conexão com o servidor. Verifique sua internet e tente novamente; nada foi salvo.');
     }
     // error.code sem estar na lista acima só acontece com o formato de erro
     // do Postgres/Supabase (PGRST*, 23xxx, 42xxx…) — a mensagem original é
@@ -97,11 +103,11 @@
     // navegador, que é o log técnico disponível nesta pilha sem backend.
     if (error?.code) {
       console.error('[Talents4]', error);
-      return 'Não foi possível concluir esta ação no banco agora. Nenhuma alteração parcial foi salva; tente novamente em instantes.';
+      return t('Não foi possível concluir esta ação no banco agora. Nenhuma alteração parcial foi salva; tente novamente em instantes.');
     }
     return error?.message || String(error);
   }
-  function table({ id, rows, columns, empty = 'Nenhum registro neste recorte.', pageSize = 40, groupBy = null }) {
+  function table({ id, rows, columns, empty = t('Nenhum registro neste recorte.'), pageSize = 40, groupBy = null }) {
     const prev = tableStates.get(id) || { page: 0, sort: '', direction: 1, hidden: new Set(), dense: false };
     Object.assign(prev, { rows, columns, empty, pageSize, groupBy });
     tableStates.set(id, prev);
@@ -119,14 +125,19 @@
     s.page = Math.max(0, Math.min(s.page, pages - 1));
     const start = s.page * s.pageSize, slice = rows.slice(start, start + s.pageSize);
     let previousGroup = null;
-    return `<div class="t4-grid-tools"><span><strong>${rows.length}</strong> registro${rows.length === 1 ? '' : 's'}</span><div><button type="button" class="t4-btn ghost sm" data-grid-density="${a(id)}" aria-pressed="${s.dense}">${U.icon('list')}${s.dense ? 'Confortável' : 'Compacto'}</button><details class="t4-columns-menu"><summary>${U.icon('columns')}Colunas</summary><div>${s.columns.filter((c) => c.label).map((c) => `<label><input type="checkbox" data-grid-column="${a(c.key)}" data-grid-id="${a(id)}" ${s.hidden.has(c.key) ? '' : 'checked'} ${c.required ? 'disabled' : ''}>${e(c.label)}</label>`).join('')}</div></details></div></div>
+    const lang = window.T4I18n?.language;
+    const rowsNoun = lang === 'de' ? (rows.length === 1 ? 'Eintrag' : 'Einträge') : `registro${rows.length === 1 ? '' : 's'}`;
+    const rangeLabel = rows.length ? `${start + 1}–${Math.min(start + s.pageSize, rows.length)}` : '0';
+    const totalLabel = lang === 'de' ? `${rangeLabel} von ${rows.length}` : `${rangeLabel} de ${rows.length}`;
+    const pageLabel = lang === 'de' ? `Seite ${s.page + 1} von ${pages}` : `Página ${s.page + 1} de ${pages}`;
+    return `<div class="t4-grid-tools"><span><strong>${rows.length}</strong> ${rowsNoun}</span><div><button type="button" class="t4-btn ghost sm" data-grid-density="${a(id)}" aria-pressed="${s.dense}">${U.icon('list')}${s.dense ? t('Confortável') : t('Compacto')}</button><details class="t4-columns-menu"><summary>${U.icon('columns')}${t('Colunas')}</summary><div>${s.columns.filter((c) => c.label).map((c) => `<label><input type="checkbox" data-grid-column="${a(c.key)}" data-grid-id="${a(id)}" ${s.hidden.has(c.key) ? '' : 'checked'} ${c.required ? 'disabled' : ''}>${e(c.label)}</label>`).join('')}</div></details></div></div>
       ${slice.length ? `<div class="t4-table-wrap"><table class="t4-table ${s.dense ? 'compact' : ''}"><thead><tr>${columns.map((c) => `<th ${s.sort === c.key ? `aria-sort="${s.direction === 1 ? 'ascending' : 'descending'}"` : ''}>${c.sort === false || !c.label ? (c.ariaLabel ? `<span class="t4-sr-only">${e(c.ariaLabel)}</span>` : e(c.label || '')) : `<button type="button" data-grid-sort="${a(c.key)}" data-grid-id="${a(id)}">${e(c.label)}<span aria-hidden="true">${s.sort === c.key ? s.direction === 1 ? '↑' : '↓' : '↕'}</span></button>`}</th>`).join('')}</tr></thead><tbody>${slice.map((r) => {
         const group = s.groupBy?.(r);
         const header = group != null && group !== previousGroup ? `<tr class="t4-group-row"><th colspan="${columns.length}">${e(group)}</th></tr>` : '';
         previousGroup = group;
         return header + `<tr>${columns.map((c) => `<td class="${a(c.className || '')}">${c.render ? c.render(r) : e(r[c.key] ?? '—')}</td>`).join('')}</tr>`;
-      }).join('')}</tbody></table></div>` : U.emptyState('Nenhum registro encontrado', s.empty)}
-      <div class="t4-pagination"><span>${rows.length ? `${start + 1}–${Math.min(start + s.pageSize, rows.length)}` : '0'} de ${rows.length}</span><div><button type="button" class="t4-btn sm" data-grid-page="${s.page - 1}" data-grid-id="${a(id)}" ${s.page === 0 ? 'disabled' : ''}>Anterior</button><span>Página ${s.page + 1} de ${pages}</span><button type="button" class="t4-btn sm" data-grid-page="${s.page + 1}" data-grid-id="${a(id)}" ${s.page >= pages - 1 ? 'disabled' : ''}>Próxima</button></div></div>`;
+      }).join('')}</tbody></table></div>` : U.emptyState(t('Nenhum registro encontrado'), s.empty)}
+      <div class="t4-pagination"><span>${totalLabel}</span><div><button type="button" class="t4-btn sm" data-grid-page="${s.page - 1}" data-grid-id="${a(id)}" ${s.page === 0 ? 'disabled' : ''}>${t('Anterior')}</button><span>${pageLabel}</span><button type="button" class="t4-btn sm" data-grid-page="${s.page + 1}" data-grid-id="${a(id)}" ${s.page >= pages - 1 ? 'disabled' : ''}>${t('Próxima')}</button></div></div>`;
   }
   function refreshTable(id) {
     const node = document.querySelector(`[data-table="${CSS.escape(id)}"]`);
@@ -142,11 +153,11 @@
     else if (density) { const s = tableStates.get(density.dataset.gridDensity); s.dense = !s.dense; refreshTable(density.dataset.gridDensity); }
   });
   document.addEventListener('change', (event) => {
-    const t = event.target;
-    if (!t.matches('[data-grid-column]')) return;
-    const s = tableStates.get(t.dataset.gridId);
-    t.checked ? s.hidden.delete(t.dataset.gridColumn) : s.hidden.add(t.dataset.gridColumn);
-    refreshTable(t.dataset.gridId);
+    const target = event.target;
+    if (!target.matches('[data-grid-column]')) return;
+    const s = tableStates.get(target.dataset.gridId);
+    target.checked ? s.hidden.delete(target.dataset.gridColumn) : s.hidden.add(target.dataset.gridColumn);
+    refreshTable(target.dataset.gridId);
   });
   function inputField(f, row) {
     if (f.section) return `<h3 class="t4-form-section">${e(f.section)}</h3>`;
@@ -161,9 +172,9 @@
     const isMulti = f.type === 'multi-select';
     const picked = Array.isArray(value) ? value.map(String) : M.present(value) ? [String(value)] : [];
     const multiOptions = normalizedOptions(selectOptions).concat(picked.filter((item) => !selectOptions.some((option) => String(typeof option === 'object' ? option.value : option) === item)).map((item) => ({ value: item, label: U.term(item) })));
-    const multiControl = `<div class="t4-form-multi-select" role="group" aria-label="${a(f.label)}">${multiOptions.map((option) => `<label class="t4-form-multi-option"><input type="checkbox" name="${a(f.name)}" value="${a(option.value)}" ${picked.includes(String(option.value)) ? 'checked' : ''} ${f.readonly ? 'disabled' : ''}><span>${e(option.label)}</span></label>`).join('') || '<span class="t4-muted">Nenhum usuário disponível.</span>'}</div>`;
+    const multiControl = `<div class="t4-form-multi-select" role="group" aria-label="${a(f.label)}">${multiOptions.map((option) => `<label class="t4-form-multi-option"><input type="checkbox" name="${a(f.name)}" value="${a(option.value)}" ${picked.includes(String(option.value)) ? 'checked' : ''} ${f.readonly ? 'disabled' : ''}><span>${e(option.label)}</span></label>`).join('') || `<span class="t4-muted">${t('Nenhum usuário disponível.')}</span>`}</div>`;
     const control = f.type === 'textarea' ? `<textarea ${common} rows="${f.rows || 3}">${e(value)}</textarea>`
-      : f.type === 'select' ? searchableSelect(f.name, selectOptions, value, { label: f.label, placeholder: f.placeholder === undefined ? 'Não informado' : f.placeholder, searchable: isSearchable, searchPlaceholder: f.searchPlaceholder, attrs: common })
+      : f.type === 'select' ? searchableSelect(f.name, selectOptions, value, { label: f.label, placeholder: f.placeholder === undefined ? t('Não informado') : f.placeholder, searchable: isSearchable, searchPlaceholder: f.searchPlaceholder, attrs: common })
       : isMulti ? multiControl
       : f.type === 'checkbox' ? `<input type="checkbox" ${common} ${value === true ? 'checked' : ''}>`
       : `<input type="${a(f.type || 'text')}" ${common} value="${a(value)}" ${f.placeholder ? `placeholder="${a(f.placeholder)}"` : ''}>`;
@@ -218,10 +229,10 @@
       el.addEventListener('change', paint);
     });
   }
-  function form({ title, subtitle = '', fields, row = {}, submitLabel = 'Salvar alterações', onSubmit, notice = '', body = '' }) {
+  function form({ title, subtitle = '', fields, row = {}, submitLabel = t('Salvar alterações'), onSubmit, notice = '', body = '' }) {
     const modal = U.openModal({ title, subtitle, wide: true,
       body: `${notice ? note(notice) : ''}<form data-editor><div class="t4-form-grid">${fields.map((f) => inputField(f, row)).join('')}</div>${body}<div data-form-error role="alert" hidden></div></form>`,
-      footer: '<span class="t4-save-hint">Campos não alterados serão preservados.</span><button type="button" class="t4-btn" data-cancel>Cancelar</button><button type="submit" class="t4-btn primary" data-save>' + e(submitLabel) + '</button>' });
+      footer: `<span class="t4-save-hint">${t('Campos não alterados serão preservados.')}</span><button type="button" class="t4-btn" data-cancel>${t('Cancelar')}</button><button type="submit" class="t4-btn primary" data-save>` + e(submitLabel) + '</button>' });
     const editor = modal.querySelector('form'), backdrop = modal.parentElement, save = modal.querySelector('[data-save]');
     bindSearchableSelects(modal);
     bindFieldValidation(modal);
@@ -246,7 +257,7 @@
       const values = read(), changes = Object.fromEntries(Object.entries(values).filter(([key, value]) => !sameValue(value, initial[key])));
       const errorBox = modal.querySelector('[data-form-error]');
       errorBox.hidden = true; save.disabled = true; backdrop.dataset.saving = 'true';
-      save.textContent = 'Salvando…';
+      save.textContent = t('Salvando…');
       try {
         await onSubmit(values, changes, { editor, modal });
         backdrop.dataset.dirty = 'false'; backdrop.dataset.saving = 'false'; U.closeModal();
@@ -254,8 +265,8 @@
         errorBox.hidden = false; errorBox.innerHTML = note(formatError(error), 'error');
         backdrop.dataset.saving = 'false';
         const uncertain = error.partial || isConnectivityError(error);
-        save.disabled = uncertain; save.textContent = uncertain ? 'Atualize e confira a gravação' : submitLabel;
-        if (uncertain) errorBox.insertAdjacentHTML('beforeend', note('A resposta não confirmou o resultado. Feche e atualize a lista antes de repetir, para evitar duplicidade.', 'warning'));
+        save.disabled = uncertain; save.textContent = uncertain ? t('Atualize e confira a gravação') : submitLabel;
+        if (uncertain) errorBox.insertAdjacentHTML('beforeend', note(t('A resposta não confirmou o resultado. Feche e atualize a lista antes de repetir, para evitar duplicidade.'), 'warning'));
       }
     });
     return modal;
@@ -272,7 +283,7 @@
     return form({ ...options, onSubmit: async (values, changes, ui) => {
       if (options.prepare) await options.prepare(values, changes, ui);
       const saved = await saveRecord(options.table, options.row, values, changes, newId);
-      U.toast(options.success || 'Registro salvo no Supabase.', 'success');
+      U.toast(options.success || t('Registro salvo no Supabase.'), 'success');
       await options.after?.(saved);
     } });
   }
@@ -283,20 +294,21 @@
     const visibleWarnings = [...(D.readWarnings || []), ...warnings].map((message) => note(message, 'warning')).join('');
     const errors = failed.map((key) => {
       const src = state.sources[key];
-      return note(`${src.label || key}: ${formatError(src.error)}${src.stale ? ' Os dados anteriores foram mantidos.' : ''}`, 'error');
+      return note(`${src.label || key}: ${formatError(src.error)}${src.stale ? t(' Os dados anteriores foram mantidos.') : ''}`, 'error');
     }).join('');
     if (!unavailable.length) return visibleWarnings + errors;
     const labels = unavailable.map((key) => state.sources[key]?.label || key);
     const stale = names.some((key) => state.sources?.[key]?.stale);
-    const details = unavailable.map((key) => `<li>${e(state.sources[key]?.label || key)}: ainda não foi importado; a fila principal continua disponível.</li>`).join('');
-    return `${visibleWarnings}${errors}<div class="t4-source-status" role="status"><span class="t4-source-status-icon">${U.icon('info')}</span><div><strong>Dados complementares aguardando importação</strong><p>${e(labels.length === 1 ? 'Há um conjunto complementar que ainda não foi carregado.' : `${labels.length} conjuntos complementares ainda não foram carregados.`)} Use <b>Centro de dados</b> para importar os dois modelos oficiais quando quiser enriquecer o mapeamento.${stale ? ' Os dados anteriores foram mantidos onde possível.' : ''}</p><details><summary>Ver detalhes</summary><ul>${details}</ul></details></div></div>`;
+    const details = unavailable.map((key) => `<li>${e(state.sources[key]?.label || key)}${t(': ainda não foi importado; a fila principal continua disponível.')}</li>`).join('');
+    const unavailableCopy = labels.length === 1 ? t('Há um conjunto complementar que ainda não foi carregado.') : `${labels.length} ${t('conjuntos complementares ainda não foram carregados.')}`;
+    return `${visibleWarnings}${errors}<div class="t4-source-status" role="status"><span class="t4-source-status-icon">${U.icon('info')}</span><div><strong>${t('Dados complementares aguardando importação')}</strong><p>${e(unavailableCopy)} ${t('Use <b>Centro de dados</b> para importar os dois modelos oficiais quando quiser enriquecer o mapeamento.')}${stale ? t(' Os dados anteriores foram mantidos onde possível.') : ''}</p><details><summary>${t('Ver detalhes')}</summary><ul>${details}</ul></details></div></div>`;
   }
   function loader(app, state, sources, render) {
     let pending = null, again = false;
     state.sources = {};
     async function load(background = false) {
       if (pending) { again = true; return pending; }
-      app.setSync('loading', 'Atualizando dados');
+      app.setSync('loading', t('Atualizando dados'));
       pending = (async () => {
         await Promise.all(Object.entries(sources).map(async ([key, spec]) => {
           try {
@@ -310,7 +322,7 @@
         state.loaded = true;
         render();
         const issues = D.readWarnings?.length || Object.values(state.sources).some((s) => s.error || s.available === false || s.warnings?.length);
-        app.setSync(issues ? 'error' : 'ok', issues ? 'Leitura parcial · veja os avisos' : `Atualizado ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+        app.setSync(issues ? 'error' : 'ok', issues ? t('Leitura parcial · veja os avisos') : `${t('Atualizado')} ${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
       })().finally(() => { pending = null; if (again) { again = false; load(true); } });
       return pending;
     }
@@ -386,12 +398,19 @@
   function start(app, load, tables) {
     let unsubscribe;
     D.init(app).then(async () => {
+      // t4:ready (disparado dentro de D.init, acima) já deixou T4I18n com
+      // uma promessa real em andamento neste ponto — esperar por ela aqui
+      // garante que T4I18n.language está resolvido ANTES da primeira
+      // renderização do módulo, para que cada T4I18n.t(...) chamado dentro
+      // de render() já devolva o idioma certo de primeira, sem depender de
+      // uma renderização seguinte para corrigir o texto.
+      await (window.T4I18n?.ready?.() ?? Promise.resolve());
       await load();
       unsubscribe = D.subscribe(tables, U.debounce(() => load(true), 500));
       document.addEventListener('visibilitychange', () => { if (!document.hidden) load(true); });
     }).catch((error) => {
-      app.setSync('error', 'Acesso indisponível');
-      app.pageRoot.innerHTML = note(formatError(error), 'error') + button('Tentar novamente', 'reload', '', { icon: 'refresh' }) + link('Abrir login do CRM', './index.html');
+      app.setSync('error', t('Acesso indisponível'));
+      app.pageRoot.innerHTML = note(formatError(error), 'error') + button(t('Tentar novamente'), 'reload', '', { icon: 'refresh' }) + link(t('Abrir login do CRM'), './index.html');
     });
     window.addEventListener('pagehide', () => { unsubscribe?.(); D.dispose(); });
     window.addEventListener('beforeunload', (event) => {
@@ -406,7 +425,7 @@
   function activeFiltersBar(state, keys, labels, valueLabel = (key, value) => value) {
     const entries = keys.flatMap((key) => (Array.isArray(state[key]) ? state[key] : []).map((value) => ({ key, value })));
     if (!entries.length) return '';
-    return `<div class="t4-active-filters" role="status"><span class="t4-af-label">Filtros ativos</span>${entries.map(({ key, value }) => `<span class="t4-af-chip">${e(labels[key] || key)}: ${e(valueLabel(key, value))}<button type="button" data-action="active-filter-remove" data-id="${a(JSON.stringify([key, value]))}" aria-label="Remover filtro ${a(labels[key] || key)}: ${a(valueLabel(key, value))}">×</button></span>`).join('')}<button type="button" class="t4-af-clear" data-action="clear">Limpar tudo</button></div>`;
+    return `<div class="t4-active-filters" role="status"><span class="t4-af-label">${t('Filtros ativos')}</span>${entries.map(({ key, value }) => `<span class="t4-af-chip">${e(labels[key] || key)}: ${e(valueLabel(key, value))}<button type="button" data-action="active-filter-remove" data-id="${a(JSON.stringify([key, value]))}" aria-label="${t('Remover filtro')} ${a(labels[key] || key)}: ${a(valueLabel(key, value))}">×</button></span>`).join('')}<button type="button" class="t4-af-clear" data-action="clear">${t('Limpar tudo')}</button></div>`;
   }
   // Visualização pensada para os dashboards "Meu dia" — a auditoria de
   // UI/UX encontrou zero visualização de dado em telas que só mostravam
@@ -420,13 +439,13 @@
     const empty = buckets.filter((b) => b.count === 0);
     const top = shown.reduce((best, b) => (!best || b.count > best.count ? b : best), null);
     const header = `<header><div><span class="t4-dist-eyebrow">${e(subtitle)}</span><h3>${e(title)}</h3></div><span class="t4-dist-meta">${e(meta)}</span></header>`;
-    if (!shown.length) return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}<p class="t4-funnel-empty">Nenhum registro nas etapas acompanhadas.</p></section>`;
+    if (!shown.length) return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}<p class="t4-funnel-empty">${t('Nenhum registro nas etapas acompanhadas.')}</p></section>`;
     const pct = (b) => total > 0 ? Math.round(b.count / total * 100) : 0;
     const tip = (b) => `${b.label} · ${b.count} · ${pct(b)}%`;
     return `<section class="t4-dist t4-funnel" aria-label="${a(title)}">${header}
       <div class="t4-funnel-bar" role="img" aria-label="${a(shown.map((b) => `${b.label}: ${b.count}`).join(', '))}">${shown.map((b, i) => `<span class="t4-funnel-seg ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" data-bucket="${i}" data-count="${b.count}" style="--seg-width:${Math.round(b.count / total * 1000) / 10}%; --i:${i}" data-tooltip="${a(tip(b))}"></span>`).join('')}</div>
       <ul class="t4-funnel-legend">${shown.map((b, i) => `<li style="--i:${i}"><button type="button" class="t4-funnel-legend-toggle ${a(b.tone || '')} ${b === top ? 'is-top' : ''}" data-bucket="${i}" data-tooltip="${a(tip(b))}" aria-pressed="true"><i aria-hidden="true"></i><span>${e(b.label)}</span><strong>${e(b.count)}</strong></button></li>`).join('')}</ul>
-      ${empty.length ? `<p class="t4-funnel-empty">Sem registros agora: ${e(empty.map((b) => b.label).join(', '))}.</p>` : ''}</section>`;
+      ${empty.length ? `<p class="t4-funnel-empty">${t('Sem registros agora: ')}${e(empty.map((b) => b.label).join(', '))}.</p>` : ''}</section>`;
   }
   function bindFunnelInteractivity() {
     const closestFunnel = (el) => el.closest?.('.t4-funnel') || null;

@@ -82,6 +82,10 @@
 
   function attr(value) { return esc(value).replace(/`/g, '&#096;'); }
 
+  // Referência tardia (t4-v2-core.js carrega antes de t4-i18n.js, mas t()
+  // só é chamado dentro de mount(), bem depois de todos os scripts rodarem).
+  const t = (text) => window.T4I18n?.t ? window.T4I18n.t(text) : text;
+
   function icon(name, className = 't4-icon') {
     const body = ICONS[name] || ICONS.note;
     return `<span class="${attr(className)}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg></span>`;
@@ -141,7 +145,7 @@
   }
 
   function formatRelative(value) {
-    if (!value) return 'Sem data';
+    if (!value) return t('Sem data');
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return String(value);
     const diff = date.getTime() - Date.now();
@@ -222,7 +226,7 @@
   }
 
   function field(label, value) {
-    if (typeof value === 'boolean') value = value ? 'Sim' : 'Não';
+    if (typeof value === 'boolean') value = value ? t('Sim') : t('Não');
     return `<div class="t4-detail-field"><div class="t4-detail-label">${esc(label)}</div><div class="t4-detail-value">${value == null || value === '' ? '—' : esc(value)}</div></div>`;
   }
 
@@ -245,12 +249,12 @@
     drawer.dataset.t4Drawer = 'true';
     drawer.setAttribute('role', 'dialog');
     drawer.setAttribute('aria-modal', 'true');
-    drawer.setAttribute('aria-label', options.title || 'Detalhes');
+    drawer.setAttribute('aria-label', options.title || t('Detalhes'));
     drawer._returnFocus = document.activeElement;
     drawer.innerHTML = `
       <div class="t4-drawer-head">
-        <div class="t4-drawer-heading"><h2>${esc(options.title || 'Detalhes')}</h2><p>${esc(options.subtitle || '')}</p></div>
-        <button type="button" class="t4-icon-btn" data-t4-close aria-label="Fechar">${icon('close')}</button>
+        <div class="t4-drawer-heading"><h2>${esc(options.title || t('Detalhes'))}</h2><p>${esc(options.subtitle || '')}</p></div>
+        <button type="button" class="t4-icon-btn" data-t4-close aria-label="${t('Fechar')}">${icon('close')}</button>
       </div>
       ${options.actions ? `<div class="t4-drawer-actions">${options.actions}</div>` : ''}
       <div class="t4-drawer-body">${options.body || ''}</div>`;
@@ -272,7 +276,7 @@
     const node = document.querySelector('[data-t4-modal-backdrop]');
     if (!node) return;
     if (node.dataset.saving === 'true') return;
-    if (node.dataset.dirty === 'true' && !window.confirm('Há alterações não salvas. Deseja descartá-las?')) return;
+    if (node.dataset.dirty === 'true' && !window.confirm(t('Há alterações não salvas. Deseja descartá-las?'))) return;
     node._onClose?.();
     node.remove();
     if (!document.querySelector('[data-t4-drawer]')) document.body.style.removeProperty('overflow');
@@ -288,10 +292,10 @@
     backdrop._returnFocus = document.activeElement;
     backdrop._onClose = options.onClose;
     backdrop.innerHTML = `
-      <section class="t4-modal ${options.wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${attr(options.title || 'Janela')}">
+      <section class="t4-modal ${options.wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-label="${attr(options.title || t('Janela'))}">
         <div class="t4-modal-head">
           <div class="t4-modal-head-copy"><h2>${esc(options.title || '')}</h2><p>${esc(options.subtitle || '')}</p></div>
-          <button type="button" class="t4-icon-btn" data-t4-close aria-label="Fechar">${icon('close')}</button>
+          <button type="button" class="t4-icon-btn" data-t4-close aria-label="${t('Fechar')}">${icon('close')}</button>
         </div>
         <div class="t4-modal-body">${options.body || ''}</div>
         ${options.footer ? `<div class="t4-modal-foot">${options.footer}</div>` : ''}
@@ -330,10 +334,10 @@
     return new Promise((resolve) => {
       const modal = openModal({
         onClose: () => resolve(false),
-        title: options.title || 'Confirmar ação',
-        subtitle: options.subtitle || 'Revise antes de continuar.',
+        title: options.title || t('Confirmar ação'),
+        subtitle: options.subtitle || t('Revise antes de continuar.'),
         body: `<div class="t4-alert ${options.danger ? 'error' : 'info'}">${icon(options.danger ? 'warning' : 'note')}<div>${esc(options.message || '')}</div></div>`,
-        footer: `<button type="button" class="t4-btn" data-answer="no">Cancelar</button><button type="button" class="t4-btn ${options.danger ? 'danger' : 'primary'}" data-answer="yes">${esc(options.confirmLabel || 'Confirmar')}</button>`
+        footer: `<button type="button" class="t4-btn" data-answer="no">${t('Cancelar')}</button><button type="button" class="t4-btn ${options.danger ? 'danger' : 'primary'}" data-answer="yes">${esc(options.confirmLabel || t('Confirmar'))}</button>`
       });
       modal.querySelector('[data-answer="no"]').addEventListener('click', () => { closeModal(); resolve(false); });
       modal.querySelector('[data-answer="yes"]').addEventListener('click', () => { resolve(true); closeModal(); });
@@ -379,7 +383,7 @@
     const primaryViews = views.filter((view) => view.primary !== false);
     const secondaryViews = views.filter((view) => view.primary === false);
     root.innerHTML = `
-      <a class="t4-skip" href="#t4-page-root">Ir para o conteúdo</a><div class="t4-app">
+      <a class="t4-skip" href="#t4-page-root" data-i18n-text>${t('Ir para o conteúdo')}</a><div class="t4-app">
         <aside class="t4-sidebar" aria-label="Navegação principal">
           <a class="t4-brand" href="./index.html" aria-label="Talents 4">
             <span class="t4-brand-lockup">
@@ -387,7 +391,7 @@
                 <img class="t4-brand-mark" src="${attr(ASSET_BASE)}assets/talents4-mark.png" alt="" aria-hidden="true">
                 <span class="t4-brand-name">Talents<span class="t4-brand-accent">4</span></span>
               </span>
-              <span class="t4-brand-sub">Recrutamento internacional</span>
+              <span class="t4-brand-sub" data-i18n-text>${t('Recrutamento internacional')}</span>
             </span>
           </a>
           <div class="t4-sidebar-scroll">
@@ -401,27 +405,27 @@
               ${SWITCHES.map((item) => `<a class="t4-switch-item ${item.id === moduleId ? 'active' : ''}" ${item.id === moduleId ? 'aria-current="page"' : ''} href="${attr(item.href)}" aria-label="${attr(item.label)}" data-tooltip="${attr(item.label)}"><span class="t4-switch-icon">${icon(item.icon, '')}</span><span class="t4-nav-text" data-i18n-switch="${attr(item.id)}">${esc(item.label)}</span>${icon('chevron', 't4-switch-chevron')}</a>`).join('')}
             </nav>
           </div>
-          <button type="button" class="t4-sidebar-collapse-toggle" data-sidebar-collapse aria-pressed="false" aria-label="Recolher menu" data-tooltip="Recolher menu">${icon('chevron', 't4-icon t4-collapse-icon')}<span class="t4-nav-text">Recolher menu</span></button>
+          <button type="button" class="t4-sidebar-collapse-toggle" data-sidebar-collapse aria-pressed="false" aria-label="${t('Recolher menu')}" data-tooltip="${t('Recolher menu')}" data-i18n-attrs="aria-label,data-tooltip">${icon('chevron', 't4-icon t4-collapse-icon')}<span class="t4-nav-text" data-i18n-text>${t('Recolher menu')}</span></button>
           <div class="t4-sidebar-footer">
             <div class="t4-user">
               <span class="t4-avatar" data-user-initials>?</span>
-              <span><span class="t4-user-name" data-user-name>Validando sessão…</span><span class="t4-user-role" data-user-role>Supabase</span></span>
-              <button type="button" class="t4-btn ghost sm" data-logout aria-label="Sair">${icon('logout')}</button>
+              <span><span class="t4-user-name" data-user-name>${t('Validando sessão…')}</span><span class="t4-user-role" data-user-role data-i18n-text>Supabase</span></span>
+              <button type="button" class="t4-btn ghost sm" data-logout aria-label="${t('Sair')}" data-i18n-attrs="aria-label">${icon('logout')}</button>
             </div>
           </div>
         </aside>
-        <button type="button" class="t4-mobile-overlay" aria-label="Fechar menu"></button>
+        <button type="button" class="t4-mobile-overlay" aria-label="${t('Fechar menu')}" data-i18n-attrs="aria-label"></button>
         <main class="t4-main">
           <header class="t4-topbar">
-            <button type="button" class="t4-icon-btn t4-mobile-menu" data-menu aria-label="Abrir menu">${icon('menu')}</button>
+            <button type="button" class="t4-icon-btn t4-mobile-menu" data-menu aria-label="${t('Abrir menu')}" data-i18n-attrs="aria-label">${icon('menu')}</button>
             <div class="t4-topbar-heading"><div class="t4-eyebrow">${esc(config.moduleLabel)}</div><h1 class="t4-page-title" data-page-title></h1><p class="t4-page-subtitle" data-page-subtitle></p></div>
             <div class="t4-topbar-spacer"></div>
-            <label class="t4-global-search" aria-label="Busca nesta área">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || 'Buscar…')}"><button type="button" class="t4-search-clear" data-search-clear hidden aria-label="Limpar busca">${icon('close')}</button><span class="t4-keycap">/</span></label>
-            <button type="button" class="t4-command-trigger" data-command aria-label="Abrir ações rápidas">${icon('command')}<span>Ações</span><kbd>⌘K</kbd></button>
-            <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label>Conectando</span></span>
-            <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label>Novo</span></button>
+            <label class="t4-global-search" aria-label="${t('Busca nesta área')}" data-i18n-attrs="aria-label">${icon('search')}<input type="search" data-global-search placeholder="${attr(config.searchPlaceholder || t('Buscar…'))}" data-i18n-attrs="placeholder"><button type="button" class="t4-search-clear" data-search-clear hidden aria-label="${t('Limpar busca')}" data-i18n-attrs="aria-label">${icon('close')}</button><span class="t4-keycap">/</span></label>
+            <button type="button" class="t4-command-trigger" data-command aria-label="${t('Abrir ações rápidas')}" data-i18n-attrs="aria-label">${icon('command')}<span data-i18n-text>${t('Ações')}</span><kbd>⌘K</kbd></button>
+            <span class="t4-sync loading" data-sync><span class="t4-sync-dot"></span><span data-sync-label data-i18n-text>${t('Conectando')}</span></span>
+            <button type="button" class="t4-btn primary" data-primary hidden>${icon('plus')}<span class="t4-btn-label" data-primary-label data-i18n-text>${t('Novo')}</span></button>
           </header>
-          <div class="t4-environment" title="${attr(window.T4_DEMO ? 'Dados fictícios; alterações não são persistidas.' : 'Ambiente de homologação')}">${icon('eye')}<span>${window.T4_DEMO ? 'Demonstração' : 'Homologação'}</span></div>
+          <div class="t4-environment" data-i18n-attrs="title" title="${attr(window.T4_DEMO ? t('Dados fictícios; alterações não são persistidas.') : t('Ambiente de homologação'))}">${icon('eye')}<span data-i18n-text>${window.T4_DEMO ? t('Demonstração') : t('Homologação')}</span></div>
           <div class="t4-content" id="t4-page-root" tabindex="-1"><div class="t4-loading-page"><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div><div class="t4-skeleton"></div></div></div>
         </main>
       </div>`;
@@ -434,7 +438,7 @@
     const command = root.querySelector('[data-command]');
     const collapseToggle = root.querySelector('[data-sidebar-collapse]');
     const syncSidebarToggle = () => {
-      const label = sidebarCollapsed ? 'Expandir menu' : 'Recolher menu';
+      const label = sidebarCollapsed ? t('Expandir menu') : t('Recolher menu');
       collapseToggle?.setAttribute('aria-pressed', sidebarCollapsed ? 'true' : 'false');
       collapseToggle?.setAttribute('aria-label', label);
       if (collapseToggle) collapseToggle.dataset.tooltip = label;
@@ -447,15 +451,15 @@
         .slice(0, 12);
       const primaryLabel = root.querySelector('[data-primary-label]')?.textContent?.trim();
       const items = [
-        { id: 'search', label: 'Buscar nesta área', copy: 'Use a busca global para encontrar pessoas, empresas ou ações.', icon: 'search' },
-        ...(primaryLabel && !primary.hidden ? [{ id: 'primary', label: primaryLabel, copy: 'Abrir a criação rápida deste espaço.', icon: 'plus' }] : []),
-        ...nav.map((node) => ({ id: `route:${node.dataset.route}`, label: node.querySelector('.t4-nav-text')?.textContent?.trim() || node.dataset.route, copy: 'Abrir espaço de trabalho', icon: node.querySelector('.t4-nav-icon .t4-icon') ? 'arrow' : 'note' }))
+        { id: 'search', label: t('Buscar nesta área'), copy: t('Use a busca global para encontrar pessoas, empresas ou ações.'), icon: 'search' },
+        ...(primaryLabel && !primary.hidden ? [{ id: 'primary', label: primaryLabel, copy: t('Abrir a criação rápida deste espaço.'), icon: 'plus' }] : []),
+        ...nav.map((node) => ({ id: `route:${node.dataset.route}`, label: node.querySelector('.t4-nav-text')?.textContent?.trim() || node.dataset.route, copy: t('Abrir espaço de trabalho'), icon: node.querySelector('.t4-nav-icon .t4-icon') ? 'arrow' : 'note' }))
       ];
       const modal = openModal({
-        title: 'Ações rápidas',
-        subtitle: 'Navegue, busque e crie sem perder o contexto.',
-        body: `<div class="v24-command-list" role="menu" aria-label="Ações rápidas">${items.map((item, index) => `<button type="button" class="v24-command-item" data-command-item="${attr(item.id)}" role="menuitem"><span class="v24-command-icon">${icon(item.icon)}</span><span><strong>${esc(item.label)}</strong><small>${esc(item.copy)}</small></span><kbd>${index < 9 ? index + 1 : ''}</kbd></button>`).join('')}</div>`,
-        footer: '<span class="t4-save-hint">Esc fecha · / vai para a busca</span><button type="button" class="t4-btn" data-cancel>Fechar</button>'
+        title: t('Ações rápidas'),
+        subtitle: t('Navegue, busque e crie sem perder o contexto.'),
+        body: `<div class="v24-command-list" role="menu" aria-label="${t('Ações rápidas')}">${items.map((item, index) => `<button type="button" class="v24-command-item" data-command-item="${attr(item.id)}" role="menuitem"><span class="v24-command-icon">${icon(item.icon)}</span><span><strong>${esc(item.label)}</strong><small>${esc(item.copy)}</small></span><kbd>${index < 9 ? index + 1 : ''}</kbd></button>`).join('')}</div>`,
+        footer: `<span class="t4-save-hint">${t('Esc fecha · / vai para a busca')}</span><button type="button" class="t4-btn" data-cancel>${t('Fechar')}</button>`
       });
       modal.querySelector('[data-cancel]')?.addEventListener('click', closeModal);
       modal.querySelectorAll('[data-command-item]').forEach((item) => item.addEventListener('click', () => {
@@ -579,7 +583,7 @@
     root.querySelector('[data-logout]').addEventListener('click', () => document.dispatchEvent(new CustomEvent('t4:logout')));
     primary.addEventListener('click', async () => {
       try { await primaryHandler?.(); }
-      catch (error) { toast(error?.message || 'Não foi possível abrir esta ação. Atualize a tela.', 'error', 6500); }
+      catch (error) { toast(error?.message || t('Não foi possível abrir esta ação. Atualize a tela.'), 'error', 6500); }
     });
     command?.addEventListener('click', openCommandPalette);
     const syncSearchClear = () => { if (searchClear) searchClear.hidden = !String(search.value || '').trim(); };
@@ -635,12 +639,12 @@
       setSync(state = 'ok', label = '') {
         const node = root.querySelector('[data-sync]');
         node.className = `t4-sync ${state === 'ok' ? '' : state}`;
-        root.querySelector('[data-sync-label]').textContent = label || ({ ok: 'Sincronizado', loading: 'Sincronizando', error: 'Falha de sincronização' }[state] || state);
+        root.querySelector('[data-sync-label]').textContent = label || ({ ok: t('Sincronizado'), loading: t('Sincronizando'), error: t('Falha de sincronização') }[state] || state);
       },
       setUser(user = {}) {
-        const name = user.name || user.nome || user.email || 'Usuário';
+        const name = user.name || user.nome || user.email || t('Usuário');
         root.querySelector('[data-user-name]').textContent = name;
-        root.querySelector('[data-user-role]').textContent = user.role || user.papel || 'Usuário autenticado';
+        root.querySelector('[data-user-role]').textContent = user.role || user.papel || t('Usuário autenticado');
         root.querySelector('[data-user-initials]').textContent = initials(name).toUpperCase();
       },
       setCounts(counts = {}) {
