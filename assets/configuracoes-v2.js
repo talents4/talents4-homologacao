@@ -209,5 +209,6 @@
 
   const load = W.loader(app, state, sources, render);
   W.bind(app, { action });
+  app.onRoute(render);
   W.start(app, () => load(), [D.TABLES.users, D.TABLES.systemSettings]);
 })();

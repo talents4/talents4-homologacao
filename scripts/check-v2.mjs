@@ -220,6 +220,13 @@ check(i18nCode.includes("document.addEventListener('t4:ready'") && i18nCode.incl
 check(settingsSQL.includes('t4_system_settings') && settingsSQL.includes('t4_settings_read') && settingsSQL.includes('t4_settings_admin_write') && settingsSQL.includes('t4_settings_users_admin_read') && settingsSQL.includes('t4_settings_users_admin_write') && settingsSQL.includes('t4_collab_is_admin()') && settingsSQL.includes('nunca é tocada'), 'migração 54 é aditiva: cria a preferência de idioma e amplia o acesso de administradores sem tocar a policy pré-existente de usuarios');
 check(adminUsersFn.includes('SUPABASE_SERVICE_ROLE_KEY') && adminUsersFn.includes('admin.auth.getUser(token)') && adminUsersFn.includes("caller.role !== 'admin'") && adminUsersFn.includes('inviteUserByEmail') && adminUsersFn.includes('ban_duration') && adminUsersFn.includes('auth.admin.deleteUser') && (adminUsersFn.match(/\.eq\('username', row\.username\)/g) || []).length === 2, 'função de administração de contas valida sessão e papel de administrador no servidor antes de qualquer ação, e usa igualdade exata (não ilike) para gravar');
 check(settingsCode.includes('FUNCTIONS_URL') && settingsCode.includes('callAdminUsers') && settingsCode.includes('D.session.access_token') && settingsCode.includes('D.canAdmin()') && settingsCode.includes("D.TABLES.systemSettings") && settingsCode.includes('window.T4I18n?.applyChrome'), 'tela de Configurações chama a função de administração com o token da sessão e aplica a tradução do menu após renderizar');
+// Sem isto, clicar entre "Idioma" e "Usuários" no menu lateral só troca o
+// título (atualizado direto pela casca em t4-v2-core.js) — o conteúdo da
+// tela fica parado no que foi renderizado da última vez, mostrando o
+// título de uma aba com o conteúdo da outra (bug visto em produção). Toda
+// tela com mais de uma view no menu precisa disto (ver german-v2.js,
+// organization-v2.js, talents-v2.js, contacts-v2.js).
+check(settingsCode.includes('app.onRoute(render)'), 'Configurações re-renderiza o conteúdo ao trocar de view pelo menu lateral (não só o título)');
 // D.all()/D.optionalAll() ordenam por "id" por padrão para paginar de forma
 // estável (t4-v2-data.js:236) — mas t4_system_settings usa "key" como chave
 // primária, sem coluna id. Sem essa substituição explícita, a leitura falha
