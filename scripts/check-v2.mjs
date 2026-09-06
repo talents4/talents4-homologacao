@@ -35,6 +35,7 @@ const required = [...Object.keys(pages), 'documentacao.html', 'configuracoes.htm
   'supabase/talents-v22/import-planilhas/00_preflight.sql','supabase/talents-v22/import-planilhas/01_schema_additive.sql','supabase/talents-v22/import-planilhas/02_create_staging.sql',
   'supabase/talents-v22/import-planilhas/03_load_staging.sql','supabase/talents-v22/import-planilhas/04_apply_import.sql','supabase/talents-v22/import-planilhas/05_verify_import.sql','supabase/talents-v22/import-planilhas/06_rollback_batch.sql',
   'supabase/talents-v22/import-planilhas/07_auditoria_tabelas_desconhecidas.sql','supabase/talents-v22/import-planilhas/08_investigacao_origem_sistemas_paralelos.sql',
+  'supabase/talents-v22/import-planilhas/10_lockdown_unidentified_system.sql',
   'docs/design/REFERENCIAS_UIUX.md','docs/design/DESIGN_SYSTEM.md','docs/design/ARQUITETURA_FRONTEND.md','docs/design/FLUXOS_USUARIO.md','docs/design/FUNCIONALIDADES_INTELIGENTES.md','docs/design/CRITERIOS_ACEITACAO.md',
   'docs/auditoria/AUDITORIA_SUPABASE_INTEGRACAO.md','docs/auditoria/PLANO_MIGRACAO_IMPORTACAO_LOTE.md'];
 for (const file of required) check(files.includes(file), `${file} existe`);
@@ -227,6 +228,13 @@ check(adminUsersFn.includes('SUPABASE_SERVICE_ROLE_KEY') && adminUsersFn.include
 // de uma requisição para a resposta de outra.
 check(!adminUsersFn.includes("'Access-Control-Allow-Origin': '*'") && adminUsersFn.includes('ALLOWED_ORIGINS') && adminUsersFn.includes('function makeJson(origin)') && adminUsersFn.includes('makeJson(req.headers.get(') && adminUsersFn.includes('async function createUser(admin, payload, createdByUsername, json)') && adminUsersFn.includes('async function setActive(admin, payload, active, json)') && adminUsersFn.includes('async function deleteUser(admin, payload, json)'), 'função de administração de contas restringe CORS a origens conhecidas; cabeçalhos são criados por requisição e passados explicitamente (nunca guardados numa variável do módulo, que vazaria entre requisições concorrentes)');
 check(settingsCode.includes('FUNCTIONS_URL') && settingsCode.includes('callAdminUsers') && settingsCode.includes('D.session.access_token') && settingsCode.includes('D.canAdmin()') && settingsCode.includes("D.TABLES.systemSettings") && settingsCode.includes('window.T4I18n?.applyChrome'), 'tela de Configurações chama a função de administração com o token da sessão e aplica a tradução do menu após renderizar');
+// Auditoria de segurança de 06/09/2026: anon (sem login) tinha DELETE/
+// INSERT/UPDATE/TRUNCATE em 7 das 11 tabelas do sistema org_*/drive_* não
+// identificado, e authenticated (qualquer papel, mesmo viewer) o mesmo
+// conjunto amplo nas 11. Nenhuma tela deste repositório usa essas tabelas.
+const lockdownSQL = read('supabase/talents-v22/import-planilhas/10_lockdown_unidentified_system.sql');
+const lockdownTables = ['drive_connections','drive_import_drafts','drive_nodes','org_activities','org_documents','org_employer_profiles','org_matches','org_meetings','org_notes','org_openings','org_pipeline_items'];
+check(lockdownSQL.includes('revoke all on') && lockdownSQL.includes('from anon, authenticated') && lockdownTables.every((t) => lockdownSQL.includes(`public.${t}`)) && lockdownSQL.includes('relrowsecurity') && lockdownSQL.includes('has_table_privilege'), 'migração 10 revoga de anon e authenticated o acesso amplo encontrado nas 11 tabelas do sistema não identificado, sem apagar tabelas nem dados');
 // Sem isto, clicar entre "Idioma" e "Usuários" no menu lateral só troca o
 // título (atualizado direto pela casca em t4-v2-core.js) — o conteúdo da
 // tela fica parado no que foi renderizado da última vez, mostrando o
