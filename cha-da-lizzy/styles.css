@@ -1,0 +1,718 @@
+/* Chá da Lizzy — convite digital
+   Paleta: creme/off-white, rosé queimado, sálvia discreto, dourado suave. */
+
+:root {
+  --color-bg: #f4ede1;
+  --color-surface: #fffdf8;
+  --color-surface-alt: #faf3e7;
+  --color-text: #3e2b22;
+  --color-text-muted: #6b5647;
+  --color-border: #e6d8c3;
+  --color-rose: #b98289;
+  --color-rose-deep: #7a4f52;
+  --color-rose-deep-hover: #6a4245;
+  --color-sage: #8fa089;
+  --color-gold: #ab8752;
+  --color-danger: #9c3b3b;
+  --color-focus: #7a4f52;
+
+  --font-serif: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  --radius-lg: 26px;
+  --radius-md: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 24px 48px -28px rgba(62, 43, 34, 0.35);
+  --shadow-soft: 0 10px 24px -16px rgba(62, 43, 34, 0.25);
+
+  --content-max: 560px;
+  --space-1: 0.5rem;
+  --space-2: 1rem;
+  --space-3: 1.5rem;
+  --space-4: 2.25rem;
+  --space-5: 3.5rem;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Garante que o atributo `hidden` sempre vença, mesmo em elementos cuja
+   classe define `display: flex/grid` (ex.: .location-panel) — sem isto, a
+   especificidade empatada deixaria o elemento visível "vazio". */
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(143, 160, 137, 0.08), transparent 40%),
+    radial-gradient(circle at 88% 92%, rgba(171, 135, 82, 0.1), transparent 45%),
+    var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  margin: 0;
+  color: var(--color-text);
+}
+
+p {
+  margin: 0;
+}
+
+button {
+  font-family: inherit;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: var(--space-2);
+  background: var(--color-rose-deep);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-sm);
+  z-index: 100;
+  transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+  border-radius: var(--radius-sm);
+}
+
+main {
+  display: block;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-2) var(--space-5);
+}
+
+/* ---------------- Botanical accents ---------------- */
+
+.sprig {
+  width: 48px;
+  height: 16px;
+  flex: none;
+  stroke: var(--color-sage);
+  fill: none;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+/* ---------------- Hero ---------------- */
+
+.hero {
+  padding-top: var(--space-3);
+}
+
+.hero-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hero-eyebrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-rose);
+  font-weight: 600;
+}
+
+.hero-card h1 {
+  font-size: clamp(2.1rem, 8vw, 3rem);
+  line-height: 1.1;
+}
+
+.hero-subtitle {
+  font-size: clamp(1rem, 3.5vw, 1.15rem);
+  color: var(--color-text-muted);
+  max-width: 34ch;
+}
+
+.hero-parents {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+}
+
+.hero-date {
+  margin-top: 0.25rem;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--color-gold);
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+}
+
+.hero-actions {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+@media (min-width: 560px) {
+  .hero-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Invite cards act as real, large, tappable buttons styled like elegant
+   invitation panels. */
+.invite-card {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  text-align: left;
+  min-height: 64px;
+  padding: 1.1rem 1.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+@media (hover: hover) {
+  .invite-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+.invite-card-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+}
+
+.invite-card-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.invite-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.invite-card-title {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+}
+
+.invite-card-desc {
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+
+.invite-card--primary {
+  background: var(--color-rose-deep);
+  border-color: var(--color-rose-deep);
+  color: #fffdf8;
+}
+
+.invite-card--secondary .invite-card-icon {
+  color: var(--color-gold);
+}
+
+.invite-card--primary .invite-card-icon {
+  color: #fffdf8;
+}
+
+/* ---------------- Location panel ---------------- */
+
+.location-panel {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-alt);
+  border: 1px dashed var(--color-gold);
+  border-radius: var(--radius-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.location-panel p {
+  color: var(--color-text);
+  max-width: 44ch;
+}
+
+.location-panel-close {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  text-decoration: underline;
+}
+
+/* ---------------- Details ---------------- */
+
+.details {
+  margin-top: var(--space-5);
+}
+
+.details h2,
+.share-section h2,
+.bingo summary {
+  font-size: clamp(1.25rem, 4vw, 1.5rem);
+}
+
+.details h2 {
+  text-align: center;
+  margin-bottom: var(--space-3);
+}
+
+.details-empty {
+  text-align: center;
+  font-style: italic;
+  color: var(--color-text-muted);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.details-list {
+  margin: 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.details-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.details-row:last-child {
+  border-bottom: none;
+}
+
+.details-row dt {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-rose);
+  font-weight: 600;
+}
+
+.details-row dd {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--color-text);
+  white-space: pre-line;
+}
+
+/* ---------------- Bingo (collapsible) ---------------- */
+
+.bingo {
+  margin-top: var(--space-4);
+}
+
+.bingo-details {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.bingo-details summary {
+  cursor: pointer;
+  font-family: var(--font-serif);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0;
+}
+
+.bingo-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.bingo-details summary::after {
+  content: '+';
+  font-family: var(--font-sans);
+  font-size: 1.3rem;
+  color: var(--color-gold);
+  transition: transform 0.18s ease;
+}
+
+.bingo-details[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.bingo-details p {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+/* ---------------- Share ---------------- */
+
+.share-section {
+  margin-top: var(--space-5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.share-feedback {
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--color-sage);
+}
+
+/* ---------------- Footer ---------------- */
+
+.invite-footer {
+  margin-top: var(--space-5);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+}
+
+/* ---------------- Buttons (shared) ---------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.75rem 1.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn--primary {
+  background: var(--color-rose-deep);
+  color: #fffdf8;
+}
+
+@media (hover: hover) {
+  .btn--primary:hover {
+    background: var(--color-rose-deep-hover);
+  }
+}
+
+.btn--secondary {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-gold);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+
+.btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.btn-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 253, 248, 0.5);
+  border-top-color: #fffdf8;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------------- Dialog / modal (RSVP) ---------------- */
+
+dialog#rsvp-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(92vw, 480px);
+  max-height: min(88vh, 680px);
+  overflow-y: auto;
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  box-shadow: var(--shadow-card);
+}
+
+dialog#rsvp-dialog::backdrop {
+  background: rgba(62, 43, 34, 0.4);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.dialog-header h2 {
+  font-size: 1.4rem;
+}
+
+.dialog-close {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.dialog-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.dialog-intro {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: var(--space-3);
+}
+
+.dialog-actions {
+  margin-top: var(--space-3);
+}
+
+/* ---------------- Form fields ---------------- */
+
+.field {
+  margin-bottom: var(--space-3);
+  border: none;
+  padding: 0;
+}
+
+.field > label,
+.field > legend {
+  display: block;
+  font-weight: 600;
+  font-size: 0.92rem;
+  margin-bottom: 0.5rem;
+  padding: 0;
+}
+
+input[type='text'],
+select,
+textarea {
+  width: 100%;
+  min-height: 48px;
+  padding: 0.7rem 0.9rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--color-text);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+input[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-size: 0.98rem;
+  cursor: pointer;
+}
+
+.radio-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-rose-deep);
+  flex: none;
+}
+
+.field-error {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.notice-text {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.message-preview {
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: var(--color-text);
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: var(--space-2);
+}
+
+.copy-feedback {
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--color-sage);
+  margin-top: 0.4rem;
+}
+
+/* ---------------- Success step ---------------- */
+
+#rsvp-step-success {
+  text-align: center;
+}
+
+.success-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--space-2);
+  border-radius: 50%;
+  background: var(--color-surface-alt);
+  color: var(--color-sage);
+  display: grid;
+  place-items: center;
+}
+
+.success-icon svg {
+  width: 28px;
+  height: 28px;
+}
+
+#success-message {
+  font-size: 1.05rem;
+  margin-bottom: var(--space-3);
+}
+
+#success-whatsapp-missing,
+#success-whatsapp-fallback {
+  text-align: left;
+  margin-bottom: var(--space-2);
+}
+
+/* ---------------- Reduced motion ---------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------- Small phones (360px) safety ---------------- */
+
+@media (max-width: 380px) {
+  .hero-card {
+    padding: var(--space-3) var(--space-2);
+  }
+
+  .invite-card-desc {
+    display: none;
+  }
+}

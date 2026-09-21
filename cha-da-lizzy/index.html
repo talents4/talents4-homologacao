@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#FBF6EE">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+
+  <title>Chá da Lizzy</title>
+  <meta name="description" content="Um momento especial para celebrar a chegada da Lizzy. Confirme sua presença e veja os detalhes do Chá da Lizzy.">
+
+  <!-- Open Graph / WhatsApp / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Chá da Lizzy">
+  <meta property="og:description" content="Um momento especial para celebrar a chegada da Lizzy. Confirme sua presença pelo convite digital.">
+  <meta property="og:image" content="https://talents4.github.io/talents4-homologacao/cha-da-lizzy/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Convite do Chá da Lizzy">
+  <meta property="og:url" content="https://talents4.github.io/talents4-homologacao/cha-da-lizzy/">
+  <meta property="og:locale" content="pt_BR">
+
+  <!-- Twitter Card (mesma prévia usada por outras plataformas) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Chá da Lizzy">
+  <meta name="twitter:description" content="Um momento especial para celebrar a chegada da Lizzy.">
+  <meta name="twitter:image" content="https://talents4.github.io/talents4-homologacao/cha-da-lizzy/preview.png">
+
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>
+
+  <main id="conteudo-principal">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-card">
+        <p class="hero-eyebrow">
+          <svg class="sprig" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
+            <path d="M2 8 H46" />
+            <path d="M24 8 C20 2, 12 2, 10 8 C12 4, 20 4, 24 8 Z" />
+            <path d="M24 8 C28 2, 36 2, 38 8 C36 4, 28 4, 24 8 Z" />
+          </svg>
+          Chá de bebê
+        </p>
+
+        <h1 id="hero-title">Chá da Lizzy</h1>
+        <p class="hero-subtitle">Um momento especial para celebrar a chegada da Lizzy.</p>
+        <p class="hero-parents" id="hero-parents"></p>
+        <p class="hero-date" id="hero-date" hidden></p>
+
+        <div class="hero-actions">
+          <button type="button" class="invite-card invite-card--primary" id="btn-confirm" aria-haspopup="dialog" aria-controls="rsvp-dialog">
+            <span class="invite-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12.5 9.5 18 20 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="invite-card-text">
+              <span class="invite-card-title">Confirmar presença</span>
+              <span class="invite-card-desc">Conte pra gente se você vem</span>
+            </span>
+          </button>
+
+          <button type="button" class="invite-card invite-card--secondary" id="btn-location">
+            <span class="invite-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.3"/></svg>
+            </span>
+            <span class="invite-card-text">
+              <span class="invite-card-title">Ver localização</span>
+              <span class="invite-card-desc">Saiba como chegar</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="location-panel" id="location-panel" aria-live="polite" hidden>
+      <!-- preenchido dinamicamente pelo app.js conforme o modo configurado -->
+    </section>
+
+    <section class="details" aria-labelledby="details-title">
+      <h2 id="details-title">Informações do evento</h2>
+      <div id="details-content"></div>
+    </section>
+
+    <section class="bingo" id="bingo-section" hidden>
+      <details class="bingo-details">
+        <summary>Sobre o bingo</summary>
+        <p id="bingo-text"></p>
+      </details>
+    </section>
+
+    <section class="share-section" aria-labelledby="share-title">
+      <h2 id="share-title" class="visually-hidden">Compartilhar</h2>
+      <button type="button" class="btn btn--ghost" id="btn-share">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true" focusable="false"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.7 15.8 6.3M8.2 13.3 15.8 17.7" stroke-linecap="round"/></svg>
+        Compartilhar convite
+      </button>
+      <p class="share-feedback" id="share-feedback" role="status" aria-live="polite"></p>
+    </section>
+
+    <footer class="invite-footer">
+      <svg class="sprig sprig--footer" viewBox="0 0 48 16" aria-hidden="true" focusable="false">
+        <path d="M2 8 H46" />
+        <path d="M24 8 C20 2, 12 2, 10 8 C12 4, 20 4, 24 8 Z" />
+        <path d="M24 8 C28 2, 36 2, 38 8 C36 4, 28 4, 24 8 Z" />
+      </svg>
+      <p id="footer-parents"></p>
+    </footer>
+  </main>
+
+  <dialog id="rsvp-dialog" aria-labelledby="rsvp-title">
+    <form id="rsvp-form" novalidate>
+      <div class="dialog-header">
+        <h2 id="rsvp-title">Confirmar presença</h2>
+        <button type="button" class="dialog-close" id="rsvp-close" aria-label="Fechar formulário de confirmação">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <div id="rsvp-step-form">
+        <p class="dialog-intro">Responda em poucos passos — a confirmação é enviada diretamente para os organizadores pelo WhatsApp.</p>
+
+        <div class="field">
+          <label for="field-name">Nome completo</label>
+          <input id="field-name" name="name" type="text" autocomplete="name" aria-describedby="err-name" aria-required="true">
+          <p class="field-error" id="err-name" role="alert" hidden></p>
+        </div>
+
+        <fieldset class="field">
+          <legend>Você vai poder comparecer?</legend>
+          <label class="radio-option">
+            <input type="radio" name="attending" value="yes">
+            <span>Sim, estarei presente</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="attending" value="no">
+            <span>Não poderei comparecer</span>
+          </label>
+          <p class="field-error" id="err-attending" role="alert" hidden></p>
+        </fieldset>
+
+        <div class="field" id="field-guests-wrap" hidden>
+          <label for="field-guests">Quantidade de pessoas</label>
+          <select id="field-guests" name="guests" aria-describedby="err-guests">
+            <option value="">Selecione</option>
+          </select>
+          <p class="field-error" id="err-guests" role="alert" hidden></p>
+        </div>
+
+        <div class="field" id="field-gift-wrap" hidden>
+          <label for="field-gift" id="field-gift-label">Vai trazer fralda ou mimo? (opcional)</label>
+          <input id="field-gift" name="gift" type="text">
+        </div>
+
+        <div class="field">
+          <label for="field-notes">Observações (opcional)</label>
+          <textarea id="field-notes" name="notes" rows="3"></textarea>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="submit" class="btn btn--primary btn--block" id="rsvp-submit">
+            <span class="btn-spinner" hidden aria-hidden="true"></span>
+            <span class="btn-label">Confirmar via WhatsApp</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="rsvp-step-success" role="status" aria-live="polite" tabindex="-1" hidden>
+        <div class="success-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 12.5 9.5 18 20 6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <p id="success-message"></p>
+
+        <div id="success-whatsapp-missing" hidden>
+          <p class="notice-text">O número de WhatsApp dos organizadores ainda não foi configurado em <code>cha-da-lizzy/config.js</code> (campo <code>organizerWhatsapp</code>). Você pode copiar sua resposta abaixo e enviá-la manualmente assim que o número estiver disponível.</p>
+          <textarea id="success-message-text" class="message-preview" readonly rows="6" aria-label="Texto da confirmação para copiar"></textarea>
+          <button type="button" class="btn btn--secondary" id="btn-copy-message">Copiar confirmação</button>
+          <p class="copy-feedback" id="copy-feedback" role="status" aria-live="polite"></p>
+        </div>
+
+        <div id="success-whatsapp-fallback" hidden>
+          <p class="notice-text">Se o WhatsApp não abriu automaticamente, toque no botão abaixo.</p>
+          <a class="btn btn--secondary" id="whatsapp-fallback-link" href="#" target="_blank" rel="noopener noreferrer">Abrir WhatsApp</a>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="btn btn--ghost" id="rsvp-done">Fechar</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
