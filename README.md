@@ -40,3 +40,7 @@ Nenhuma migração é aplicada automaticamente pelo frontend (verificado por `sc
 ## Pendência aberta mais importante
 
 O schema de importação em lote (staging + rollback + limite de segurança contra importação em massa) já existe no Supabase, mas o frontend ainda grava direto nas tabelas de produção, sem esse limite — ver `docs/mapeamento/IMPORTACAO_SQL.md`. Ligar as duas pontas depende de uma decisão de arquitetura ainda em aberto (chamadas `.rpc()` do frontend, hoje proibidas por `scripts/check-v2.mjs`).
+
+## Projeto à parte: convite digital "Chá da Lizzy"
+
+A pasta `cha-da-lizzy/` contém um convite digital independente (chá de bebê), sem nenhuma relação com o CRM acima — reaproveita apenas a publicação via GitHub Pages deste repositório. Não altera nem depende de nenhum arquivo do CRM. Veja `cha-da-lizzy/README.md` para instruções completas.
